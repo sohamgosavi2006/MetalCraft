@@ -2,61 +2,74 @@
 //  AICreateView.swift
 //  MetalCraft
 //
-//  Agentic Creative Studio interface connecting SwiftUI to Gemini Creative Director,
-//  Parallel creative research, and live GPU EditPlan execution.
+//  Agentic Media-Production Workspace connecting SwiftUI to Gemini Creative Director,
+//  Parallel creative research, multi-scene timeline synthesis, and real-time
+//  Apple Metal GPU video generation from project media.
 //
 
 import SwiftUI
+import AVKit
+import Photos
 
 struct AICreateView: View {
     @Environment(AppState.self) private var appState
     @State private var promptText: String = ""
-    @State private var isAutoScrollEnabled: Bool = true
     @FocusState private var isPromptFocused: Bool
     
-    // Connection State
-    @State private var isShowingSettings: Bool = false
-    @State private var endpointURLInput: String = ""
-    @State private var pingResultText: String? = nil
-    @State private var isPinging: Bool = false
-    @State private var connectionStatus: AgentConnectionStatus = .connecting
+    // Project Selection
+    @State private var isProjectPickerPresented: Bool = false
+    @State private var selectedProject: Project? = nil
+    
+    // Video Playback & Fullscreen Preview
+    @State private var isShowingVideoPlayer: Bool = false
+    @State private var isShowingPhotosSuccessAlert: Bool = false
+    @State private var isShowingProjectSuccessAlert: Bool = false
     
     private let promptSuggestions = [
-        "Cinematic Golden Hour",
-        "Cyberpunk Teal & Orange",
-        "Vintage Film Noir",
-        "Product Commercial Pop",
-        "Dreamy Soft Glow"
+        "Create a 15-second cinematic product reel",
+        "Fast-paced social media highlight reel",
+        "Warm golden hour vintage montage",
+        "Moody neo-noir cyberpunk showcase",
+        "High-contrast black and white gallery tape"
     ]
     
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                // Active Media Context Header
-                activeMediaHeader
-                
-                // Agent Connection Status Pill
-                connectionStatusPill
+                // 1. Project & Media Asset Strip Header
+                projectMediaHeader
                 
                 Divider()
                 
-                // Conversational Message Stream
+                // 2. Main Production Workspace Stream
                 ScrollViewReader { proxy in
                     ScrollView {
-                        LazyVStack(spacing: 16) {
-                            if appState.agentMessages.isEmpty {
+                        LazyVStack(spacing: 18) {
+                            if appState.agentMessages.isEmpty && !appState.isGeneratingVideo && appState.generatedVideoURL == nil {
                                 emptyStateHero
                             } else {
                                 ForEach(appState.agentMessages) { msg in
                                     AgentMessageBubble(message: msg) { plan in
-                                        applyPlanAndSwitchToEditor(plan)
+                                        handlePlanAction(plan)
                                     }
                                     .id(msg.id)
                                 }
                             }
+                            
+                            // Live Generation Progress Card
+                            if appState.isGeneratingVideo, let progress = appState.generationProgress {
+                                generationProgressCard(progress)
+                                    .id("generation_progress")
+                            }
+                            
+                            // Generated Video Result Card
+                            if let videoURL = appState.generatedVideoURL, !appState.isGeneratingVideo {
+                                generatedVideoResultCard(videoURL)
+                                    .id("video_result")
+                            }
                         }
                         .padding(.vertical, 16)
-                        .padding(.horizontal, 12)
+                        .padding(.horizontal, 14)
                     }
                     .onChange(of: appState.agentMessages.count) { _, _ in
                         if let lastId = appState.agentMessages.last?.id {
@@ -65,37 +78,32 @@ struct AICreateView: View {
                             }
                         }
                     }
+                    .onChange(of: appState.isGeneratingVideo) { _, isGen in
+                        if isGen {
+                            withAnimation {
+                                proxy.scrollTo("generation_progress", anchor: .bottom)
+                            }
+                        }
+                    }
                 }
                 
                 Divider()
                 
-                // Prompt Suggestions Carousel
+                // 3. Prompt Suggestions Carousel
                 suggestionPills
                 
-                // Interactive Input Bar
+                // 4. Interactive Command Input Bar
                 inputBar
             }
             .navigationTitle("AI Create")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    Button {
-                        isShowingSettings = true
-                    } label: {
-                        HStack(spacing: 4) {
-                            Image(systemName: "gearshape")
-                                .font(.subheadline)
-                            
-                            Circle()
-                                .fill(connectionIndicatorColor)
-                                .frame(width: 7, height: 7)
-                        }
-                        .foregroundStyle(.secondary)
-                    }
+                    projectSelectorMenu
                 }
                 
                 ToolbarItem(placement: .topBarTrailing) {
-                    if !appState.agentMessages.isEmpty {
+                    if !appState.agentMessages.isEmpty || appState.generatedVideoURL != nil {
                         Button {
                             appState.clearAgentConversation()
                         } label: {
@@ -106,263 +114,132 @@ struct AICreateView: View {
                     }
                 }
             }
-            .sheet(isPresented: $isShowingSettings) {
-                agentSettingsSheet
+            .onAppear {
+                if selectedProject == nil {
+                    selectedProject = appState.currentProject ?? appState.projects.first
+                }
             }
-            .task {
-                await refreshConnectionStatus()
+            .alert("Saved to Photos!", isPresented: $isShowingPhotosSuccessAlert) {
+                Button("OK", role: .cancel) { }
+            } message: {
+                Text("Your generated cinematic video has been exported directly to your Photo Library.")
+            }
+            .alert("Added to Project!", isPresented: $isShowingProjectSuccessAlert) {
+                Button("OK", role: .cancel) { }
+            } message: {
+                Text("The generated video was saved into '\(selectedProject?.name ?? "Project")' as a new video asset.")
             }
         }
     }
     
-    // MARK: - Connection Status Pill
+    // MARK: - Project & Media Header
     
-    private var connectionStatusPill: some View {
-        HStack(spacing: 6) {
-            Circle()
-                .fill(connectionIndicatorColor)
-                .frame(width: 6, height: 6)
-            
-            Text(connectionStatus.displayText)
-                .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
-            
-            Spacer()
-            
-            Button("Configure") {
-                isShowingSettings = true
+    private var projectMediaHeader: some View {
+        VStack(spacing: 8) {
+            HStack(spacing: 10) {
+                // Project Icon & Name
+                Image(systemName: "folder.fill.badge.gearshape")
+                    .font(.subheadline)
+                    .foregroundStyle(.purple)
+                
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(selectedProject?.name ?? "No Project Selected")
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(.primary)
+                        .lineLimit(1)
+                    
+                    Text("\(selectedProject?.images.count ?? 0) Images • \(selectedProject?.videos.count ?? 0) Videos")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+                
+                Spacer()
+                
+                // Agent Lifecycle State Badge
+                HStack(spacing: 5) {
+                    if appState.agentState.isBusy {
+                        ProgressView()
+                            .scaleEffect(0.6)
+                    } else {
+                        Image(systemName: appState.agentState.systemIcon)
+                            .font(.caption2)
+                    }
+                    
+                    Text(appState.agentState.rawValue)
+                        .font(.caption2.weight(.medium))
+                }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(statePillBackground)
+                .foregroundStyle(statePillForeground)
+                .clipShape(Capsule())
             }
-            .font(.system(size: 11, weight: .semibold))
-            .foregroundStyle(.purple)
+            
+            // Horizontal Asset Strip
+            if let proj = selectedProject, (!proj.images.isEmpty || !proj.videos.isEmpty) {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(proj.images) { img in
+                            assetThumbnail(title: img.name, isVideo: false)
+                        }
+                        ForEach(proj.videos) { vid in
+                            assetThumbnail(title: vid.name, isVideo: true, duration: vid.videoInfo?.formattedDuration)
+                        }
+                    }
+                    .padding(.vertical, 2)
+                }
+            }
         }
         .padding(.horizontal, 14)
-        .padding(.vertical, 4)
-        .background(Color(uiColor: .tertiarySystemBackground).opacity(0.6))
-    }
-    
-    private var connectionIndicatorColor: Color {
-        switch connectionStatus {
-        case .connected: return .green
-        case .connecting: return .orange
-        case .disconnected: return .gray
-        case .failed: return .red
-        }
-    }
-    
-    // MARK: - Settings Sheet
-    
-    private var agentSettingsSheet: some View {
-        NavigationStack {
-            Form {
-                Section(header: Text("Mac Agent Endpoint")) {
-                    TextField("http://172.20.10.4:8080", text: $endpointURLInput)
-                        .autocorrectionDisabled()
-                        .textInputAutocapitalization(.never)
-                        .keyboardType(.URL)
-                    
-                    Button {
-                        autoDiscover()
-                    } label: {
-                        HStack {
-                            Image(systemName: "sparkle.magnifyingglass")
-                            Text("Auto-Discover Mac on Local Network")
-                            if isPinging {
-                                Spacer()
-                                ProgressView()
-                            }
-                        }
-                    }
-                    .disabled(isPinging)
-                }
-                
-                Section(header: Text("Quick Presets")) {
-                    Button("1. iPhone Hotspot / Direct LAN (172.20.10.4:8080)") {
-                        endpointURLInput = "http://172.20.10.4:8080"
-                    }
-                    Button("2. Bonjour Local Hostname (admins-MacBook-Pro-8.local:8080)") {
-                        endpointURLInput = "http://admins-MacBook-Pro-8.local:8080"
-                    }
-                    Button("3. Wi-Fi Local Network (10.3.12.210:8080)") {
-                        endpointURLInput = "http://10.3.12.210:8080"
-                    }
-                    Button("4. Simulator Localhost (127.0.0.1:8080)") {
-                        endpointURLInput = "http://127.0.0.1:8080"
-                    }
-                }
-                
-                Section(header: Text("Diagnostic Connection Test")) {
-                    Button {
-                        testConnection()
-                    } label: {
-                        HStack {
-                            Text("Test Selected Endpoint")
-                            if isPinging {
-                                Spacer()
-                                ProgressView()
-                            }
-                        }
-                    }
-                    .disabled(isPinging)
-                    
-                    if let result = pingResultText {
-                        Text(result)
-                            .font(.caption)
-                            .foregroundStyle(result.contains("Success") ? .green : .red)
-                    }
-                }
-            }
-            .navigationTitle("Agent Settings")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button("Cancel") {
-                        isShowingSettings = false
-                    }
-                }
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("Save & Connect") {
-                        appState.agentService.endpointBaseURLString = endpointURLInput
-                        isShowingSettings = false
-                        Task {
-                            await refreshConnectionStatus()
-                        }
-                    }
-                    .fontWeight(.bold)
-                }
-            }
-            .onAppear {
-                endpointURLInput = appState.agentService.endpointBaseURLString
-                pingResultText = nil
-            }
-        }
-    }
-    
-    private func refreshConnectionStatus() async {
-        connectionStatus = .connecting
-        if let info = await appState.agentService.checkHealth(at: appState.agentService.endpointBaseURLString) {
-            connectionStatus = .connected(endpoint: info.endpointURL, latencyMs: info.latencyMs)
-        } else if let discovered = await appState.agentService.autoDiscoverEndpoint() {
-            connectionStatus = .connected(endpoint: discovered.endpointURL, latencyMs: discovered.latencyMs)
-        } else {
-            connectionStatus = .failed(reason: "Unreachable. Tap configure.")
-        }
-    }
-    
-    private func autoDiscover() {
-        isPinging = true
-        pingResultText = "Scanning network candidates..."
-        
-        Task {
-            if let found = await appState.agentService.autoDiscoverEndpoint() {
-                await MainActor.run {
-                    endpointURLInput = found.endpointURL
-                    pingResultText = "Success! Discovered \(found.endpointURL) (\(Int(found.latencyMs))ms)"
-                    isPinging = false
-                }
-            } else {
-                await MainActor.run {
-                    pingResultText = "Could not reach agent on network. Check that Mac backend is running."
-                    isPinging = false
-                }
-            }
-        }
-    }
-    
-    private func testConnection() {
-        isPinging = true
-        pingResultText = nil
-        
-        Task {
-            if let info = await appState.agentService.checkHealth(at: endpointURLInput) {
-                await MainActor.run {
-                    pingResultText = "Success! Connected to \(info.service) v\(info.version) at \(endpointURLInput) in \(Int(info.latencyMs))ms"
-                    isPinging = false
-                }
-            } else {
-                await MainActor.run {
-                    pingResultText = "Connection failed: Unable to reach \(endpointURLInput)/health. Check that both devices are on the same network."
-                    isPinging = false
-                }
-            }
-        }
-    }
-    
-    // MARK: - Active Media Header
-    
-    private var activeMediaHeader: some View {
-        HStack(spacing: 10) {
-            // Thumbnail
-            ZStack {
-                if let displayImg = appState.displayImage {
-                    Image(uiImage: displayImg)
-                        .resizable()
-                        .aspectRatio(contentMode: .fill)
-                        .frame(width: 36, height: 36)
-                        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-                } else {
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .fill(Color(uiColor: .tertiarySystemBackground))
-                        .frame(width: 36, height: 36)
-                        .overlay(
-                            Image(systemName: appState.activeMediaType == .video ? "video.fill" : "photo")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        )
-                }
-            }
-            
-            VStack(alignment: .leading, spacing: 2) {
-                Text(mediaTitle)
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.primary)
-                    .lineLimit(1)
-                
-                Text(mediaSubtitle)
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-            }
-            
-            Spacer()
-            
-            // Agent State Pill
-            HStack(spacing: 5) {
-                if appState.agentState.isBusy {
-                    ProgressView()
-                        .scaleEffect(0.6)
-                } else {
-                    Image(systemName: appState.agentState.systemIcon)
-                        .font(.caption2)
-                }
-                
-                Text(appState.agentState.rawValue)
-                    .font(.caption2.weight(.medium))
-            }
-            .padding(.horizontal, 8)
-            .padding(.vertical, 4)
-            .background(statePillBackground)
-            .foregroundStyle(statePillForeground)
-            .clipShape(Capsule())
-        }
-        .padding(.horizontal, 16)
         .padding(.vertical, 8)
         .background(Color(uiColor: .secondarySystemBackground))
     }
     
-    private var mediaTitle: String {
-        if let project = appState.currentProject {
-            return project.name
+    private func assetThumbnail(title: String, isVideo: Bool, duration: String? = nil) -> some View {
+        HStack(spacing: 5) {
+            Image(systemName: isVideo ? "video.fill" : "photo.fill")
+                .font(.system(size: 10))
+                .foregroundStyle(isVideo ? .orange : .purple)
+            
+            Text(title)
+                .font(.system(size: 11, weight: .medium))
+                .lineLimit(1)
+            
+            if let dur = duration {
+                Text(dur)
+                    .font(.system(size: 9, weight: .semibold))
+                    .foregroundStyle(.secondary)
+            }
         }
-        return appState.activeMediaType == .video ? "Current Video" : "Current Image"
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .background(Color(uiColor: .tertiarySystemBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
     }
     
-    private var mediaSubtitle: String {
-        if appState.activeMediaType == .video, let info = appState.videoInfo {
-            return "\(info.dimensionsText) • \(info.fpsText) • \(info.formattedDuration)"
-        } else if let tex = appState.originalTexture {
-            return "\(tex.width) × \(tex.height) • Metal Texture"
-        } else {
-            return "No media loaded"
+    private var projectSelectorMenu: some View {
+        Menu {
+            ForEach(appState.projects) { proj in
+                Button {
+                    selectedProject = proj
+                    appState.selectedProjectForAICreate = proj
+                } label: {
+                    HStack {
+                        Text(proj.name)
+                        if selectedProject?.id == proj.id {
+                            Image(systemName: "checkmark")
+                        }
+                    }
+                }
+            }
+        } label: {
+            HStack(spacing: 4) {
+                Text(selectedProject?.name ?? "Select Project")
+                    .font(.subheadline.weight(.semibold))
+                Image(systemName: "chevron.up.chevron.down")
+                    .font(.caption2)
+            }
+            .foregroundStyle(.purple)
         }
     }
     
@@ -399,21 +276,122 @@ struct AICreateView: View {
                     .font(.system(size: 36, weight: .light))
                     .foregroundStyle(.purple)
             }
-            .padding(.top, 40)
+            .padding(.top, 30)
             
-            Text("Gemini Creative Director")
+            Text("Agentic Video Studio")
                 .font(.title3.weight(.bold))
                 .foregroundStyle(.primary)
             
-            Text("Describe your creative intent. Gemini will formulate a structured EditPlan with Parallel research, executed directly on your Apple GPU.")
+            Text("Select a project containing images and videos, then describe your creative vision. Gemini will formulate a multi-scene timeline rendered live on your Apple GPU.")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
-                .padding(.horizontal, 32)
+                .padding(.horizontal, 28)
         }
     }
     
-    // MARK: - Suggestion Pills
+    // MARK: - Live Generation Progress Card
+    
+    private func generationProgressCard(_ progress: VideoGenerationProgress) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Label(progress.stage.rawValue, systemImage: "bolt.fill")
+                    .font(.subheadline.weight(.bold))
+                    .foregroundStyle(.purple)
+                
+                Spacer()
+                
+                Text("\(Int(progress.progress * 100))%")
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(.secondary)
+            }
+            
+            ProgressView(value: progress.progress, total: 1.0)
+                .tint(.purple)
+            
+            HStack {
+                Text(progress.message)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                
+                Spacer()
+                
+                if progress.totalFrames > 0 {
+                    Text("\(progress.currentFrame)/\(progress.totalFrames) frames")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
+        .padding(14)
+        .background(Color(uiColor: .secondarySystemBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(Color.purple.opacity(0.3), lineWidth: 1)
+        )
+    }
+    
+    // MARK: - Generated Video Result Card
+    
+    private func generatedVideoResultCard(_ videoURL: URL) -> some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack {
+                Label("Final Video Ready", systemImage: "checkmark.circle.fill")
+                    .font(.subheadline.weight(.bold))
+                    .foregroundStyle(.green)
+                
+                Spacer()
+                
+                Text("H.264 • 1080p • 30 FPS")
+                    .font(.caption2.weight(.medium))
+                    .foregroundStyle(.secondary)
+            }
+            
+            // Video Player
+            VideoPlayer(player: AVPlayer(url: videoURL))
+                .frame(height: 240)
+                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            
+            // Action Controls: Save to Photos & Add to Project
+            HStack(spacing: 12) {
+                Button {
+                    Task {
+                        let ok = await appState.saveGeneratedVideoToPhotos()
+                        if ok {
+                            isShowingPhotosSuccessAlert = true
+                        }
+                    }
+                } label: {
+                    Label("Save to Photos", systemImage: "square.and.arrow.down")
+                        .font(.caption.weight(.semibold))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                        .background(Color.purple)
+                        .foregroundStyle(.white)
+                        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                }
+                
+                Button {
+                    appState.saveGeneratedVideoToCurrentProject()
+                    isShowingProjectSuccessAlert = true
+                } label: {
+                    Label("Add to Project", systemImage: "folder.badge.plus")
+                        .font(.caption.weight(.semibold))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                        .background(Color(uiColor: .tertiarySystemBackground))
+                        .foregroundStyle(.primary)
+                        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                }
+            }
+        }
+        .padding(14)
+        .background(Color(uiColor: .secondarySystemBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+    }
+    
+    // MARK: - Prompt Suggestion Pills
     
     private var suggestionPills: some View {
         ScrollView(.horizontal, showsIndicators: false) {
@@ -435,7 +413,7 @@ struct AICreateView: View {
                         .foregroundStyle(.primary)
                         .clipShape(Capsule())
                     }
-                    .disabled(appState.agentState.isBusy)
+                    .disabled(appState.agentState.isBusy || appState.isGeneratingVideo)
                 }
             }
             .padding(.horizontal, 16)
@@ -447,14 +425,14 @@ struct AICreateView: View {
     
     private var inputBar: some View {
         HStack(spacing: 10) {
-            TextField("Describe creative intent...", text: $promptText, axis: .vertical)
+            TextField("Describe video intent (e.g. 15s cinematic reel)...", text: $promptText, axis: .vertical)
                 .focused($isPromptFocused)
                 .lineLimit(1...4)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 8)
                 .background(Color(uiColor: .secondarySystemBackground))
                 .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-                .disabled(appState.agentState.isBusy)
+                .disabled(appState.agentState.isBusy || appState.isGeneratingVideo)
                 .onSubmit {
                     sendPrompt()
                 }
@@ -486,7 +464,7 @@ struct AICreateView: View {
     }
     
     private var canSend: Bool {
-        !promptText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !appState.agentState.isBusy
+        !promptText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !appState.agentState.isBusy && !appState.isGeneratingVideo
     }
     
     private func sendPrompt() {
@@ -495,20 +473,36 @@ struct AICreateView: View {
         promptText = ""
         isPromptFocused = false
         
+        let proj = selectedProject ?? appState.currentProject ?? appState.projects.first
+        
         Task {
-            await appState.sendAgentCreativePrompt(text)
+            if let validProj = proj {
+                await appState.sendAgentProjectCreativePrompt(text, project: validProj)
+            } else {
+                await appState.sendAgentCreativePrompt(text)
+            }
         }
     }
     
-    private func applyPlanAndSwitchToEditor(_ plan: EditPlan) {
-        do {
-            try appState.applyEditPlan(plan)
-            withAnimation {
-                appState.selectedTab = .editor
+    private func handlePlanAction(_ plan: EditPlan) {
+        if !plan.scenes.isEmpty || plan.mediaType == .video {
+            // Multi-scene Video Generation
+            if let proj = selectedProject ?? appState.currentProject ?? appState.projects.first {
+                Task {
+                    await appState.executeVideoGeneration(for: plan, in: proj)
+                }
             }
-        } catch {
-            appState.errorMessage = error.localizedDescription
-            appState.showError = true
+        } else {
+            // Single-Image Pipeline Execution
+            do {
+                try appState.applyEditPlan(plan)
+                withAnimation {
+                    appState.selectedTab = .editor
+                }
+            } catch {
+                appState.errorMessage = error.localizedDescription
+                appState.showError = true
+            }
         }
     }
 }

@@ -232,12 +232,38 @@ Generate a valid EditPlan JSON adhering to schemaVersion 1.0."""
             operations.append({"type": "sharpen", "parameters": {"strength": 0.9}})
             reasoning = "Optimized dynamic range, color richness, and micro-texture definition tailored for high-resolution display."
 
+        # Synthesize multi-asset scene timeline if project assets are provided
+        assets = analysis.get("assets", [])
+        scenes = []
+        target_duration = analysis.get("targetDuration", 15.0)
+        aspect_ratio = analysis.get("aspectRatio", "9:16")
+
+        if assets:
+            per_scene_dur = max(2.5, target_duration / max(1, len(assets)))
+            for idx, asset in enumerate(assets):
+                is_last = (idx == len(assets) - 1)
+                scenes.append({
+                    "assetId": asset.get("id"),
+                    "assetType": asset.get("type", "image"),
+                    "assetName": asset.get("name", f"Scene {idx + 1}"),
+                    "duration": per_scene_dur,
+                    "startTime": 0.0,
+                    "transition": "crossfade" if not is_last else "fadeBlack",
+                    "transitionDuration": 0.5,
+                    "zoomEffect": "zoomIn" if asset.get("type") == "image" else "none",
+                    "adjustments": adjustments,
+                    "operations": operations
+                })
+
         plan = create_edit_plan(
             goal=goal,
             reasoning=reasoning,
             media_type=mtype,
             adjustments=adjustments,
             operations=operations,
+            scenes=scenes if scenes else None,
+            target_duration=target_duration if scenes else None,
+            aspect_ratio=aspect_ratio,
             research_context=research.get("summary") if research else None
         )
 

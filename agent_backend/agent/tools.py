@@ -25,7 +25,11 @@ def analyze_media(media_metadata: Dict[str, Any]) -> Dict[str, Any]:
         "isHighResolution": is_high_res,
         "fps": media_metadata.get("fps", 30.0 if mtype == "video" else None),
         "duration": media_metadata.get("duration", 0.0),
-        "recommendedMaxBlurSigma": 20.0 if is_high_res else 10.0
+        "recommendedMaxBlurSigma": 20.0 if is_high_res else 10.0,
+        "projectName": media_metadata.get("projectName"),
+        "assets": media_metadata.get("assets", []),
+        "targetDuration": media_metadata.get("targetDuration", 15.0),
+        "aspectRatio": media_metadata.get("aspectRatio", "9:16")
     }
 
 def research_creative_context(query: str, topic: str = "cinematography") -> Dict[str, Any]:
@@ -42,6 +46,9 @@ def create_edit_plan(
     media_type: str = "image",
     adjustments: Optional[Dict[str, float]] = None,
     operations: Optional[List[Dict[str, Any]]] = None,
+    scenes: Optional[List[Dict[str, Any]]] = None,
+    target_duration: Optional[float] = None,
+    aspect_ratio: Optional[str] = "9:16",
     research_context: Optional[str] = None
 ) -> Dict[str, Any]:
     """Constructs a validated EditPlan contract conforming to schema v1.0."""
@@ -67,6 +74,23 @@ def create_edit_plan(
                 "parameters": op.get("parameters", {})
             })
 
+    clean_scenes = []
+    if scenes:
+        for s in scenes:
+            clean_scenes.append({
+                "id": str(uuid.uuid4()),
+                "assetId": s.get("assetId"),
+                "assetType": s.get("assetType", "image"),
+                "assetName": s.get("assetName", "Scene"),
+                "duration": float(s.get("duration", 3.0)),
+                "startTime": float(s.get("startTime", 0.0)),
+                "transition": s.get("transition", "crossfade"),
+                "transitionDuration": float(s.get("transitionDuration", 0.5)),
+                "zoomEffect": s.get("zoomEffect", "zoomIn"),
+                "adjustments": s.get("adjustments", default_adj),
+                "operations": s.get("operations", clean_ops)
+            })
+
     return {
         "schemaVersion": "1.0",
         "planId": str(uuid.uuid4()),
@@ -76,9 +100,13 @@ def create_edit_plan(
         "researchContext": research_context,
         "adjustments": default_adj,
         "operations": clean_ops,
+        "scenes": clean_scenes,
+        "targetDuration": target_duration,
+        "aspectRatio": aspect_ratio,
         "output": {
             "format": "jpeg" if media_type == "image" else "mp4",
-            "quality": 0.95
+            "quality": 0.95,
+            "aspectRatio": aspect_ratio
         }
     }
 

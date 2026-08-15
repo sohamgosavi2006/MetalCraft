@@ -69,6 +69,38 @@ class AgentBackendTests(unittest.TestCase):
         val = validate_edit_plan(plan)
         self.assertTrue(val["isValid"])
 
+    def test_agent_create_multi_scene_project_video(self):
+        payload = {
+            "prompt": "Create a 15-second cinematic product reel from this project",
+            "mediaMetadata": {
+                "type": "video",
+                "width": 1080,
+                "height": 1920,
+                "format": "mp4",
+                "projectName": "Product Launch 2026",
+                "targetDuration": 15.0,
+                "aspectRatio": "9:16",
+                "assets": [
+                    {"id": "asset-img-1", "name": "Hero Shot", "type": "image", "width": 1920, "height": 1080},
+                    {"id": "asset-img-2", "name": "Side Angle", "type": "image", "width": 1920, "height": 1080},
+                    {"id": "asset-vid-3", "name": "360 Spin", "type": "video", "width": 1920, "height": 1080, "duration": 5.0}
+                ]
+            }
+        }
+        response = self.app.post("/api/v1/agent/create", json=payload)
+        self.assertEqual(response.status_code, 200)
+        data = response.get_json()
+        
+        plan = data["editPlan"]
+        self.assertIn("scenes", plan)
+        self.assertEqual(len(plan["scenes"]), 3)
+        self.assertEqual(plan["scenes"][0]["assetName"], "Hero Shot")
+        self.assertEqual(plan["scenes"][2]["assetType"], "video")
+        self.assertEqual(plan["aspectRatio"], "9:16")
+        
+        val = validate_edit_plan(plan)
+        self.assertTrue(val["isValid"])
+
     def test_telemetry_and_observability(self):
         telemetry_event = {
             "eventType": "processing_complete",

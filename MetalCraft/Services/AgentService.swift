@@ -36,6 +36,36 @@ struct AgentRequest: Codable, Sendable {
     }
 }
 
+// MARK: - Project Asset Metadata DTO
+
+struct ProjectAssetMetadata: Codable, Sendable {
+    let id: String
+    let name: String
+    let type: String          // "image" or "video"
+    let width: Int
+    let height: Int
+    let duration: Double?
+    let format: String?
+    
+    init(
+        id: String,
+        name: String,
+        type: String,
+        width: Int,
+        height: Int,
+        duration: Double? = nil,
+        format: String? = nil
+    ) {
+        self.id = id
+        self.name = name
+        self.type = type
+        self.width = width
+        self.height = height
+        self.duration = duration
+        self.format = format
+    }
+}
+
 // MARK: - Media Metadata DTO
 
 struct MediaMetadata: Codable, Sendable {
@@ -47,6 +77,10 @@ struct MediaMetadata: Codable, Sendable {
     let duration: Double?
     let colorSpace: String?
     let histogramSummary: [String: Double]?
+    let projectName: String?
+    let assets: [ProjectAssetMetadata]?
+    let targetDuration: Double?
+    let aspectRatio: String?
     
     init(
         type: String,
@@ -56,7 +90,11 @@ struct MediaMetadata: Codable, Sendable {
         fps: Double? = nil,
         duration: Double? = nil,
         colorSpace: String? = nil,
-        histogramSummary: [String: Double]? = nil
+        histogramSummary: [String: Double]? = nil,
+        projectName: String? = nil,
+        assets: [ProjectAssetMetadata]? = nil,
+        targetDuration: Double? = nil,
+        aspectRatio: String? = nil
     ) {
         self.type = type
         self.width = width
@@ -66,6 +104,10 @@ struct MediaMetadata: Codable, Sendable {
         self.duration = duration
         self.colorSpace = colorSpace
         self.histogramSummary = histogramSummary
+        self.projectName = projectName
+        self.assets = assets
+        self.targetDuration = targetDuration
+        self.aspectRatio = aspectRatio
     }
 }
 

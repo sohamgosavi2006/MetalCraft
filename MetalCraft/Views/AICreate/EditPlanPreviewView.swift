@@ -2,8 +2,8 @@
 //  EditPlanPreviewView.swift
 //  MetalCraft
 //
-//  Visual card representing an AI-generated EditPlan with operations list,
-//  photographic adjustment badges, and an "Apply to GPU Editor" action button.
+//  Visual card representing an AI-generated EditPlan with multi-scene timeline breakdown,
+//  photographic adjustment badges, GPU operations stack, and an "Execute on GPU" action button.
 //
 
 import SwiftUI
@@ -12,11 +12,15 @@ struct EditPlanPreviewView: View {
     let plan: EditPlan
     let onApply: ((EditPlan) -> Void)?
     
+    var isVideoPlan: Bool {
+        !plan.scenes.isEmpty || plan.mediaType == .video
+    }
+    
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             // Header
             HStack(spacing: 8) {
-                Image(systemName: "wand.and.stars")
+                Image(systemName: isVideoPlan ? "film.stack" : "wand.and.stars")
                     .font(.headline)
                     .foregroundStyle(.purple)
                 
@@ -25,14 +29,22 @@ struct EditPlanPreviewView: View {
                         .font(.headline)
                         .foregroundStyle(.primary)
                     
-                    Text("Plan ID: \(String(plan.planId.prefix(8))) • Schema v\(plan.schemaVersion)")
-                        .font(.caption2)
-                        .foregroundStyle(.tertiary)
+                    HStack(spacing: 6) {
+                        Text("Plan ID: \(String(plan.planId.prefix(8)))")
+                        if let ar = plan.aspectRatio ?? plan.output.aspectRatio {
+                            Text("• \(ar)")
+                        }
+                        if plan.totalSceneDuration > 0 {
+                            Text("• \(String(format: "%.1fs", plan.totalSceneDuration))")
+                        }
+                    }
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
                 }
                 
                 Spacer()
                 
-                Text(plan.mediaType.rawValue)
+                Text(isVideoPlan ? "Video Reel" : plan.mediaType.rawValue)
                     .font(.caption2.weight(.bold))
                     .padding(.horizontal, 8)
                     .padding(.vertical, 3)
@@ -43,9 +55,69 @@ struct EditPlanPreviewView: View {
             
             Divider()
             
+            // Multi-Scene Timeline Section (if scenes exist)
+            if !plan.scenes.isEmpty {
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack {
+                        Text("PLANNED SCENES TIMELINE (\(plan.scenes.count))")
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundStyle(.secondary)
+                        
+                        Spacer()
+                        
+                        Text("Total: \(String(format: "%.1f", plan.totalSceneDuration))s")
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundStyle(.purple)
+                    }
+                    
+                    VStack(spacing: 5) {
+                        ForEach(Array(plan.scenes.enumerated()), id: \.element.id) { idx, scene in
+                            HStack(spacing: 8) {
+                                Text("\(idx + 1)")
+                                    .font(.caption2.weight(.bold))
+                                    .foregroundStyle(.secondary)
+                                    .frame(width: 14)
+                                
+                                Image(systemName: scene.assetType.lowercased() == "video" ? "video.fill" : "photo.fill")
+                                    .font(.caption2)
+                                    .foregroundStyle(scene.assetType.lowercased() == "video" ? .orange : .purple)
+                                
+                                Text(scene.assetName)
+                                    .font(.caption.weight(.medium))
+                                    .lineLimit(1)
+                                
+                                Spacer()
+                                
+                                Text(String(format: "%.1fs", scene.duration))
+                                    .font(.caption2.weight(.bold))
+                                    .foregroundStyle(.primary)
+                                
+                                if let trans = scene.transition, trans != "none" {
+                                    HStack(spacing: 2) {
+                                        Image(systemName: "arrow.right.circle.fill")
+                                            .font(.system(size: 8))
+                                        Text(trans)
+                                            .font(.system(size: 9, weight: .medium))
+                                    }
+                                    .padding(.horizontal, 4)
+                                    .padding(.vertical, 2)
+                                    .background(Color.purple.opacity(0.12))
+                                    .foregroundStyle(.purple)
+                                    .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+                                }
+                            }
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 6)
+                            .background(Color(uiColor: .tertiarySystemBackground))
+                            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                        }
+                    }
+                }
+            }
+            
             // Adjustments Grid
             VStack(alignment: .leading, spacing: 6) {
-                Text("PHOTOGRAPHIC ADJUSTMENTS")
+                Text("COLOR GRADE & PHOTOGRAPHIC ADJUSTMENTS")
                     .font(.system(size: 10, weight: .bold))
                     .foregroundStyle(.secondary)
                 
@@ -85,7 +157,7 @@ struct EditPlanPreviewView: View {
                                 Spacer()
                                 
                                 if op.enabled {
-                                    Text("Enabled")
+                                    Text("Active")
                                         .font(.caption2)
                                         .foregroundStyle(.green)
                                 } else {
@@ -103,15 +175,15 @@ struct EditPlanPreviewView: View {
                 }
             }
             
-            // Apply Button
+            // Execute Button
             if let onApply {
                 Button {
                     onApply(plan)
                 } label: {
                     HStack(spacing: 8) {
-                        Image(systemName: "bolt.fill")
+                        Image(systemName: isVideoPlan ? "bolt.fill" : "wand.and.rays")
                             .font(.subheadline)
-                        Text("Apply Plan to Metal Pipeline")
+                        Text(isVideoPlan ? "⚡ Generate Video on Apple Metal GPU" : "Apply Plan to Metal Pipeline")
                             .font(.subheadline.weight(.semibold))
                     }
                     .frame(maxWidth: .infinity)

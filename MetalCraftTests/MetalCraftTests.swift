@@ -785,6 +785,64 @@ struct MetalCraftTests {
         #expect(decodedResp.editPlan?.goal == "Neo-Noir Cyberpunk Grade")
         #expect(decodedResp.researchContext?.contains("Neo-noir palettes") == true)
     }
+
+    // MARK: - Multi-Scene Video Production Tests
+    
+    @Test func testMultiSceneEditPlanSerializationAndValidation() throws {
+        let scene1 = EditPlanScene(
+            assetId: UUID().uuidString,
+            assetType: "image",
+            assetName: "Product Showcase 01",
+            duration: 3.5,
+            transition: "crossfade",
+            transitionDuration: 0.5,
+            adjustments: EditPlanAdjustments(contrast: 1.2, saturation: 1.3),
+            zoomEffect: "zoomIn"
+        )
+        
+        let scene2 = EditPlanScene(
+            assetId: UUID().uuidString,
+            assetType: "video",
+            assetName: "Detail Spin 02",
+            duration: 4.0,
+            transition: "fadeBlack",
+            transitionDuration: 0.5,
+            adjustments: EditPlanAdjustments(exposure: 0.1, temperature: 0.2),
+            zoomEffect: "none"
+        )
+        
+        let multiPlan = EditPlan(
+            schemaVersion: "1.0",
+            planId: "plan-multiscene-001",
+            mediaType: .video,
+            goal: "15-Second Cinematic Product Reel",
+            reasoning: "Sequenced hero image and dynamic spin video with smooth crossfades and warm golden hour grade.",
+            scenes: [scene1, scene2],
+            targetDuration: 7.5,
+            aspectRatio: "9:16",
+            output: EditPlanOutput(format: "mp4", quality: 0.95, aspectRatio: "9:16")
+        )
+        
+        #expect(multiPlan.scenes.count == 2)
+        #expect(multiPlan.totalSceneDuration == 7.5)
+        #expect(multiPlan.aspectRatio == "9:16")
+        
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        let data = try encoder.encode(multiPlan)
+        
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let decoded = try decoder.decode(EditPlan.self, from: data)
+        
+        #expect(decoded.planId == "plan-multiscene-001")
+        #expect(decoded.scenes.count == 2)
+        #expect(decoded.scenes[0].assetName == "Product Showcase 01")
+        #expect(decoded.scenes[0].duration == 3.5)
+        #expect(decoded.scenes[0].transition == "crossfade")
+        #expect(decoded.scenes[1].assetType == "video")
+        #expect(decoded.totalSceneDuration == 7.5)
+    }
 }
 
 
