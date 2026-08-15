@@ -8,6 +8,7 @@ import sys
 import uuid
 import socket
 import logging
+import time
 import subprocess
 from flask import Flask, request, jsonify, render_template_string
 
@@ -365,6 +366,72 @@ def receive_telemetry():
     except Exception as e:
         logger.error(f"[AgentConnection] Error recording telemetry: {e}", exc_info=True)
         return jsonify({"error": str(e)}), 500
+
+@app.route("/api/v1/diagnostics/test_all", methods=["GET", "POST"])
+def test_all_integrations():
+    """Runs a complete end-to-end runtime diagnostic of all connected services."""
+    client_ip = request.remote_addr
+    logger.info(f"[AgentConnection] Complete integration diagnostics triggered by {client_ip}")
+    
+    # 1. Local Agent Health
+    agent_health = {
+        "status": "PASS",
+        "service": "MetalCraft Local Agent",
+        "version": "1.0.0",
+        "hostname": socket.gethostname(),
+        "port": PORT
+    }
+    
+    # 2. Gemini Configuration Check
+    gemini_status = {
+        "status": "PASS" if bool(GEMINI_API_KEY) else "MISSING",
+        "configured": bool(GEMINI_API_KEY),
+        "model": "gemini-2.5-flash",
+        "serverSideOnly": True
+    }
+    
+    # 3. Parallel API Runtime Check
+    from agent.tools import parallel_client
+    parallel_status = parallel_client.test_connection()
+    
+    # 4. Grafana Health & Service Account
+    grafana_status = grafana_client.get_grafana_health()
+    
+    # 5. Grafana MCP Server
+    from mcp.grafana_mcp_server import GrafanaMCPServer
+    mcp = GrafanaMCPServer()
+    mcp_resp = mcp.handle_request({
+        "jsonrpc": "2.0",
+        "id": "diag-1",
+        "method": "tools/call",
+        "params": {"name": "grafana_get_health"}
+    })
+    mcp_status = {
+        "status": "PASS" if "result" in mcp_resp else "FAIL",
+        "server": "metalcraft-grafana-mcp",
+        "protocol": "JSON-RPC 2.0 (2024-11-05)"
+    }
+    
+    # 6. Telemetry Ingestion Buffer
+    telemetry_summary = grafana_client.query_observability("latency")
+    
+    overall_pass = (
+        agent_health["status"] == "PASS" and
+        gemini_status["status"] == "PASS" and
+        parallel_status["status"] == "PASS" and
+        grafana_status["status"] == "PASS"
+    )
+    
+    return jsonify({
+        "timestamp": int(time.time()),
+        "overallStatus": "PASS" if overall_pass else "WARN",
+        "agent": agent_health,
+        "gemini": gemini_status,
+        "parallel": parallel_status,
+        "grafana": grafana_status,
+        "grafanaMCP": mcp_status,
+        "telemetry": telemetry_summary
+    }), 200
 
 @app.route("/api/v1/observability", methods=["GET"])
 def get_observability():

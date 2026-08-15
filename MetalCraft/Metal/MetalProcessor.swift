@@ -506,6 +506,82 @@ final class MetalProcessor {
         encoder.endEncoding()
     }
     
+    // MARK: - Video Frame Scaling & Transition Encoders
+    
+    func renderScaledFrame(
+        source: MTLTexture,
+        targetWidth: Int,
+        targetHeight: Int,
+        zoom: Float = 1.0,
+        panProgress: Float = 0.0
+    ) async throws -> MTLTexture {
+        guard let commandBuffer = context.commandQueue.makeCommandBuffer() else {
+            throw MetalError.commandBufferCreationFailed
+        }
+        
+        guard let destination = texturePool.acquire(
+            device: context.device,
+            width: targetWidth,
+            height: targetHeight,
+            pixelFormat: .bgra8Unorm
+        ) else {
+            throw MetalError.textureCreationFailed
+        }
+        
+        let pipeline = try getOrCreatePipeline(functionName: "video_scale_fit_kernel")
+        guard let encoder = commandBuffer.makeComputeCommandEncoder() else {
+            throw MetalError.encoderCreationFailed
+        }
+        
+        encoder.label = "Video Scale & Fit Encoder"
+        encoder.setComputePipelineState(pipeline)
+        encoder.setTexture(source, index: 0)
+        encoder.setTexture(destination, index: 1)
+        if let linear = linearSampler {
+            encoder.setSamplerState(linear, index: 0)
+        }
+        
+        let srcAspect = Float(source.width) / Float(source.height)
+        let dstAspect = Float(targetWidth) / Float(targetHeight)
+        
+        var scaleX: Float = 1.0
+        var scaleY: Float = 1.0
+        
+        if srcAspect > dstAspect {
+            scaleX = 1.0
+            scaleY = dstAspect / srcAspect
+        } else {
+            scaleX = srcAspect / dstAspect
+            scaleY = 1.0
+        }
+        
+        var params = VideoScaleParams(
+            scaleX: scaleX,
+            scaleY: scaleY,
+            offsetX: 0.0,
+            offsetY: 0.0,
+            targetWidth: UInt32(targetWidth),
+            targetHeight: UInt32(targetHeight),
+            zoom: zoom,
+            panProgress: panProgress
+        )
+        
+        encoder.setBytes(&params, length: MemoryLayout<VideoScaleParams>.size, index: 0)
+        dispatchThreads(encoder: encoder, pipeline: pipeline, width: targetWidth, height: targetHeight)
+        encoder.endEncoding()
+        
+        return try await withCheckedThrowingContinuation { continuation in
+            commandBuffer.addCompletedHandler { completedBuffer in
+                if let error = completedBuffer.error {
+                    continuation.resume(throwing: MetalError.processingFailed(error.localizedDescription))
+                } else {
+                    continuation.resume(returning: destination)
+                }
+            }
+            commandBuffer.commit()
+        }
+    }
+    
     // MARK: - Pool Management
     
     func drainTexturePool() {

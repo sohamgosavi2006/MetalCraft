@@ -111,6 +111,75 @@ struct MediaMetadata: Codable, Sendable {
     }
 }
 
+// MARK: - Diagnostics Models
+
+struct DiagnosticsResponse: Codable, Sendable {
+    let timestamp: Int
+    let overallStatus: String
+    let agent: DiagnosticServiceItem
+    let gemini: DiagnosticGeminiItem
+    let parallel: DiagnosticParallelItem
+    let grafana: DiagnosticGrafanaItem
+    let grafanaMCP: DiagnosticMCPItem
+    let telemetry: DiagnosticTelemetryItem?
+}
+
+struct DiagnosticServiceItem: Codable, Sendable {
+    let status: String
+    let service: String?
+    let version: String?
+    let hostname: String?
+    let port: Int?
+}
+
+struct DiagnosticGeminiItem: Codable, Sendable {
+    let status: String
+    let configured: Bool
+    let model: String?
+    let serverSideOnly: Bool?
+}
+
+struct DiagnosticParallelItem: Codable, Sendable {
+    let status: String
+    let configured: Bool?
+    let authenticated: Bool?
+    let request: String?
+    let response: String?
+    let statusCode: Int?
+    let latencyMs: Int?
+    let searchId: String?
+    let resultCount: Int?
+    let message: String?
+}
+
+struct DiagnosticGrafanaItem: Codable, Sendable {
+    let status: String
+    let url: String?
+    let version: String?
+    let database: String?
+    let serviceAccount: String?
+    let dashboardUid: String?
+}
+
+struct DiagnosticMCPItem: Codable, Sendable {
+    let status: String
+    let server: String?
+    let protocolName: String?
+    
+    enum CodingKeys: String, CodingKey {
+        case status, server
+        case protocolName = "protocol"
+    }
+}
+
+struct DiagnosticTelemetryItem: Codable, Sendable {
+    let status: String
+    let sampleCount: Int?
+    let averageGpuTimeMs: Double?
+    let averageFrameTimeMs: Double?
+    let errorRate: Double?
+}
+
 // MARK: - Agent Response Payload
 
 struct AgentResponse: Codable, Sendable {
@@ -424,5 +493,29 @@ final class AgentService: Sendable {
         } catch {
             logger.debug("[AgentConnection] Telemetry flush skipped: \(error.localizedDescription)")
         }
+    }
+    
+    // MARK: - Integration Diagnostics
+    
+    /// Runs a full integration diagnostic on Mac Agent, Gemini, Parallel, Grafana, and Grafana MCP.
+    func runIntegrationDiagnostics() async throws -> DiagnosticsResponse {
+        let cleanBase = endpointBaseURLString.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        guard let url = URL(string: "\(cleanBase)/api/v1/diagnostics/test_all") else {
+            throw AgentServiceError.invalidEndpointURL("\(cleanBase)/api/v1/diagnostics/test_all")
+        }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.timeoutInterval = 15.0
+        
+        let (data, response) = try await session.data(for: request)
+        guard let httpResp = response as? HTTPURLResponse, httpResp.statusCode == 200 else {
+            throw AgentServiceError.serverError(
+                statusCode: (response as? HTTPURLResponse)?.statusCode ?? 500,
+                message: "Diagnostics check failed"
+            )
+        }
+        
+        return try JSONDecoder().decode(DiagnosticsResponse.self, from: data)
     }
 }

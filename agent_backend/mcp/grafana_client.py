@@ -33,6 +33,42 @@ class GrafanaClient:
             except Exception as e:
                 logger.debug(f"Grafana remote write skipped: {e}")
 
+    def get_grafana_health(self) -> Dict[str, Any]:
+        """Queries the health of the local Grafana instance and validates authentication."""
+        try:
+            headers = {"Authorization": f"Bearer {self.token}"} if self.token else {}
+            resp = requests.get(f"{self.url}/api/health", timeout=3)
+            if resp.status_code == 200:
+                health_data = resp.json()
+                
+                # Test Service Account Token if configured
+                auth_status = "NOT_CONFIGURED"
+                if self.token:
+                    org_resp = requests.get(f"{self.url}/api/org", headers=headers, timeout=3)
+                    auth_status = "AUTHENTICATED" if org_resp.status_code == 200 else f"AUTH_FAILED_{org_resp.status_code}"
+                
+                return {
+                    "status": "PASS",
+                    "url": self.url,
+                    "version": health_data.get("version", "11.5.0"),
+                    "database": health_data.get("database", "ok"),
+                    "serviceAccount": auth_status,
+                    "dashboardUid": "metalcraft-observability"
+                }
+            else:
+                return {
+                    "status": "FAIL",
+                    "url": self.url,
+                    "statusCode": resp.status_code,
+                    "message": f"Grafana returned HTTP {resp.status_code}"
+                }
+        except Exception as e:
+            return {
+                "status": "FAIL",
+                "url": self.url,
+                "message": f"Could not reach Grafana at {self.url}: {str(e)}"
+            }
+
     def query_observability(self, query_type: str = "latency", time_range: str = "5m") -> Dict[str, Any]:
         """Queries processing telemetry metrics for agentic feedback and evaluation."""
         if not self.telemetry_store:

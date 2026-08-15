@@ -305,3 +305,73 @@ kernel void swirl_kernel(
     
     outTexture.write(inTexture.read(samplePos), gid);
 }
+
+// MARK: - Video / Texture Rescaling & Aspect Fit Kernel
+
+kernel void video_scale_fit_kernel(
+    texture2d<float, access::sample> inTexture [[texture(0)]],
+    texture2d<float, access::write> outTexture [[texture(1)]],
+    sampler linearSampler [[sampler(0)]],
+    constant VideoScaleParams &params [[buffer(0)]],
+    uint2 gid [[thread_position_in_grid]])
+{
+    if (gid.x >= outTexture.get_width() || gid.y >= outTexture.get_height()) return;
+    
+    // Normalized destination canvas coordinates [0.0 .. 1.0]
+    float u = (float(gid.x) + 0.5) / float(outTexture.get_width());
+    float v = (float(gid.y) + 0.5) / float(outTexture.get_height());
+    
+    // Scale and fit source into destination with Ken Burns zoom and pan offset
+    float effZoom = max(0.1, params.zoom);
+    float srcU = ((u - 0.5) / (params.scaleX * effZoom)) + 0.5 + params.offsetX;
+    float srcV = ((v - 0.5) / (params.scaleY * effZoom)) + 0.5 + params.offsetY;
+    
+    float4 color;
+    if (srcU < 0.0 || srcU > 1.0 || srcV < 0.0 || srcV > 1.0) {
+        // High-end cinematic dark letterbox/pillarbox background (not jarring pure zero)
+        color = float4(0.05, 0.05, 0.07, 1.0);
+    } else {
+        color = inTexture.sample(linearSampler, float2(srcU, srcV));
+    }
+    
+    outTexture.write(color, gid);
+}
+
+// MARK: - Video Transition Blending Kernel
+
+kernel void video_transition_kernel(
+    texture2d<float, access::read> fromTexture [[texture(0)]],
+    texture2d<float, access::read> toTexture [[texture(1)]],
+    texture2d<float, access::write> outTexture [[texture(2)]],
+    constant TransitionParams &params [[buffer(0)]],
+    uint2 gid [[thread_position_in_grid]])
+{
+    if (gid.x >= outTexture.get_width() || gid.y >= outTexture.get_height()) return;
+    
+    float4 fromColor = fromTexture.read(gid);
+    float4 toColor = toTexture.read(gid);
+    
+    float p = clamp(params.progress, 0.0, 1.0);
+    float4 resultColor;
+    
+    if (params.transitionType == 0) {
+        // Crossfade
+        resultColor = mix(fromColor, toColor, p);
+    } else if (params.transitionType == 1) {
+        // Dip to black
+        if (p < 0.5) {
+            float fade = 1.0 - (p * 2.0);
+            resultColor = float4(fromColor.rgb * fade, fromColor.a);
+        } else {
+            float fade = (p - 0.5) * 2.0;
+            resultColor = float4(toColor.rgb * fade, toColor.a);
+        }
+    } else {
+        // Horizontal Wipe
+        float u = float(gid.x) / float(outTexture.get_width());
+        resultColor = (u < p) ? toColor : fromColor;
+    }
+    
+    outTexture.write(resultColor, gid);
+}
+

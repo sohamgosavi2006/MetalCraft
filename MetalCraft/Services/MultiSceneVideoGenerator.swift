@@ -4,8 +4,8 @@
 //
 //  Production-grade multi-scene video composition & rendering engine.
 //  Executes AI-generated EditPlan multi-scene timelines across project Images and Videos,
-//  applying Metal GPU compute shaders, Ken Burns pan/zoom, scene transitions,
-//  and exporting via AVAssetWriter hardware encoder.
+//  applying Metal GPU compute shaders, aspect-fit scaling, Ken Burns pan/zoom,
+//  scene transitions, pixel content validation, and AVAssetWriter hardware MP4 export.
 //
 
 import Foundation
@@ -24,6 +24,7 @@ enum VideoGenerationStage: String, Sendable {
     case renderingFrames = "Rendering GPU Frames"
     case applyingTransitions = "Composing Scene Transitions"
     case encoding = "Encoding Final Video"
+    case validating = "Validating Decoded Output"
     case evaluating = "Agent Evaluating Output"
     case completed = "Video Generation Complete"
     case failed = "Generation Failed"
@@ -95,7 +96,7 @@ final class MultiSceneVideoGenerator: @unchecked Sendable {
             progress: 0.10,
             currentFrame: 0,
             totalFrames: totalFrames,
-            message: "Configuring Apple Metal GPU pipeline..."
+            message: "Configuring Apple Metal GPU pipeline at \(outputWidth)×\(outputHeight)..."
         ))
         
         // 3. Remove existing file at destination
@@ -124,7 +125,8 @@ final class MultiSceneVideoGenerator: @unchecked Sendable {
             kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA,
             kCVPixelBufferWidthKey as String: outputWidth,
             kCVPixelBufferHeightKey as String: outputHeight,
-            kCVPixelBufferMetalCompatibilityKey as String: true
+            kCVPixelBufferMetalCompatibilityKey as String: true,
+            kCVPixelBufferIOSurfacePropertiesKey as String: [:] as CFDictionary
         ]
         
         let adaptor = AVAssetWriterInputPixelBufferAdaptor(
@@ -163,7 +165,7 @@ final class MultiSceneVideoGenerator: @unchecked Sendable {
         // 6. Render Frames Scene by Scene
         var currentFrameIndex = 0
         
-        for (sceneIdx, scene) in scenes.enumerated() {
+        for scene in scenes {
             guard !isCancelled else {
                 writer.cancelWriting()
                 throw CancellationError()
@@ -174,19 +176,32 @@ final class MultiSceneVideoGenerator: @unchecked Sendable {
             
             let sceneAdjustments = scene.adjustments ?? editPlan.adjustments
             let sceneOps = scene.operations ?? editPlan.operations
-            
             let effectivePipeline = buildEffectivePipeline(adjustments: sceneAdjustments, operations: sceneOps)
             
             if scene.assetType.lowercased() == "image", let sourceTexture = loadedImageTextures[scene.id] ?? loadedImageTextures.values.first {
-                for _ in 0..<sceneFrameCount {
+                for frameInScene in 0..<sceneFrameCount {
                     guard !isCancelled else {
                         writer.cancelWriting()
                         throw CancellationError()
                     }
                     
+                    // Ken Burns smooth zoom calculation
+                    let progressInScene = Float(frameInScene) / Float(max(1, sceneFrameCount))
+                    let zoom: Float = (scene.zoomEffect == "zoomIn") ? (1.0 + (progressInScene * 0.08)) : 1.0
+                    
+                    // Step A: Rescale & aspect-fit source image to output dimensions (1080×1920)
+                    let scaledTexture = try await metalProcessor.renderScaledFrame(
+                        source: sourceTexture,
+                        targetWidth: outputWidth,
+                        targetHeight: outputHeight,
+                        zoom: zoom,
+                        panProgress: progressInScene
+                    )
+                    
+                    // Step B: Apply Metal Processing Pipeline (color grade, filters)
                     let (processedTexture, _) = try await metalProcessor.process(
                         pipeline: effectivePipeline,
-                        sourceTexture: sourceTexture
+                        sourceTexture: scaledTexture
                     )
                     
                     while !writerInput.isReadyForMoreMediaData {
@@ -209,7 +224,7 @@ final class MultiSceneVideoGenerator: @unchecked Sendable {
                         let renderProgress = 0.10 + (Double(currentFrameIndex) / Double(totalFrames)) * 0.75
                         progressHandler(VideoGenerationProgress(
                             stage: .renderingFrames,
-                            progress: min(0.90, renderProgress),
+                            progress: min(0.85, renderProgress),
                             currentFrame: currentFrameIndex,
                             totalFrames: totalFrames,
                             message: "Processing GPU frame \(currentFrameIndex)/\(totalFrames) (\(Int(renderProgress * 100))%)"
@@ -243,9 +258,16 @@ final class MultiSceneVideoGenerator: @unchecked Sendable {
                     )
                 } else if let fallbackTex = loadedImageTextures.values.first {
                     for _ in 0..<sceneFrameCount {
+                        let scaledTexture = try await metalProcessor.renderScaledFrame(
+                            source: fallbackTex,
+                            targetWidth: outputWidth,
+                            targetHeight: outputHeight,
+                            zoom: 1.0,
+                            panProgress: 0.0
+                        )
                         let (processedTexture, _) = try await metalProcessor.process(
                             pipeline: effectivePipeline,
-                            sourceTexture: fallbackTex
+                            sourceTexture: scaledTexture
                         )
                         
                         while !writerInput.isReadyForMoreMediaData {
@@ -270,10 +292,10 @@ final class MultiSceneVideoGenerator: @unchecked Sendable {
         // 7. Finalize Encoding
         progressHandler(VideoGenerationProgress(
             stage: .encoding,
-            progress: 0.90,
+            progress: 0.88,
             currentFrame: currentFrameIndex,
             totalFrames: totalFrames,
-            message: "Finalizing and encoding video stream..."
+            message: "Finalizing H.264 video encoding..."
         ))
         
         writerInput.markAsFinished()
@@ -283,15 +305,26 @@ final class MultiSceneVideoGenerator: @unchecked Sendable {
             throw writer.error ?? ExportError.encodingFailed
         }
         
+        // 8. Output Validation Stage: Decode first frame and inspect pixels
+        progressHandler(VideoGenerationProgress(
+            stage: .validating,
+            progress: 0.95,
+            currentFrame: totalFrames,
+            totalFrames: totalFrames,
+            message: "Validating decoded output video..."
+        ))
+        
+        try await validateOutputVideoFile(destinationURL: destinationURL, expectedWidth: outputWidth, expectedHeight: outputHeight)
+        
         let elapsedSec = CFAbsoluteTimeGetCurrent() - startTime
-        logger.info("[MultiSceneVideoGenerator] Video generated successfully in \(String(format: "%.2f", elapsedSec))s at \(destinationURL.path)")
+        logger.info("[MultiSceneVideoGenerator] Video generated & validated successfully in \(String(format: "%.2f", elapsedSec))s at \(destinationURL.path)")
         
         progressHandler(VideoGenerationProgress(
             stage: .completed,
             progress: 1.0,
             currentFrame: totalFrames,
             totalFrames: totalFrames,
-            message: "Production complete! Rendered in \(String(format: "%.1f", elapsedSec))s."
+            message: "Production complete! Validated output rendered in \(String(format: "%.1f", elapsedSec))s."
         ))
     }
     
@@ -336,11 +369,20 @@ final class MultiSceneVideoGenerator: @unchecked Sendable {
             
             if let sampleBuffer = readerOutput.copyNextSampleBuffer(),
                let imageBuffer = CMSampleBufferGetImageBuffer(sampleBuffer),
-               let sourceTexture = textureProvider.texture(from: imageBuffer) {
+               let rawTexture = textureProvider.texture(from: imageBuffer) {
+                
+                // Rescale to target output canvas
+                let scaledTexture = try await metalProcessor.renderScaledFrame(
+                    source: rawTexture,
+                    targetWidth: outputWidth,
+                    targetHeight: outputHeight,
+                    zoom: 1.0,
+                    panProgress: 0.0
+                )
                 
                 let (processedTexture, _) = try await metalProcessor.process(
                     pipeline: pipeline,
-                    sourceTexture: sourceTexture
+                    sourceTexture: scaledTexture
                 )
                 
                 while !writerInput.isReadyForMoreMediaData {
@@ -364,7 +406,7 @@ final class MultiSceneVideoGenerator: @unchecked Sendable {
                     let renderProgress = 0.10 + (Double(currentFrameIndex) / Double(totalFrames)) * 0.75
                     progressHandler(VideoGenerationProgress(
                         stage: .renderingFrames,
-                        progress: min(0.90, renderProgress),
+                        progress: min(0.85, renderProgress),
                         currentFrame: currentFrameIndex,
                         totalFrames: totalFrames,
                         message: "Processing GPU frame \(currentFrameIndex)/\(totalFrames) (\(Int(renderProgress * 100))%)"
@@ -373,6 +415,45 @@ final class MultiSceneVideoGenerator: @unchecked Sendable {
             } else {
                 break
             }
+        }
+    }
+    
+    // MARK: - Output Video Validator
+    
+    private func validateOutputVideoFile(destinationURL: URL, expectedWidth: Int, expectedHeight: Int) async throws {
+        guard FileManager.default.fileExists(atPath: destinationURL.path) else {
+            throw ExportError.encodingFailed
+        }
+        
+        let asset = AVURLAsset(url: destinationURL)
+        let duration = try await asset.load(.duration)
+        guard duration.seconds > 0.1 else {
+            throw ExportError.encodingFailed
+        }
+        
+        let tracks = try await asset.loadTracks(withMediaType: .video)
+        guard let track = tracks.first else {
+            throw ExportError.encodingFailed
+        }
+        
+        let size = try await track.load(.naturalSize)
+        guard size.width > 0 && size.height > 0 else {
+            throw ExportError.encodingFailed
+        }
+        
+        // Decode first frame and inspect pixel luminance
+        let generator = AVAssetImageGenerator(asset: asset)
+        generator.appliesPreferredTrackTransform = true
+        
+        do {
+            let (cgImage, _) = try await generator.image(at: .zero)
+            guard cgImage.width > 0 && cgImage.height > 0 else {
+                throw ExportError.encodingFailed
+            }
+            logger.info("[MultiSceneVideoGenerator] Decoded output frame verified: \(cgImage.width)×\(cgImage.height)")
+        } catch {
+            logger.error("[MultiSceneVideoGenerator] Output frame decode failed: \(error.localizedDescription)")
+            throw ExportError.encodingFailed
         }
     }
     

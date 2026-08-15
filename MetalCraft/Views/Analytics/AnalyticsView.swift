@@ -761,24 +761,151 @@ struct AnalyticsView: View {
     // MARK: - 8. SYSTEM / DIAGNOSTICS SECTION
     
     private var systemDiagnosticsSection: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Text("SYSTEM & HARDWARE DIAGNOSTICS")
-                .font(.system(size: 11, weight: .bold))
-                .foregroundStyle(.secondary)
-            
-            VStack(spacing: 8) {
-                specRow(label: "Device Model", value: UIDevice.current.model)
-                specRow(label: "System Version", value: "\(UIDevice.current.systemName) \(UIDevice.current.systemVersion)")
-                specRow(label: "Metal Device", value: appState.metalContext.device.name)
-                specRow(label: "GPU Family", value: "Apple Silicon Metal 3")
-                specRow(label: "AVFoundation HW Encoding", value: "H.264 / HEVC Supported")
-                specRow(label: "Photos Library Permission", value: "Authorized")
-                specRow(label: "Bonjour Discovery", value: "_metalcraft._tcp Active")
+        VStack(alignment: .leading, spacing: 16) {
+            // Integration Diagnostics Card
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    Image(systemName: "bolt.horizontal.circle.fill")
+                        .foregroundStyle(.purple)
+                    Text("END-TO-END INTEGRATIONS DIAGNOSTICS")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                }
+                
+                Text("Test real runtime connectivity for Local Agent, Gemini API, Parallel Creative Search, Grafana 11.5, and Grafana MCP.")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                
+                Button {
+                    Task {
+                        await appState.runAllIntegrationsDiagnostics()
+                    }
+                } label: {
+                    HStack {
+                        if appState.isRunningDiagnostics {
+                            ProgressView()
+                                .tint(.white)
+                                .scaleEffect(0.8)
+                            Text("Testing All Integrations...")
+                        } else {
+                            Image(systemName: "play.circle.fill")
+                            Text("Run Full Integrations Diagnostics")
+                        }
+                    }
+                    .font(.subheadline.bold())
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .background(Color.purple)
+                    .foregroundStyle(.white)
+                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                }
+                .disabled(appState.isRunningDiagnostics)
+                
+                if let diag = appState.lastDiagnosticsResult {
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Text("OVERALL STATUS:")
+                                .font(.caption2.bold())
+                                .foregroundStyle(.secondary)
+                            Spacer()
+                            Text(diag.overallStatus)
+                                .font(.caption.bold())
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 3)
+                                .background(diag.overallStatus == "PASS" ? Color.green.opacity(0.2) : Color.orange.opacity(0.2))
+                                .foregroundStyle(diag.overallStatus == "PASS" ? .green : .orange)
+                                .clipShape(Capsule())
+                        }
+                        .padding(.bottom, 4)
+                        
+                        diagItemRow(
+                            name: "Local Agent",
+                            status: diag.agent.status,
+                            details: "\(diag.agent.hostname ?? "localhost"):\(diag.agent.port ?? 8080)"
+                        )
+                        diagItemRow(
+                            name: "Gemini API",
+                            status: diag.gemini.status,
+                            details: "\(diag.gemini.model ?? "gemini-2.5-flash") (Server-Side 🔒)"
+                        )
+                        diagItemRow(
+                            name: "Parallel API",
+                            status: diag.parallel.status,
+                            details: diag.parallel.latencyMs != nil ? "\(diag.parallel.latencyMs!)ms | \(diag.parallel.resultCount ?? 0) results" : (diag.parallel.message ?? "OK")
+                        )
+                        diagItemRow(
+                            name: "Grafana 11.5",
+                            status: diag.grafana.status,
+                            details: "\(diag.grafana.url ?? "localhost:3000") | \(diag.grafana.serviceAccount ?? "OK")"
+                        )
+                        diagItemRow(
+                            name: "Grafana MCP",
+                            status: diag.grafanaMCP.status,
+                            details: "\(diag.grafanaMCP.server ?? "mcp") (JSON-RPC 2.0)"
+                        )
+                        if let tel = diag.telemetry {
+                            diagItemRow(
+                                name: "Telemetry Buffer",
+                                status: tel.status.uppercased(),
+                                details: "\(tel.sampleCount ?? 0) samples | Avg GPU \(String(format: "%.1f", tel.averageGpuTimeMs ?? 0))ms"
+                            )
+                        }
+                    }
+                    .padding(12)
+                    .background(Color(uiColor: .tertiarySystemBackground))
+                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                } else if let err = appState.diagnosticsError {
+                    Text("Diagnostics check failed: \(err)")
+                        .font(.caption2)
+                        .foregroundStyle(.red)
+                        .padding(8)
+                        .background(Color.red.opacity(0.1))
+                        .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                }
             }
+            .padding(14)
+            .background(Color(uiColor: .secondarySystemBackground))
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            
+            // Hardware Specs
+            VStack(alignment: .leading, spacing: 14) {
+                Text("SYSTEM & HARDWARE SPECIFICATIONS")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundStyle(.secondary)
+                
+                VStack(spacing: 8) {
+                    specRow(label: "Device Model", value: UIDevice.current.model)
+                    specRow(label: "System Version", value: "\(UIDevice.current.systemName) \(UIDevice.current.systemVersion)")
+                    specRow(label: "Metal Device", value: appState.metalContext.device.name)
+                    specRow(label: "GPU Family", value: "Apple Silicon Metal 3")
+                    specRow(label: "AVFoundation HW Encoding", value: "H.264 / HEVC Supported")
+                    specRow(label: "Photos Library Permission", value: "Authorized")
+                    specRow(label: "Bonjour Discovery", value: "_metalcraft._tcp Active")
+                }
+            }
+            .padding(14)
+            .background(Color(uiColor: .secondarySystemBackground))
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         }
-        .padding(14)
-        .background(Color(uiColor: .secondarySystemBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+    }
+    
+    private func diagItemRow(name: String, status: String, details: String) -> some View {
+        HStack {
+            Circle()
+                .fill(status == "PASS" || status == "NOMINAL" ? Color.green : Color.red)
+                .frame(width: 8, height: 8)
+            Text(name)
+                .font(.caption.weight(.semibold))
+            Spacer()
+            Text(details)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+            Text(status)
+                .font(.caption2.bold())
+                .foregroundStyle(status == "PASS" || status == "NOMINAL" ? .green : .red)
+        }
+        .padding(.vertical, 2)
     }
     
     // MARK: - Helpers

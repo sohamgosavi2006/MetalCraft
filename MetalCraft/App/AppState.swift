@@ -130,6 +130,11 @@ final class AppState {
     var generatedVideoURL: URL? = nil
     var generatedVideoThumbnail: UIImage? = nil
     
+    // MARK: - Diagnostics
+    var lastDiagnosticsResult: DiagnosticsResponse? = nil
+    var isRunningDiagnostics: Bool = false
+    var diagnosticsError: String? = nil
+    
     // MARK: - Services
     let metalContext: MetalContext
     let metalProcessor: MetalProcessor
@@ -1260,6 +1265,21 @@ final class AppState {
         self.projects = projectManager.loadAllProjects()
         if self.currentProject?.id == targetProject.id {
             self.currentProject = targetProject
+        }
+    }
+    
+    // MARK: - Diagnostics Action
+    
+    func runAllIntegrationsDiagnostics() async {
+        isRunningDiagnostics = true
+        diagnosticsError = nil
+        defer { isRunningDiagnostics = false }
+        
+        do {
+            let result = try await agentService.runIntegrationDiagnostics()
+            self.lastDiagnosticsResult = result
+        } catch {
+            self.diagnosticsError = error.localizedDescription
         }
     }
     

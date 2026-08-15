@@ -3,7 +3,7 @@
 //  MetalCraft
 //
 //  Manages Apple CVMetalTextureCache for high-performance CoreVideo <-> Metal
-//  texture conversion with zero CPU copy overhead.
+//  texture conversion with zero CPU copy overhead and direct GPU IOSurface rendering.
 //
 
 import Foundation
@@ -76,6 +76,33 @@ final class VideoTextureProvider: @unchecked Sendable {
         return CVMetalTextureGetTexture(cvTexture)
     }
     
+    /// Creates an MTLTexture backed directly by a destination CVPixelBuffer for direct GPU rendering.
+    func textureForWriting(to pixelBuffer: CVPixelBuffer) -> MTLTexture? {
+        guard let cache = textureCache else { return nil }
+        
+        let width = CVPixelBufferGetWidth(pixelBuffer)
+        let height = CVPixelBufferGetHeight(pixelBuffer)
+        
+        var cvTexture: CVMetalTexture?
+        let status = CVMetalTextureCacheCreateTextureFromImage(
+            kCFAllocatorDefault,
+            cache,
+            pixelBuffer,
+            nil,
+            .bgra8Unorm,
+            width,
+            height,
+            0,
+            &cvTexture
+        )
+        
+        guard status == kCVReturnSuccess, let cvTexture else {
+            return nil
+        }
+        
+        return CVMetalTextureGetTexture(cvTexture)
+    }
+    
     /// Creates a destination CVPixelBuffer from a processed MTLTexture for AVAssetWriter encoding.
     func createPixelBuffer(width: Int, height: Int, pixelBufferPool: CVPixelBufferPool? = nil) -> CVPixelBuffer? {
         if let pool = pixelBufferPool {
@@ -113,8 +140,13 @@ final class VideoTextureProvider: @unchecked Sendable {
         
         guard let baseAddress = CVPixelBufferGetBaseAddress(pixelBuffer) else { return }
         
+        let bufWidth = CVPixelBufferGetWidth(pixelBuffer)
+        let bufHeight = CVPixelBufferGetHeight(pixelBuffer)
         let bytesPerRow = CVPixelBufferGetBytesPerRow(pixelBuffer)
-        let region = MTLRegionMake2D(0, 0, texture.width, texture.height)
+        
+        let copyWidth = min(texture.width, bufWidth)
+        let copyHeight = min(texture.height, bufHeight)
+        let region = MTLRegionMake2D(0, 0, copyWidth, copyHeight)
         
         texture.getBytes(
             baseAddress,
@@ -122,6 +154,36 @@ final class VideoTextureProvider: @unchecked Sendable {
             from: region,
             mipmapLevel: 0
         )
+    }
+    
+    /// Validates that a CVPixelBuffer contains non-zero pixel data.
+    func validatePixelBufferHasContent(_ pixelBuffer: CVPixelBuffer) -> Bool {
+        CVPixelBufferLockBaseAddress(pixelBuffer, .readOnly)
+        defer { CVPixelBufferUnlockBaseAddress(pixelBuffer, .readOnly) }
+        
+        guard let baseAddress = CVPixelBufferGetBaseAddress(pixelBuffer) else { return false }
+        let bytesPerRow = CVPixelBufferGetBytesPerRow(pixelBuffer)
+        let height = CVPixelBufferGetHeight(pixelBuffer)
+        let width = CVPixelBufferGetWidth(pixelBuffer)
+        
+        let ptr = baseAddress.assumingMemoryBound(to: UInt8.self)
+        var nonZeroCount = 0
+        let stepY = max(1, height / 10)
+        let stepX = max(1, width / 10)
+        
+        for y in stride(from: 0, to: height, by: stepY) {
+            for x in stride(from: 0, to: width, by: stepX) {
+                let offset = y * bytesPerRow + x * 4
+                let b = ptr[offset]
+                let g = ptr[offset + 1]
+                let r = ptr[offset + 2]
+                if b > 5 || g > 5 || r > 5 {
+                    nonZeroCount += 1
+                }
+            }
+        }
+        
+        return nonZeroCount > 0
     }
     
     /// Flushes the texture cache to purge unused transient textures.

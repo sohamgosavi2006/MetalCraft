@@ -79,4 +79,24 @@ struct DistortionParams {
     uint32_t texHeight;    // Texture height
 };
 
+// MARK: - Video Scaling & Aspect Fit Parameters
+struct VideoScaleParams {
+    float scaleX;          // Scale factor X
+    float scaleY;          // Scale factor Y
+    float offsetX;         // Offset X [-0.5..0.5]
+    float offsetY;         // Offset Y [-0.5..0.5]
+    uint32_t targetWidth;  // Canvas width
+    uint32_t targetHeight; // Canvas height
+    float zoom;            // Ken Burns zoom [1.0..1.5]
+    float panProgress;     // Pan progress [0.0..1.0]
+};
+
+// MARK: - Video Transition Parameters
+struct TransitionParams {
+    float progress;        // [0.0..1.0]
+    uint32_t transitionType; // 0: crossfade, 1: fadeBlack, 2: wipeRight
+    uint32_t texWidth;
+    uint32_t texHeight;
+};
+
 #endif /* ShaderTypes_h */
