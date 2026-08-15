@@ -78,7 +78,7 @@ class CreativeDirector:
         telemetry: Dict[str, Any]
     ) -> Optional[Dict[str, Any]]:
         """Calls Google Gemini REST API."""
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={self.api_key}"
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={self.api_key}"
         
         system_instruction = DIRECTOR_SYSTEM_PROMPT
         user_content = f"""User Creative Intent: "{prompt}"

@@ -15,6 +15,8 @@
 		<key>NSAllowsArbitraryLoads</key>
 		<true/>
 	</dict>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>MetalCraft requires local network access to communicate with the local agent backend on your Mac.</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>remote-notification</string>
