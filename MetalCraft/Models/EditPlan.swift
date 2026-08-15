@@ -123,6 +123,21 @@ struct EditPlanAdjustments: Codable, Sendable, Equatable {
         self.gamma = gamma
     }
     
+    enum CodingKeys: String, CodingKey {
+        case brightness, contrast, exposure, saturation, temperature, tint, gamma
+    }
+    
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.brightness = try container.decodeIfPresent(Float.self, forKey: .brightness) ?? 0.0
+        self.contrast = try container.decodeIfPresent(Float.self, forKey: .contrast) ?? 1.0
+        self.exposure = try container.decodeIfPresent(Float.self, forKey: .exposure) ?? 0.0
+        self.saturation = try container.decodeIfPresent(Float.self, forKey: .saturation) ?? 1.0
+        self.temperature = try container.decodeIfPresent(Float.self, forKey: .temperature) ?? 0.0
+        self.tint = try container.decodeIfPresent(Float.self, forKey: .tint) ?? 0.0
+        self.gamma = try container.decodeIfPresent(Float.self, forKey: .gamma) ?? 1.0
+    }
+    
     static let `default` = EditPlanAdjustments()
 }
 
@@ -179,6 +194,17 @@ struct EditPlanOutput: Codable, Sendable, Equatable {
         self.aspectRatio = aspectRatio
     }
     
+    enum CodingKeys: String, CodingKey {
+        case format, quality, aspectRatio
+    }
+    
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.format = try container.decodeIfPresent(String.self, forKey: .format) ?? "jpeg"
+        self.quality = try container.decodeIfPresent(Float.self, forKey: .quality) ?? 0.95
+        self.aspectRatio = try container.decodeIfPresent(String.self, forKey: .aspectRatio)
+    }
+    
     static let `default` = EditPlanOutput()
 }
 
@@ -219,5 +245,23 @@ struct EditPlan: Identifiable, Codable, Sendable, Equatable {
         self.adjustments = adjustments
         self.operations = operations
         self.output = output
+    }
+    
+    enum CodingKeys: String, CodingKey {
+        case schemaVersion, planId, createdAt, mediaType, goal, reasoning, researchContext, adjustments, operations, output
+    }
+    
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.schemaVersion = try container.decodeIfPresent(String.self, forKey: .schemaVersion) ?? "1.0"
+        self.planId = try container.decodeIfPresent(String.self, forKey: .planId) ?? UUID().uuidString
+        self.createdAt = try container.decodeIfPresent(Date.self, forKey: .createdAt) ?? Date()
+        self.mediaType = try container.decodeIfPresent(MediaType.self, forKey: .mediaType) ?? .image
+        self.goal = try container.decodeIfPresent(String.self, forKey: .goal) ?? "Creative Enhancement"
+        self.reasoning = try container.decodeIfPresent(String.self, forKey: .reasoning) ?? ""
+        self.researchContext = try container.decodeIfPresent(String.self, forKey: .researchContext)
+        self.adjustments = try container.decodeIfPresent(EditPlanAdjustments.self, forKey: .adjustments) ?? .default
+        self.operations = try container.decodeIfPresent([EditPlanOperation].self, forKey: .operations) ?? []
+        self.output = try container.decodeIfPresent(EditPlanOutput.self, forKey: .output) ?? .default
     }
 }

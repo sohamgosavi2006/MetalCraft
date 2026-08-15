@@ -97,6 +97,21 @@ struct AgentResponse: Codable, Sendable {
         self.confidence = confidence
         self.estimatedProcessingTimeMs = estimatedProcessingTimeMs
     }
+    
+    enum CodingKeys: String, CodingKey {
+        case requestId, agentState, editPlan, reasoning, researchContext, confidence, estimatedProcessingTimeMs
+    }
+    
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.requestId = try container.decodeIfPresent(String.self, forKey: .requestId) ?? UUID().uuidString
+        self.agentState = try container.decodeIfPresent(AgentState.self, forKey: .agentState) ?? .waitingForApproval
+        self.editPlan = try container.decodeIfPresent(EditPlan.self, forKey: .editPlan)
+        self.reasoning = try container.decodeIfPresent(String.self, forKey: .reasoning)
+        self.researchContext = try container.decodeIfPresent(String.self, forKey: .researchContext)
+        self.confidence = try container.decodeIfPresent(Double.self, forKey: .confidence)
+        self.estimatedProcessingTimeMs = try container.decodeIfPresent(Double.self, forKey: .estimatedProcessingTimeMs)
+    }
 }
 
 // MARK: - Health Check DTO
