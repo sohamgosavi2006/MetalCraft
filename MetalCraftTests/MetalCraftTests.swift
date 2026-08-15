@@ -500,5 +500,169 @@ struct MetalCraftTests {
         #expect(msg.content.contains("formulated an EditPlan"))
         #expect(msg.reasoning != nil)
     }
+
+    // MARK: - Phase 2: EditPlan Executor Tests
+    
+    @Test func testEditPlanExecutorFullTranslationAndBoundsChecking() throws {
+        let executor = EditPlanExecutor()
+        
+        let adjustments = EditPlanAdjustments(
+            brightness: 0.2,
+            contrast: 1.5,
+            exposure: -0.5,
+            saturation: 1.4,
+            temperature: 0.3,
+            tint: 0.1,
+            gamma: 1.2
+        )
+        
+        let operations: [EditPlanOperation] = [
+            EditPlanOperation(type: "grayscale", enabled: true),
+            EditPlanOperation(type: "invert", enabled: true),
+            EditPlanOperation(type: "gaussianBlur", enabled: true, parameters: ["sigma": .double(4.0)]),
+            EditPlanOperation(type: "sharpen", enabled: true, parameters: ["strength": .double(1.2)]),
+            EditPlanOperation(type: "sobelEdge", enabled: true, parameters: ["strength": .double(1.5), "blend": .double(0.6)]),
+            EditPlanOperation(type: "pixelate", enabled: true, parameters: ["blockSize": .double(24.0)]),
+            EditPlanOperation(type: "ripple", enabled: true, parameters: [
+                "frequency": .double(25.0),
+                "strength": .double(0.12),
+                "radius": .double(0.6),
+                "centerX": .double(0.5),
+                "centerY": .double(0.5),
+                "phase": .double(1.0)
+            ]),
+            EditPlanOperation(type: "swirl", enabled: true, parameters: [
+                "radius": .double(0.7),
+                "strength": .double(1.5),
+                "centerX": .double(0.5),
+                "centerY": .double(0.5)
+            ]),
+            EditPlanOperation(type: "convolution", enabled: true, parameters: [
+                "kernelName": .string("Emboss"),
+                "strength": .double(0.8)
+            ])
+        ]
+        
+        let plan = EditPlan(
+            schemaVersion: "1.0",
+            planId: "plan-exec-001",
+            goal: "Complete Translation Test",
+            adjustments: adjustments,
+            operations: operations,
+            output: EditPlanOutput(format: "png", quality: 1.0)
+        )
+        
+        let result = try executor.execute(plan)
+        
+        #expect(result.pipeline.nodes.count == 9)
+        #expect(result.pipeline.enabledNodes.count == 9)
+        #expect(result.outputFormat == .png)
+        #expect(result.adjustments.brightness == 0.2)
+        #expect(result.adjustments.contrast == 1.5)
+        
+        // Verify operation mapping
+        #expect(result.pipeline.nodes[0].operation == .grayscale)
+        #expect(result.pipeline.nodes[1].operation == .invert)
+        #expect(result.pipeline.nodes[2].operation == .gaussianBlur(sigma: 4.0))
+        #expect(result.pipeline.nodes[3].operation == .sharpen(strength: 1.2))
+        #expect(result.pipeline.nodes[4].operation == .sobelEdge(strength: 1.5, blend: 0.6))
+        #expect(result.pipeline.nodes[5].operation == .pixelate(blockSize: 24.0))
+        
+        if case .ripple(let config) = result.pipeline.nodes[6].operation {
+            #expect(config.frequency == 25.0)
+            #expect(config.strength == 0.12)
+        } else {
+            Issue.record("Node 6 was not ripple")
+        }
+        
+        if case .swirl(let config) = result.pipeline.nodes[7].operation {
+            #expect(config.radius == 0.7)
+            #expect(config.strength == 1.5)
+        } else {
+            Issue.record("Node 7 was not swirl")
+        }
+        
+        if case .convolution(let kernel, let strength) = result.pipeline.nodes[8].operation {
+            #expect(kernel.name == ConvolutionKernel.emboss.name)
+            #expect(strength == 0.8)
+        } else {
+            Issue.record("Node 8 was not convolution")
+        }
+    }
+    
+    @Test func testEditPlanExecutorDefensiveBoundsClamping() throws {
+        let executor = EditPlanExecutor()
+        
+        // Out-of-bounds adjustments and operations
+        let extremeAdjustments = EditPlanAdjustments(
+            brightness: 99.0,   // Max is 1.0
+            contrast: -50.0,    // Min is 0.0
+            exposure: 100.0,    // Max is 3.0
+            saturation: -10.0,  // Min is 0.0
+            temperature: 5.0,   // Max is 1.0
+            tint: -5.0,         // Min is -1.0
+            gamma: 100.0        // Max is 3.0
+        )
+        
+        let extremeOp = EditPlanOperation(
+            type: "gaussianBlur",
+            enabled: true,
+            parameters: ["sigma": .double(9999.0)] // Max is 50.0
+        )
+        
+        let plan = EditPlan(
+            goal: "Extreme Bounds Clamping",
+            adjustments: extremeAdjustments,
+            operations: [extremeOp]
+        )
+        
+        let result = try executor.execute(plan)
+        
+        #expect(result.adjustments.brightness == 1.0)
+        #expect(result.adjustments.contrast == 0.0)
+        #expect(result.adjustments.exposure == 3.0)
+        #expect(result.adjustments.saturation == 0.0)
+        #expect(result.adjustments.temperature == 1.0)
+        #expect(result.adjustments.tint == -1.0)
+        #expect(result.adjustments.gamma == 3.0)
+        
+        #expect(result.pipeline.nodes[0].operation == .gaussianBlur(sigma: 50.0))
+    }
+    
+    @Test func testEditPlanExecutorErrorHandling() throws {
+        let executor = EditPlanExecutor()
+        
+        // 1. Invalid schema version
+        let invalidVersionPlan = EditPlan(
+            schemaVersion: "99.0",
+            goal: "Invalid Version"
+        )
+        #expect(throws: EditPlanExecutionError.self) {
+            try executor.execute(invalidVersionPlan)
+        }
+        
+        // 2. Unknown operation type
+        let unknownOpPlan = EditPlan(
+            goal: "Unknown Op",
+            operations: [EditPlanOperation(type: "arbitraryMaliciousCodeInjection")]
+        )
+        #expect(throws: EditPlanExecutionError.self) {
+            try executor.execute(unknownOpPlan)
+        }
+        
+        // 3. Exceeded operations limit
+        var tooManyOps: [EditPlanOperation] = []
+        for i in 0..<25 {
+            tooManyOps.append(EditPlanOperation(type: "grayscale"))
+        }
+        let excessivePlan = EditPlan(
+            goal: "Too Many Ops",
+            operations: tooManyOps
+        )
+        #expect(throws: EditPlanExecutionError.self) {
+            try executor.execute(excessivePlan)
+        }
+    }
 }
+
 

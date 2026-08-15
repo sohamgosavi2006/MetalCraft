@@ -120,6 +120,11 @@ final class AppState {
     // MARK: - Presets
     var presets: [Preset] = []
     
+    // MARK: - Agentic Creative Director
+    var activeEditPlan: EditPlan? = nil
+    var agentState: AgentState = .idle
+    var agentMessages: [AgentMessage] = []
+    
     // MARK: - Services
     let metalContext: MetalContext
     let metalProcessor: MetalProcessor
@@ -133,12 +138,14 @@ final class AppState {
     let videoManager: VideoManager
     let videoExportService: VideoExportService
     let videoPlayerController: VideoPlayerController
+    let editPlanExecutor: EditPlanExecutor
     
     init(metalContext: MetalContext? = nil) {
         guard let context = metalContext ?? MetalContext() else {
             fatalError("MetalCraft requires Metal support. No MTLDevice or default library found.")
         }
         self.metalContext = context
+        self.editPlanExecutor = EditPlanExecutor()
         let processor = MetalProcessor(context: context)
         self.metalProcessor = processor
         self.benchmarkEngine = BenchmarkEngine(metalProcessor: processor)
@@ -910,6 +917,19 @@ final class AppState {
         self.pipeline = preset.pipeline
         self.activeAdjustments = .default
         reprocessImage()
+    }
+    
+    // MARK: - Agentic EditPlan Application
+    
+    func applyEditPlan(_ plan: EditPlan) throws {
+        recordUndoSnapshot()
+        let result = try editPlanExecutor.execute(plan)
+        self.pipeline = result.pipeline
+        self.activeAdjustments = result.adjustments
+        self.activeEditPlan = plan
+        self.agentState = .executing
+        reprocessImage()
+        self.agentState = .completed
     }
     
     func saveCurrentAsPreset(name: String) {
