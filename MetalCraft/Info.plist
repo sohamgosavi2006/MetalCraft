@@ -8,6 +8,13 @@
 	<string>Metal Craft requires photo library access to import images for GPU processing and save exported results.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>Metal Craft requires photo library access to save exported images to your Photo Library.</string>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+		<key>NSAllowsArbitraryLoads</key>
+		<true/>
+	</dict>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>remote-notification</string>

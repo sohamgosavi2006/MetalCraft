@@ -126,10 +126,18 @@ enum AgentServiceError: LocalizedError, Equatable {
 final class AgentService: Sendable {
     private let session: URLSession
     
-    /// Default local development endpoint (configurable)
+    /// Default local development endpoint (dynamically resolves Mac IP on physical iOS devices)
+    static var defaultEndpointURL: String {
+        #if targetEnvironment(simulator)
+        return "http://127.0.0.1:8080"
+        #else
+        return "http://10.3.12.210:8080"
+        #endif
+    }
+    
     var endpointBaseURLString: String {
         get {
-            UserDefaults.standard.string(forKey: "AgentEndpointURL") ?? "http://127.0.0.1:8080"
+            UserDefaults.standard.string(forKey: "AgentEndpointURL") ?? Self.defaultEndpointURL
         }
         set {
             UserDefaults.standard.set(newValue, forKey: "AgentEndpointURL")

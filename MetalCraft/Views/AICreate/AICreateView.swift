@@ -68,6 +68,16 @@ struct AICreateView: View {
             .navigationTitle("AI Create")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button {
+                        isShowingSettings = true
+                    } label: {
+                        Image(systemName: "gearshape")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                
                 ToolbarItem(placement: .topBarTrailing) {
                     if !appState.agentMessages.isEmpty {
                         Button {
@@ -78,6 +88,109 @@ struct AICreateView: View {
                                 .foregroundStyle(.secondary)
                         }
                     }
+                }
+            }
+            .sheet(isPresented: $isShowingSettings) {
+                agentSettingsSheet
+            }
+        }
+    }
+    
+    @State private var isShowingSettings: Bool = false
+    @State private var endpointURLInput: String = ""
+    @State private var pingResultText: String? = nil
+    @State private var isPinging: Bool = false
+    
+    private var agentSettingsSheet: some View {
+        NavigationStack {
+            Form {
+                Section(header: Text("Agent Backend Configuration")) {
+                    TextField("http://10.3.12.210:8080", text: $endpointURLInput)
+                        .autocorrectionDisabled()
+                        .textInputAutocapitalization(.never)
+                        .keyboardType(.URL)
+                    
+                    Button("Set to Current Mac IP (10.3.12.210:8080)") {
+                        endpointURLInput = "http://10.3.12.210:8080"
+                    }
+                    
+                    Button("Set to Localhost (127.0.0.1:8080)") {
+                        endpointURLInput = "http://127.0.0.1:8080"
+                    }
+                }
+                
+                Section(header: Text("Connection Test")) {
+                    Button {
+                        testConnection()
+                    } label: {
+                        HStack {
+                            Text("Test Connection to Backend")
+                            if isPinging {
+                                Spacer()
+                                ProgressView()
+                            }
+                        }
+                    }
+                    .disabled(isPinging)
+                    
+                    if let result = pingResultText {
+                        Text(result)
+                            .font(.caption)
+                            .foregroundStyle(result.contains("Success") ? .green : .red)
+                    }
+                }
+            }
+            .navigationTitle("Agent Settings")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button("Cancel") {
+                        isShowingSettings = false
+                    }
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Save") {
+                        appState.agentService.endpointBaseURLString = endpointURLInput
+                        isShowingSettings = false
+                    }
+                    .fontWeight(.bold)
+                }
+            }
+            .onAppear {
+                endpointURLInput = appState.agentService.endpointBaseURLString
+                pingResultText = nil
+            }
+        }
+    }
+    
+    private func testConnection() {
+        isPinging = true
+        pingResultText = nil
+        guard let url = URL(string: "\(endpointURLInput)/health") else {
+            pingResultText = "Invalid URL format"
+            isPinging = false
+            return
+        }
+        
+        Task {
+            do {
+                let (data, response) = try await URLSession.shared.data(from: url)
+                if let httpResp = response as? HTTPURLResponse, (200...299).contains(httpResp.statusCode) {
+                    let str = String(data: data, encoding: .utf8) ?? "OK"
+                    await MainActor.run {
+                        pingResultText = "Success! Server responded: \(str)"
+                        isPinging = false
+                    }
+                } else {
+                    await MainActor.run {
+                        pingResultText = "Server error (HTTP \((response as? HTTPURLResponse)?.statusCode ?? 0))"
+                        isPinging = false
+                    }
+                }
+            } catch {
+                await MainActor.run {
+                    pingResultText = "Connection failed: \(error.localizedDescription)"
+                    isPinging = false
                 }
             }
         }
