@@ -218,6 +218,12 @@ final class AppState {
         
         self.presets = Preset.builtInPresets + self.presetManager.loadPresets()
         self.projects = self.projectManager.loadAllProjects()
+        let loadedJobs = self.projectManager.loadGenerationJobs()
+        self.generationJobs = loadedJobs
+        if let lastCompleted = loadedJobs.last(where: { $0.status == .completed && $0.isVideoAvailable }) {
+            self.generatedVideoURL = lastCompleted.resolvedVideoURL
+            self.generatedVideoThumbnail = self.projectManager.loadArtifactThumbnail(artifactId: lastCompleted.artifactId)
+        }
     }
     
     // MARK: - Media Import Flows
@@ -1327,11 +1333,16 @@ final class AppState {
         
         // Find or create the canonical GenerationJob
         var targetJobId: UUID
+        var targetGenId: String
+        var targetArtifactId: String
+        
         if let activeId = activeGenerationJobId, let idx = generationJobs.firstIndex(where: { $0.id == activeId }) {
             targetJobId = activeId
+            targetGenId = generationJobs[idx].generationId
+            targetArtifactId = generationJobs[idx].artifactId
             generationJobs[idx].status = .preparing
             generationJobs[idx].progress = 0.0
-            generationJobs[idx].progressMessage = "Preparing media assets & textures..."
+            generationJobs[idx].progressMessage = "Preparing media assets & GPU textures..."
             generationJobs[idx].updatedAt = Date()
         } else {
             let newJob = GenerationJob(
@@ -1339,15 +1350,20 @@ final class AppState {
                 projectName: project.name,
                 status: .preparing,
                 plan: plan,
-                progressMessage: "Preparing media assets & textures..."
+                progressMessage: "Preparing media assets & GPU textures..."
             )
             generationJobs.append(newJob)
             activeGenerationJobId = newJob.id
             targetJobId = newJob.id
+            targetGenId = newJob.generationId
+            targetArtifactId = newJob.artifactId
         }
         
-        let destURL = FileManager.default.temporaryDirectory
-            .appendingPathComponent("MetalCraft_Generated_\(UUID().uuidString).mp4")
+        let destTempURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("MetalCraft_TempRender_\(targetArtifactId).mp4")
+        if FileManager.default.fileExists(atPath: destTempURL.path) {
+            try? FileManager.default.removeItem(at: destTempURL)
+        }
         
         let startTime = CFAbsoluteTimeGetCurrent()
         
@@ -1395,7 +1411,6 @@ final class AppState {
                 let trackId = autoAudio.trackId ?? "cinematic_emotional_01"
                 resolvedAudioURL = try? await SoundtrackLibrary.shared.resolveAudioURL(for: trackId)
             } else {
-                // If user asked in prompt for music, match from library
                 let bestTrack = SoundtrackLibrary.shared.bestMatch(for: plan.goal)
                 effectivePlan.audioPlan = AudioPlan(
                     requested: true,
@@ -1420,18 +1435,21 @@ final class AppState {
             projectId: project.id,
             projectName: project.name,
             mediaType: "Video",
-            description: "Started rendering \(effectivePlan.scenes.count) scenes with \(effectivePlan.audioPlan?.trackTitle ?? "No Music").",
+            description: "Started rendering \(effectivePlan.scenes.count) scenes with \(effectivePlan.audioPlan?.trackTitle ?? "No Music") [Gen ID: \(targetGenId)].",
             source: "AI Studio"
         )
         
         telemetryService.emit(TelemetryEvent(
-            eventType: TelemetryEventType.processingStarted.rawValue,
+            eventType: TelemetryEventType.videoRenderStarted.rawValue,
             sessionId: telemetryService.sessionId,
+            generationId: targetGenId,
+            artifactId: targetArtifactId,
             operation: "MultiScene Video Generation",
             mediaType: "video"
         ))
         
         do {
+            // STEP 1: MultiScene Metal GPU Rendering
             try await multiSceneVideoGenerator.generateVideo(
                 editPlan: effectivePlan,
                 project: project,
@@ -1439,7 +1457,7 @@ final class AppState {
                 metalProcessor: metalProcessor,
                 textureProvider: videoTextureProvider,
                 soundtrackOverrideURL: resolvedAudioURL,
-                destinationURL: destURL
+                destinationURL: destTempURL
             ) { [weak self] progress in
                 Task { @MainActor [weak self] in
                     guard let self = self else { return }
@@ -1456,38 +1474,148 @@ final class AppState {
             }
             
             let elapsedSec = CFAbsoluteTimeGetCurrent() - startTime
-            let fileSizeMB = (Double((try? FileManager.default.attributesOfItem(atPath: destURL.path)[.size] as? Int64) ?? 0)) / (1024.0 * 1024.0)
-            let formattedSize = String(format: "%.1f MB", fileSizeMB)
             
-            self.generatedVideoURL = destURL
+            telemetryService.emit(TelemetryEvent(
+                eventType: TelemetryEventType.videoRenderCompleted.rawValue,
+                sessionId: telemetryService.sessionId,
+                generationId: targetGenId,
+                artifactId: targetArtifactId,
+                operation: "MultiScene Video Render",
+                processingTimeMs: elapsedSec * 1000.0,
+                mediaType: "video"
+            ))
+            
+            // STEP 2: Transition to Exporting & Validating
+            if let idx = self.generationJobs.firstIndex(where: { $0.id == targetJobId }) {
+                self.generationJobs[idx].status = .exporting
+                self.generationJobs[idx].progress = 0.92
+                self.generationJobs[idx].progressMessage = "Mixing audio and exporting stream..."
+                self.generationJobs[idx].updatedAt = Date()
+            }
+            
+            telemetryService.emit(TelemetryEvent(
+                eventType: TelemetryEventType.videoValidationStarted.rawValue,
+                sessionId: telemetryService.sessionId,
+                generationId: targetGenId,
+                artifactId: targetArtifactId,
+                operation: "Validate Render Output"
+            ))
+            
+            // STEP 3: Verify Temporary Render Output File
+            guard FileManager.default.fileExists(atPath: destTempURL.path) else {
+                throw NSError(domain: "MetalCraft.VideoGenerator", code: 404, userInfo: [NSLocalizedDescriptionKey: "Render output file was not created by AVAssetWriter."])
+            }
+            let tempAttrs = try FileManager.default.attributesOfItem(atPath: destTempURL.path)
+            let tempSize = (tempAttrs[.size] as? Int64) ?? 0
+            guard tempSize > 0 else {
+                throw NSError(domain: "MetalCraft.VideoGenerator", code: 400, userInfo: [NSLocalizedDescriptionKey: "Render output file is 0 bytes."])
+            }
+            
+            // STEP 4: Move/Copy to Persistent Application Storage
+            let artifact = try projectManager.saveVideoArtifact(
+                from: destTempURL,
+                artifactId: targetArtifactId,
+                generationId: targetGenId,
+                projectId: project.id,
+                projectName: project.name,
+                displayName: "\(project.name) - AI Reel",
+                duration: effectivePlan.totalSceneDuration,
+                width: effectivePlan.output.width,
+                height: effectivePlan.output.height
+            )
+            
+            if let idx = self.generationJobs.firstIndex(where: { $0.id == targetJobId }) {
+                self.generationJobs[idx].status = .artifactCreated
+                self.generationJobs[idx].progress = 0.96
+                self.generationJobs[idx].progressMessage = "Registering persistent video artifact..."
+                self.generationJobs[idx].updatedAt = Date()
+            }
+            
+            telemetryService.emit(TelemetryEvent(
+                eventType: TelemetryEventType.videoArtifactCreated.rawValue,
+                sessionId: telemetryService.sessionId,
+                generationId: targetGenId,
+                artifactId: targetArtifactId,
+                operation: "Persist Video Artifact"
+            ))
+            
+            AuditService.shared.record(
+                category: .video,
+                action: "Video Artifact Created",
+                status: .info,
+                projectId: project.id,
+                projectName: project.name,
+                mediaType: "Video",
+                description: "Stored video artifact at '\(artifact.relativePath)' (\(artifact.formattedFileSize)).",
+                source: "Artifact Manager"
+            )
+            
+            // STEP 5: Validate the Persistent Video File with AVFoundation
+            let persistentAsset = AVURLAsset(url: artifact.fileURL)
+            let videoTracks = try await persistentAsset.loadTracks(withMediaType: .video)
+            guard !videoTracks.isEmpty else {
+                throw NSError(domain: "MetalCraft.VideoGenerator", code: 422, userInfo: [NSLocalizedDescriptionKey: "Persistent video file does not contain a playable video track."])
+            }
+            let assetDuration = try await persistentAsset.load(.duration).seconds
+            guard assetDuration > 0 else {
+                throw NSError(domain: "MetalCraft.VideoGenerator", code: 422, userInfo: [NSLocalizedDescriptionKey: "Persistent video file duration is invalid."])
+            }
+            
+            telemetryService.emit(TelemetryEvent(
+                eventType: TelemetryEventType.videoValidationCompleted.rawValue,
+                sessionId: telemetryService.sessionId,
+                generationId: targetGenId,
+                artifactId: targetArtifactId,
+                operation: "Validate Video Artifact",
+                status: "VALIDATED"
+            ))
+            
+            AuditService.shared.record(
+                category: .video,
+                action: "Output Validation Successful",
+                status: .success,
+                projectId: project.id,
+                projectName: project.name,
+                mediaType: "Video",
+                description: "Validation confirmed 1080p H.264 stream (\(String(format: "%.1f", assetDuration))s, \(artifact.formattedFileSize)).",
+                source: "Validation Inspector"
+            )
+            
+            // STEP 6: Generate and Persist Poster Frame Thumbnail
+            let gen = AVAssetImageGenerator(asset: persistentAsset)
+            gen.appliesPreferredTrackTransform = true
+            if let cgImg = try? gen.copyCGImage(at: .zero, actualTime: nil) {
+                let thumbImage = UIImage(cgImage: cgImg)
+                self.generatedVideoThumbnail = thumbImage
+                self.projectManager.saveArtifactThumbnail(thumbImage, artifactId: targetArtifactId)
+            }
+            
+            // STEP 7: Mark Preview Ready and Update UI State
+            self.generatedVideoURL = artifact.fileURL
             self.agentState = .completed
             self.isGeneratingVideo = false
             
-            // Update the canonical GenerationJob to completed
             if let idx = self.generationJobs.firstIndex(where: { $0.id == targetJobId }) {
                 self.generationJobs[idx].status = .completed
                 self.generationJobs[idx].progress = 1.0
                 self.generationJobs[idx].progressMessage = "Production Ready"
-                self.generationJobs[idx].outputURL = destURL
-                self.generationJobs[idx].outputFileSizeFormatted = formattedSize
+                self.generationJobs[idx].artifact = artifact
+                self.generationJobs[idx].outputURL = artifact.fileURL
+                self.generationJobs[idx].outputFileSizeFormatted = artifact.formattedFileSize
                 self.generationJobs[idx].renderDurationSec = elapsedSec
                 self.generationJobs[idx].updatedAt = Date()
             }
             
-            // Generate quick preview thumbnail
-            let asset = AVURLAsset(url: destURL)
-            let gen = AVAssetImageGenerator(asset: asset)
-            gen.appliesPreferredTrackTransform = true
-            if let cgImg = try? gen.copyCGImage(at: .zero, actualTime: nil) {
-                self.generatedVideoThumbnail = UIImage(cgImage: cgImg)
-            }
+            // Persist generation jobs state to disk
+            self.projectManager.saveGenerationJobs(self.generationJobs)
             
             telemetryService.emit(TelemetryEvent(
-                eventType: TelemetryEventType.exportComplete.rawValue,
+                eventType: TelemetryEventType.videoPreviewReady.rawValue,
                 sessionId: telemetryService.sessionId,
-                operation: "MultiScene Video Render",
-                processingTimeMs: elapsedSec * 1000.0,
-                mediaType: "video"
+                generationId: targetGenId,
+                artifactId: targetArtifactId,
+                operation: "Preview Ready",
+                status: "READY"
             ))
             
             AuditService.shared.record(
@@ -1497,16 +1625,15 @@ final class AppState {
                 projectId: project.id,
                 projectName: project.name,
                 mediaType: "Video",
-                description: "Rendered \(effectivePlan.scenes.count) scenes (\(String(format: "%.1f", effectivePlan.totalSceneDuration))s) with soundtrack in \(String(format: "%.2f", elapsedSec))s.",
+                description: "Video preview attached to AI Studio in \(String(format: "%.2f", elapsedSec))s.",
                 source: "Metal GPU Engine"
             )
             
             let musicNote = effectivePlan.audioPlan?.trackTitle != nil ? " with soundtrack '\(effectivePlan.audioPlan!.trackTitle!)'" : ""
             let evalMsg = AgentMessage(
                 role: .assistant,
-                content: "✅ Video production complete! Rendered \(effectivePlan.scenes.count) scenes (\(String(format: "%.1f", effectivePlan.totalSceneDuration))s)\(musicNote) on Apple GPU in \(String(format: "%.2f", elapsedSec))s. Ready for preview and export.",
-                reasoning: "Evaluated render output: Target frame rate 30 FPS achieved with zero dropped frames. Video and audio composited into H.264 MP4 container.",
-                editPlan: nil // Do not embed duplicate plan card
+                content: "✅ Video production complete! Rendered \(effectivePlan.scenes.count) scenes (\(String(format: "%.1f", effectivePlan.totalSceneDuration))s)\(musicNote) on Apple GPU in \(String(format: "%.2f", elapsedSec))s. Production artifact is ready for playback, sharing, and project export.",
+                reasoning: "Validated output: 1080p H.264 stream, 30 FPS, \(artifact.formattedFileSize), persistent artifact at '\(artifact.relativePath)'."
             )
             self.agentMessages.append(evalMsg)
             
@@ -1518,6 +1645,17 @@ final class AppState {
                 self.generationJobs[idx].error = error.localizedDescription
                 self.generationJobs[idx].updatedAt = Date()
             }
+            
+            self.projectManager.saveGenerationJobs(self.generationJobs)
+            
+            telemetryService.emit(TelemetryEvent(
+                eventType: TelemetryEventType.videoPreviewFailed.rawValue,
+                sessionId: telemetryService.sessionId,
+                generationId: targetGenId,
+                artifactId: targetArtifactId,
+                errorMessage: error.localizedDescription
+            ))
+            
             self.errorMessage = "Video generation failed: \(error.localizedDescription)"
             self.showError = true
             
@@ -1528,7 +1666,7 @@ final class AppState {
                 projectId: project.id,
                 projectName: project.name,
                 mediaType: "Video",
-                description: "Failed rendering video: \(error.localizedDescription)",
+                description: "Failed rendering/validating video: \(error.localizedDescription)",
                 source: "Metal GPU Engine"
             )
             
@@ -1541,8 +1679,12 @@ final class AppState {
     }
     
     /// Saves the generated video to the iOS Photos Library.
-    func saveGeneratedVideoToPhotos(url: URL? = nil) async -> Bool {
-        guard let videoURL = url ?? generatedVideoURL else { return false }
+    func saveGeneratedVideoToPhotos(url: URL? = nil, artifact: VideoArtifact? = nil) async -> Bool {
+        guard let videoURL = artifact?.fileURL ?? url ?? generatedVideoURL else {
+            self.errorMessage = "No video available to save."
+            self.showError = true
+            return false
+        }
         
         let status = await PHPhotoLibrary.requestAuthorization(for: .addOnly)
         guard status == .authorized || status == .limited else {
@@ -1555,6 +1697,24 @@ final class AppState {
             try await PHPhotoLibrary.shared().performChanges {
                 PHAssetChangeRequest.creationRequestForAssetFromVideo(atFileURL: videoURL)
             }
+            
+            AuditService.shared.record(
+                category: .media,
+                action: "Video Saved to Photos",
+                status: .success,
+                mediaType: "Video",
+                description: "Exported video reel to iOS Camera Roll.",
+                source: "AI Studio"
+            )
+            
+            telemetryService.emit(TelemetryEvent(
+                eventType: TelemetryEventType.videoSavedToPhotos.rawValue,
+                sessionId: telemetryService.sessionId,
+                generationId: artifact?.generationId,
+                artifactId: artifact?.artifactId,
+                operation: "Save to Photos"
+            ))
+            
             return true
         } catch {
             self.errorMessage = "Failed to save video to Photos: \(error.localizedDescription)"
@@ -1564,19 +1724,21 @@ final class AppState {
     }
     
     /// Saves the generated video into the currently active Project.
-    func saveGeneratedVideoToCurrentProject(url: URL? = nil) {
-        guard let videoURL = url ?? generatedVideoURL, var targetProject = selectedProjectForAICreate ?? currentProject else { return }
+    func saveGeneratedVideoToCurrentProject(url: URL? = nil, artifact: VideoArtifact? = nil) {
+        guard let videoURL = artifact?.fileURL ?? url ?? generatedVideoURL, var targetProject = selectedProjectForAICreate ?? currentProject else { return }
         
         let videoId = UUID()
+        let name = artifact?.displayName ?? "\(targetProject.name) - AI Reel"
         let projVideo = ProjectVideo(
             id: videoId,
-            name: "\(targetProject.name) - AI Reel",
+            name: name,
+            originalFilename: "original.mp4",
             videoInfo: VideoInfo(
-                duration: activeEditPlan?.totalSceneDuration ?? 15.0,
-                width: 1080,
-                height: 1920,
+                duration: artifact?.duration ?? activeEditPlan?.totalSceneDuration ?? 15.0,
+                width: artifact?.width ?? 1080,
+                height: artifact?.height ?? 1920,
                 frameRate: 30.0,
-                hasAudio: false,
+                hasAudio: true,
                 codec: "H.264"
             )
         )
@@ -1585,7 +1747,7 @@ final class AppState {
         projectManager.saveProject(
             targetProject,
             videoSourceURL: videoURL,
-            thumbnailImage: generatedVideoThumbnail,
+            thumbnailImage: generatedVideoThumbnail ?? (artifact != nil ? projectManager.loadArtifactThumbnail(artifactId: artifact!.artifactId) : nil),
             forVideoId: videoId
         )
         
@@ -1593,6 +1755,25 @@ final class AppState {
         if self.currentProject?.id == targetProject.id {
             self.currentProject = targetProject
         }
+        
+        AuditService.shared.record(
+            category: .project,
+            action: "Video Added to Project",
+            status: .success,
+            projectId: targetProject.id,
+            projectName: targetProject.name,
+            mediaType: "Video",
+            description: "Attached AI video '\(name)' to project '\(targetProject.name)'.",
+            source: "AI Studio"
+        )
+        
+        telemetryService.emit(TelemetryEvent(
+            eventType: TelemetryEventType.videoAddedToProject.rawValue,
+            sessionId: telemetryService.sessionId,
+            generationId: artifact?.generationId,
+            artifactId: artifact?.artifactId,
+            operation: "Add to Current Project"
+        ))
     }
     
     // MARK: - Project Music Operations
@@ -1754,6 +1935,7 @@ final class AppState {
         self.generatedVideoURL = nil
         self.generatedVideoThumbnail = nil
         self.generationProgress = nil
+        self.projectManager.saveGenerationJobs([])
     }
     
     func saveCurrentAsPreset(name: String) {

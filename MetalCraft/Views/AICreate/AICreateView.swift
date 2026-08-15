@@ -5,8 +5,8 @@
 //  Agentic Media-Production Workspace connecting SwiftUI to Gemini Creative Director,
 //  Parallel creative research, multi-scene timeline synthesis, soundtrack audio composition,
 //  and real-time Apple Metal GPU video generation from project media.
-//  Implements idempotent GenerationJob artifact separation, robust video playback preview,
-//  and dedicated landscape layout.
+//  Implements idempotent GenerationJob artifact separation, persistent VideoArtifact preview,
+//  native ShareSheet, Add-to-Project sheet, and dedicated landscape split layout.
 //
 
 import SwiftUI
@@ -226,16 +226,16 @@ struct AICreateView: View {
                 },
                 onSaveToPhotos: {
                     Task {
-                        let targetURL = job.outputURL ?? appState.generatedVideoURL
-                        let ok = await appState.saveGeneratedVideoToPhotos(url: targetURL)
+                        let targetURL = job.resolvedVideoURL ?? job.outputURL ?? appState.generatedVideoURL
+                        let ok = await appState.saveGeneratedVideoToPhotos(url: targetURL, artifact: job.artifact)
                         if ok {
                             isShowingPhotosSuccessAlert = true
                         }
                     }
                 },
                 onAddToProject: {
-                    let targetURL = job.outputURL ?? appState.generatedVideoURL
-                    appState.saveGeneratedVideoToCurrentProject(url: targetURL)
+                    let targetURL = job.resolvedVideoURL ?? job.outputURL ?? appState.generatedVideoURL
+                    appState.saveGeneratedVideoToCurrentProject(url: targetURL, artifact: job.artifact)
                     isShowingProjectSuccessAlert = true
                 }
             )
@@ -619,10 +619,15 @@ struct AICreateView: View {
 
 struct GenerationJobCard: View {
     let job: GenerationJob
-    let appState: AppState
+    @Bindable var appState: AppState
     let onGenerate: () -> Void
     let onSaveToPhotos: () -> Void
     let onAddToProject: () -> Void
+    
+    @State private var showingShareSheet: Bool = false
+    @State private var showingAddToProjectSheet: Bool = false
+    @State private var addedProjectName: String? = nil
+    @State private var showingProjectAddedAlert: Bool = false
     
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -631,9 +636,9 @@ struct GenerationJobCard: View {
             switch job.status {
             case .planning:
                 EditPlanPreviewView(plan: job.plan, onApply: { _ in onGenerate() })
-            case .preparing, .processing, .rendering, .exporting, .validating:
+            case .preparing, .processing, .rendering, .exporting, .validating, .artifactCreated:
                 renderingProgressBody
-            case .completed:
+            case .previewReady, .completed:
                 completedVideoBody
             case .failed:
                 failedErrorBody
@@ -701,47 +706,123 @@ struct GenerationJobCard: View {
     
     @ViewBuilder
     private var completedVideoBody: some View {
-        if let videoURL = job.outputURL ?? appState.generatedVideoURL {
+        if let videoURL = job.resolvedVideoURL ?? job.outputURL ?? appState.generatedVideoURL {
             VStack(alignment: .leading, spacing: 10) {
+                // Interactive Video Preview Player
                 AICreateVideoPreviewPlayer(
                     videoURL: videoURL,
-                    thumbnail: appState.generatedVideoThumbnail,
+                    thumbnail: appState.generatedVideoThumbnail ?? (job.artifact != nil ? appState.projectManager.loadArtifactThumbnail(artifactId: job.artifactId) : nil),
                     aspectRatioString: job.plan.aspectRatio ?? job.plan.output.aspectRatio ?? appState.aiCreateAspectRatio
                 )
                 
-                HStack {
-                    Text("1080p • 30 FPS • AAC • \(job.outputFileSizeFormatted ?? "H.264")")
-                        .font(.caption2.weight(.medium))
-                        .foregroundStyle(.secondary)
-                    Spacer()
-                    if let dur = job.renderDurationSec {
-                        Text("Render: \(String(format: "%.1f", dur))s")
-                            .font(.caption2)
-                            .foregroundStyle(.tertiary)
-                    }
-                }
-                
-                HStack(spacing: 12) {
-                    Button(action: onSaveToPhotos) {
-                        Label("Save to Photos", systemImage: "square.and.arrow.down")
-                            .font(.caption.weight(.semibold))
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 10)
-                            .background(Color.purple)
-                            .foregroundStyle(.white)
-                            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                // Specifications & Validation Checklist
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack {
+                        Text(job.artifact?.displayName ?? "\(job.projectName ?? "MetalCraft") - Reel")
+                            .font(.caption.weight(.bold))
+                            .foregroundStyle(.primary)
+                        Spacer()
+                        if let dur = job.renderDurationSec {
+                            Text("Render: \(String(format: "%.1f", dur))s")
+                                .font(.caption2)
+                                .foregroundStyle(.tertiary)
+                        }
                     }
                     
-                    Button(action: onAddToProject) {
-                        Label("Add to Project", systemImage: "folder.badge.plus")
+                    HStack(spacing: 8) {
+                        Text("1080p • 30 FPS • AAC • \(job.outputFileSizeFormatted ?? "H.264")")
+                            .font(.caption2.weight(.medium))
+                            .foregroundStyle(.secondary)
+                        
+                        Spacer()
+                        
+                        HStack(spacing: 6) {
+                            Label("Rendered", systemImage: "checkmark.circle.fill")
+                                .font(.system(size: 10, weight: .semibold))
+                                .foregroundStyle(.green)
+                            Label("Validated", systemImage: "checkmark.shield.fill")
+                                .font(.system(size: 10, weight: .semibold))
+                                .foregroundStyle(.green)
+                        }
+                    }
+                }
+                .padding(.horizontal, 2)
+                
+                // Action Buttons: Share, Add to Project, Save to Photos
+                HStack(spacing: 8) {
+                    Button {
+                        showingShareSheet = true
+                        appState.telemetryService.emit(TelemetryEvent(
+                            eventType: TelemetryEventType.videoShared.rawValue,
+                            sessionId: appState.telemetryService.sessionId,
+                            generationId: job.generationId,
+                            artifactId: job.artifactId,
+                            operation: "Share Video"
+                        ))
+                    } label: {
+                        Label("Share", systemImage: "square.and.arrow.up")
                             .font(.caption.weight(.semibold))
                             .frame(maxWidth: .infinity)
-                            .padding(.vertical, 10)
+                            .padding(.vertical, 9)
                             .background(Color(uiColor: .tertiarySystemBackground))
                             .foregroundStyle(.primary)
                             .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                     }
+                    
+                    Button {
+                        showingAddToProjectSheet = true
+                    } label: {
+                        Label("Add to Project", systemImage: "folder.badge.plus")
+                            .font(.caption.weight(.semibold))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 9)
+                            .background(Color(uiColor: .tertiarySystemBackground))
+                            .foregroundStyle(.primary)
+                            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    }
+                    
+                    Button(action: onSaveToPhotos) {
+                        Label("Save", systemImage: "square.and.arrow.down")
+                            .font(.caption.weight(.semibold))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 9)
+                            .background(Color.purple)
+                            .foregroundStyle(.white)
+                            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    }
                 }
+            }
+            .sheet(isPresented: $showingShareSheet) {
+                ShareSheet(activityItems: [videoURL])
+            }
+            .sheet(isPresented: $showingAddToProjectSheet) {
+                let artifact = job.artifact ?? VideoArtifact(
+                    generationId: job.generationId,
+                    artifactId: job.artifactId,
+                    projectId: job.projectId,
+                    projectName: job.projectName,
+                    relativePath: "Artifacts/\(job.artifactId).mp4",
+                    displayName: "\(job.projectName ?? "MetalCraft") - AI Reel",
+                    duration: job.plan.totalSceneDuration,
+                    width: job.plan.output.width,
+                    height: job.plan.output.height,
+                    formattedFileSize: job.outputFileSizeFormatted ?? ""
+                )
+                AddToProjectSheet(appState: appState, artifact: artifact) { targetProj in
+                    addedProjectName = targetProj.name
+                    showingProjectAddedAlert = true
+                }
+            }
+            .alert("Added to Project", isPresented: $showingProjectAddedAlert) {
+                Button("OK") {}
+            } message: {
+                Text("Video reel successfully added to '\(addedProjectName ?? "Project")'.")
+            }
+        } else {
+            VStack(alignment: .leading, spacing: 6) {
+                Label("Generated video is no longer available on this device.", systemImage: "exclamationmark.triangle.fill")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
         }
     }
@@ -768,8 +849,8 @@ struct GenerationJobCard: View {
     private var headerColor: Color {
         switch job.status {
         case .planning: return .purple
-        case .preparing, .processing, .rendering, .exporting, .validating: return .purple
-        case .completed: return .green
+        case .preparing, .processing, .rendering, .exporting, .validating, .artifactCreated: return .purple
+        case .previewReady, .completed: return .green
         case .failed: return .red
         }
     }
@@ -786,6 +867,8 @@ struct AICreateVideoPreviewPlayer: View {
     @State private var isPlaying: Bool = false
     @State private var isMuted: Bool = false
     @State private var isShowingFullscreen: Bool = false
+    @State private var playerError: String? = nil
+    @State private var isPreparing: Bool = true
     @State private var loopObserver: NSObjectProtocol? = nil
     
     private var aspectRatio: CGFloat {
@@ -801,16 +884,20 @@ struct AICreateVideoPreviewPlayer: View {
     var body: some View {
         ZStack {
             videoSurface
-            controlsOverlay
+            if playerError == nil {
+                controlsOverlay
+            }
         }
         .frame(height: aspectRatioString == "16:9" ? 180 : 320)
         .aspectRatio(aspectRatio, contentMode: .fit)
         .contentShape(Rectangle())
         .onTapGesture {
-            togglePlay()
+            if playerError == nil {
+                togglePlay()
+            }
         }
         .task(id: videoURL) {
-            setupPlayer()
+            await prepareAndSetupPlayer()
         }
         .onDisappear {
             teardownPlayer()
@@ -825,7 +912,30 @@ struct AICreateVideoPreviewPlayer: View {
         RoundedRectangle(cornerRadius: 12, style: .continuous)
             .fill(Color.black)
         
-        if let player {
+        if let playerError {
+            VStack(spacing: 8) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .font(.title2)
+                    .foregroundStyle(.orange)
+                Text(playerError)
+                    .font(.caption2)
+                    .foregroundStyle(.white.opacity(0.8))
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 16)
+                
+                Button {
+                    Task { await prepareAndSetupPlayer() }
+                } label: {
+                    Label("Retry Playback", systemImage: "arrow.clockwise")
+                        .font(.caption2.weight(.semibold))
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
+                        .background(Color.white.opacity(0.2))
+                        .foregroundStyle(.white)
+                        .clipShape(Capsule())
+                }
+            }
+        } else if let player {
             VideoPlayer(player: player)
                 .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         } else if let thumbnail {
@@ -834,8 +944,13 @@ struct AICreateVideoPreviewPlayer: View {
                 .aspectRatio(contentMode: .fit)
                 .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         } else {
-            ProgressView()
-                .tint(.white)
+            VStack(spacing: 6) {
+                ProgressView()
+                    .tint(.white)
+                Text("Preparing preview...")
+                    .font(.caption2)
+                    .foregroundStyle(.white.opacity(0.7))
+            }
         }
     }
     
@@ -924,15 +1039,39 @@ struct AICreateVideoPreviewPlayer: View {
         }
     }
     
-    private func setupPlayer() {
+    private func prepareAndSetupPlayer() async {
         teardownPlayer()
-        let newPlayer = AVPlayer(url: videoURL)
+        playerError = nil
+        isPreparing = true
+        
+        guard FileManager.default.fileExists(atPath: videoURL.path) else {
+            playerError = "Video file not found at local storage."
+            isPreparing = false
+            return
+        }
+        
+        let asset = AVURLAsset(url: videoURL)
+        do {
+            let tracks = try await asset.loadTracks(withMediaType: .video)
+            guard !tracks.isEmpty else {
+                playerError = "Preview unavailable: No valid video track."
+                isPreparing = false
+                return
+            }
+        } catch {
+            playerError = "Preview unavailable: \(error.localizedDescription)"
+            isPreparing = false
+            return
+        }
+        
+        let item = AVPlayerItem(asset: asset)
+        let newPlayer = AVPlayer(playerItem: item)
         newPlayer.isMuted = isMuted
         newPlayer.actionAtItemEnd = .none
         
         loopObserver = NotificationCenter.default.addObserver(
             forName: .AVPlayerItemDidPlayToEndTime,
-            object: newPlayer.currentItem,
+            object: item,
             queue: .main
         ) { [weak newPlayer] _ in
             newPlayer?.seek(to: .zero)
@@ -942,6 +1081,7 @@ struct AICreateVideoPreviewPlayer: View {
         self.player = newPlayer
         newPlayer.play()
         self.isPlaying = true
+        self.isPreparing = false
     }
     
     private func togglePlay() {
@@ -962,5 +1102,6 @@ struct AICreateVideoPreviewPlayer: View {
             loopObserver = nil
         }
         player = nil
+        isPlaying = false
     }
 }

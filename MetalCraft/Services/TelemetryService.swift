@@ -3,7 +3,7 @@
 //  MetalCraft
 //
 //  Telemetry collection and event buffering service.
-//  Emits granular processing, GPU timing, and agent activity metrics from MetalCraft
+//  Emits granular processing, GPU timing, agent activity, and video pipeline metrics from MetalCraft
 //  to power real-time in-app analytics and external Grafana observability.
 //
 
@@ -22,6 +22,18 @@ enum TelemetryEventType: String, Codable, Sendable, CaseIterable {
     case agentRequest = "agent_request"
     case agentResponse = "agent_response"
     case editPlanExecuted = "edit_plan_executed"
+    
+    // AI Create Video Pipeline Metrics
+    case videoRenderStarted = "VIDEO_RENDER_STARTED"
+    case videoRenderCompleted = "VIDEO_RENDER_COMPLETED"
+    case videoArtifactCreated = "VIDEO_ARTIFACT_CREATED"
+    case videoValidationStarted = "VIDEO_VALIDATION_STARTED"
+    case videoValidationCompleted = "VIDEO_VALIDATION_COMPLETED"
+    case videoPreviewReady = "VIDEO_PREVIEW_READY"
+    case videoPreviewFailed = "VIDEO_PREVIEW_FAILED"
+    case videoShared = "VIDEO_SHARED"
+    case videoSavedToPhotos = "VIDEO_SAVED_TO_PHOTOS"
+    case videoAddedToProject = "VIDEO_ADDED_TO_PROJECT"
 }
 
 // MARK: - Telemetry Event Model
@@ -32,6 +44,8 @@ struct TelemetryEvent: Identifiable, Codable, Sendable, Equatable {
     var timestamp: Date
     var sessionId: String
     var requestId: String?
+    var generationId: String?
+    var artifactId: String?
     var operation: String?
     var processingTimeMs: Double?
     var gpuTimeMs: Double?
@@ -41,6 +55,7 @@ struct TelemetryEvent: Identifiable, Codable, Sendable, Equatable {
     var errorMessage: String?
     var texturePoolSize: Int?
     var memoryUsageMB: Double?
+    var status: String?
     
     init(
         id: UUID = UUID(),
@@ -48,6 +63,8 @@ struct TelemetryEvent: Identifiable, Codable, Sendable, Equatable {
         timestamp: Date = Date(),
         sessionId: String,
         requestId: String? = nil,
+        generationId: String? = nil,
+        artifactId: String? = nil,
         operation: String? = nil,
         processingTimeMs: Double? = nil,
         gpuTimeMs: Double? = nil,
@@ -56,13 +73,16 @@ struct TelemetryEvent: Identifiable, Codable, Sendable, Equatable {
         mediaType: String? = nil,
         errorMessage: String? = nil,
         texturePoolSize: Int? = nil,
-        memoryUsageMB: Double? = nil
+        memoryUsageMB: Double? = nil,
+        status: String? = nil
     ) {
         self.id = id
         self.eventType = eventType
         self.timestamp = timestamp
         self.sessionId = sessionId
         self.requestId = requestId
+        self.generationId = generationId
+        self.artifactId = artifactId
         self.operation = operation
         self.processingTimeMs = processingTimeMs
         self.gpuTimeMs = gpuTimeMs
@@ -72,6 +92,7 @@ struct TelemetryEvent: Identifiable, Codable, Sendable, Equatable {
         self.errorMessage = errorMessage
         self.texturePoolSize = texturePoolSize
         self.memoryUsageMB = memoryUsageMB
+        self.status = status
     }
 }
 
@@ -84,35 +105,37 @@ final class TelemetryService {
     let sessionId: String
     private(set) var eventsBuffer: [TelemetryEvent] = []
     
-    var onEventEmitted: ((TelemetryEvent) -> Void)?
-    
     init(sessionId: String = UUID().uuidString) {
         self.sessionId = sessionId
     }
     
-    /// Emits a structured telemetry event and adds it to the local circular buffer.
+    /// Records a new telemetry metric event into the rolling in-memory buffer.
     func emit(_ event: TelemetryEvent) {
         eventsBuffer.append(event)
-        
-        // Evict oldest events if buffer exceeds max capacity
         if eventsBuffer.count > Self.maxBufferSize {
             eventsBuffer.removeFirst(eventsBuffer.count - Self.maxBufferSize)
         }
-        
-        onEventEmitted?(event)
     }
     
-    /// Convenience method to emit a processing completion event.
+    /// Clears all buffered metrics in the active session.
+    func clearBuffer() {
+        eventsBuffer.removeAll()
+    }
+    
+    func clear() {
+        clearBuffer()
+    }
+    
     func emitProcessingComplete(
         operation: String,
-        gpuTimeMs: Double,
-        processingTimeMs: Double,
-        passCount: Int,
-        resolution: String,
-        mediaType: String = "image",
+        gpuTimeMs: Double? = nil,
+        processingTimeMs: Double? = nil,
+        passCount: Int? = nil,
+        resolution: String? = nil,
+        mediaType: String? = nil,
         requestId: String? = nil
     ) {
-        let event = TelemetryEvent(
+        emit(TelemetryEvent(
             eventType: TelemetryEventType.processingComplete.rawValue,
             sessionId: sessionId,
             requestId: requestId,
@@ -122,37 +145,33 @@ final class TelemetryService {
             passCount: passCount,
             resolution: resolution,
             mediaType: mediaType
-        )
-        emit(event)
+        ))
     }
     
-    /// Convenience method to emit a processing error event.
     func emitProcessingError(
         operation: String,
         errorMessage: String,
-        mediaType: String = "image",
+        mediaType: String? = nil,
         requestId: String? = nil
     ) {
-        let event = TelemetryEvent(
+        emit(TelemetryEvent(
             eventType: TelemetryEventType.processingError.rawValue,
             sessionId: sessionId,
             requestId: requestId,
             operation: operation,
             mediaType: mediaType,
             errorMessage: errorMessage
-        )
-        emit(event)
+        ))
     }
     
-    /// Flushes and returns the buffered telemetry events, clearing the local buffer.
+    /// Drains all buffered events and resets the active collection buffer.
+    func drainEvents() -> [TelemetryEvent] {
+        let events = eventsBuffer
+        eventsBuffer.removeAll()
+        return events
+    }
+    
     func flush() -> [TelemetryEvent] {
-        let batch = eventsBuffer
-        eventsBuffer.removeAll()
-        return batch
-    }
-    
-    /// Clears all buffered events without returning.
-    func clear() {
-        eventsBuffer.removeAll()
+        return drainEvents()
     }
 }

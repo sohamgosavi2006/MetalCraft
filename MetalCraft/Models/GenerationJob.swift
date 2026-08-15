@@ -4,7 +4,8 @@
 //
 //  Represents an idempotent, stateful AI Video Generation Job.
 //  Separates chat conversation messages from visual media generation artifacts,
-//  providing a stable lifecycle (Planning -> Preparing -> Rendering -> Exporting -> Validating -> Completed)
+//  providing a stable lifecycle:
+//  Planning -> Preparing -> Processing -> Rendering -> Exporting -> Validating -> ArtifactCreated -> PreviewReady -> Completed
 //  keyed by unique generationId and artifactId to prevent duplicate cards upon follow-up prompts.
 //
 
@@ -18,6 +19,8 @@ enum GenerationJobStatus: String, Codable, Sendable, CaseIterable {
     case rendering = "RENDERING"
     case exporting = "EXPORTING"
     case validating = "VALIDATING"
+    case artifactCreated = "ARTIFACT_CREATED"
+    case previewReady = "PREVIEW_READY"
     case completed = "COMPLETED"
     case failed = "FAILED"
     
@@ -29,7 +32,8 @@ enum GenerationJobStatus: String, Codable, Sendable, CaseIterable {
         case .rendering: return "Rendering on Metal GPU"
         case .exporting: return "Mixing Audio & Exporting"
         case .validating: return "Validating Output"
-        case .completed: return "Production Ready"
+        case .artifactCreated: return "Creating Artifact"
+        case .previewReady, .completed: return "Production Ready"
         case .failed: return "Generation Failed"
         }
     }
@@ -42,7 +46,8 @@ enum GenerationJobStatus: String, Codable, Sendable, CaseIterable {
         case .rendering: return "bolt.fill"
         case .exporting: return "music.note"
         case .validating: return "checkmark.shield.fill"
-        case .completed: return "checkmark.circle.fill"
+        case .artifactCreated: return "folder.badge.gearshape"
+        case .previewReady, .completed: return "checkmark.circle.fill"
         case .failed: return "exclamationmark.triangle.fill"
         }
     }
@@ -62,6 +67,7 @@ struct GenerationJob: Identifiable, Codable, Equatable, Sendable {
     var progressMessage: String
     var currentFrame: Int
     var totalFrames: Int
+    var artifact: VideoArtifact?
     var outputURL: URL?
     var outputFileSizeFormatted: String?
     var renderDurationSec: Double?
@@ -81,6 +87,7 @@ struct GenerationJob: Identifiable, Codable, Equatable, Sendable {
         progressMessage: String = "Review proposed creative plan",
         currentFrame: Int = 0,
         totalFrames: Int = 0,
+        artifact: VideoArtifact? = nil,
         outputURL: URL? = nil,
         outputFileSizeFormatted: String? = nil,
         renderDurationSec: Double? = nil,
@@ -99,8 +106,9 @@ struct GenerationJob: Identifiable, Codable, Equatable, Sendable {
         self.progressMessage = progressMessage
         self.currentFrame = currentFrame
         self.totalFrames = totalFrames
-        self.outputURL = outputURL
-        self.outputFileSizeFormatted = outputFileSizeFormatted
+        self.artifact = artifact
+        self.outputURL = outputURL ?? artifact?.fileURL
+        self.outputFileSizeFormatted = outputFileSizeFormatted ?? artifact?.formattedFileSize
         self.renderDurationSec = renderDurationSec
         self.error = error
     }
@@ -110,6 +118,22 @@ struct GenerationJob: Identifiable, Codable, Equatable, Sendable {
     }
     
     var isActiveRendering: Bool {
-        status == .preparing || status == .processing || status == .rendering || status == .exporting || status == .validating
+        status == .preparing || status == .processing || status == .rendering || status == .exporting || status == .validating || status == .artifactCreated
+    }
+    
+    /// Resolves the definitive playable local URL (favoring persistent artifact URL over temporary fallback).
+    var resolvedVideoURL: URL? {
+        if let artifact, artifact.isFileAvailable {
+            return artifact.fileURL
+        }
+        if let outputURL, FileManager.default.fileExists(atPath: outputURL.path) {
+            return outputURL
+        }
+        return nil
+    }
+    
+    /// Verifies that the physical video file exists and is accessible.
+    var isVideoAvailable: Bool {
+        resolvedVideoURL != nil
     }
 }

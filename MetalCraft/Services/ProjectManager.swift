@@ -326,4 +326,139 @@ final class ProjectManager: Sendable {
         let fileURL = folder.appendingPathComponent("\(musicId.uuidString).\(format)")
         try? fileManager.removeItem(at: fileURL)
     }
+    
+    // MARK: - Video Artifact Persistence (AI Create)
+    
+    var artifactsDirectory: URL {
+        let paths = fileManager.urls(for: .documentDirectory, in: .userDomainMask)
+        let docDir = paths[0]
+        let dir = docDir.appendingPathComponent("Artifacts", isDirectory: true)
+        
+        if !fileManager.fileExists(atPath: dir.path) {
+            try? fileManager.createDirectory(at: dir, withIntermediateDirectories: true)
+        }
+        return dir
+    }
+    
+    func saveVideoArtifact(
+        from sourceURL: URL,
+        artifactId: String,
+        generationId: String,
+        projectId: UUID? = nil,
+        projectName: String? = nil,
+        displayName: String,
+        duration: Double,
+        width: Int = 1080,
+        height: Int = 1920
+    ) throws -> VideoArtifact {
+        let folder = artifactsDirectory
+        let ext = sourceURL.pathExtension.isEmpty ? "mp4" : sourceURL.pathExtension
+        let persistentFilename = "\(artifactId).\(ext)"
+        let destinationURL = folder.appendingPathComponent(persistentFilename)
+        let relativePath = "Artifacts/\(persistentFilename)"
+        
+        if fileManager.fileExists(atPath: destinationURL.path) {
+            try? fileManager.removeItem(at: destinationURL)
+        }
+        
+        try fileManager.copyItem(at: sourceURL, to: destinationURL)
+        
+        let fileSize: Int64 = (try? fileManager.attributesOfItem(atPath: destinationURL.path)[.size] as? Int64) ?? 0
+        let fileSizeMB = Double(fileSize) / (1024.0 * 1024.0)
+        let formattedSize = String(format: "%.1f MB", fileSizeMB)
+        
+        let artifact = VideoArtifact(
+            generationId: generationId,
+            artifactId: artifactId,
+            projectId: projectId,
+            projectName: projectName,
+            relativePath: relativePath,
+            displayName: displayName,
+            duration: duration,
+            width: width,
+            height: height,
+            fileSize: fileSize,
+            formattedFileSize: formattedSize,
+            createdAt: Date(),
+            validationStatus: "VALIDATED",
+            generationStatus: "COMPLETED"
+        )
+        
+        let jsonURL = folder.appendingPathComponent("\(artifactId).json")
+        if let data = try? JSONEncoder().encode(artifact) {
+            try? data.write(to: jsonURL, options: .atomic)
+        }
+        
+        return artifact
+    }
+    
+    func saveArtifactThumbnail(_ image: UIImage, artifactId: String) {
+        let folder = artifactsDirectory
+        let fileURL = folder.appendingPathComponent("\(artifactId)_thumb.jpg")
+        if let jpgData = image.jpegData(compressionQuality: 0.8) {
+            try? jpgData.write(to: fileURL, options: .atomic)
+        }
+    }
+    
+    func loadArtifactThumbnail(artifactId: String) -> UIImage? {
+        let folder = artifactsDirectory
+        let fileURL = folder.appendingPathComponent("\(artifactId)_thumb.jpg")
+        if let data = try? Data(contentsOf: fileURL) {
+            return UIImage(data: data)
+        }
+        return nil
+    }
+    
+    func saveGenerationJobs(_ jobs: [GenerationJob]) {
+        let folder = artifactsDirectory
+        let fileURL = folder.appendingPathComponent("generation_jobs.json")
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = .prettyPrinted
+        encoder.dateEncodingStrategy = .iso8601
+        if let data = try? encoder.encode(jobs) {
+            try? data.write(to: fileURL, options: .atomic)
+        }
+    }
+    
+    func loadGenerationJobs() -> [GenerationJob] {
+        let folder = artifactsDirectory
+        let fileURL = folder.appendingPathComponent("generation_jobs.json")
+        guard let data = try? Data(contentsOf: fileURL) else { return [] }
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        if let jobs = try? decoder.decode([GenerationJob].self, from: data) {
+            return jobs
+        }
+        return []
+    }
+    
+    func importArtifactToProject(artifact: VideoArtifact, project: Project, customName: String? = nil) -> (Project, ProjectVideo) {
+        var updatedProject = project
+        let videoId = UUID()
+        let name = customName ?? artifact.displayName
+        
+        let projVideo = ProjectVideo(
+            id: videoId,
+            name: name,
+            originalFilename: "original.mp4",
+            videoInfo: VideoInfo(
+                duration: artifact.duration,
+                width: artifact.width,
+                height: artifact.height,
+                frameRate: 30.0,
+                hasAudio: true,
+                codec: "H.264"
+            )
+        )
+        updatedProject.videos.append(projVideo)
+        
+        saveProject(
+            updatedProject,
+            videoSourceURL: artifact.fileURL,
+            thumbnailImage: loadArtifactThumbnail(artifactId: artifact.artifactId),
+            forVideoId: videoId
+        )
+        
+        return (updatedProject, projVideo)
+    }
 }

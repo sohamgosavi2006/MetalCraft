@@ -206,6 +206,18 @@ struct EditPlanOutput: Codable, Sendable, Equatable {
         self.aspectRatio = try container.decodeIfPresent(String.self, forKey: .aspectRatio)
     }
     
+    var width: Int {
+        if aspectRatio == "16:9" { return 1920 }
+        if aspectRatio == "1:1" { return 1080 }
+        return 1080
+    }
+    
+    var height: Int {
+        if aspectRatio == "16:9" { return 1080 }
+        if aspectRatio == "1:1" { return 1080 }
+        return 1920
+    }
+    
     static let `default` = EditPlanOutput()
 }
 

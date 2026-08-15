@@ -1088,6 +1088,117 @@ struct MetalCraftTests {
         #expect(project.music.first?.name == "Emotional Theme")
         #expect(project.music.first?.id == musId) // Stable UUID preserved
     }
+
+    // MARK: - VideoArtifact & Persistent Storage Tests
+    
+    @Test func testVideoArtifactModelAndPersistence() throws {
+        let artifactId = "artifact_video_test_001"
+        let genId = "gen_test_001"
+        let projId = UUID()
+        
+        let artifact = VideoArtifact(
+            generationId: genId,
+            artifactId: artifactId,
+            projectId: projId,
+            projectName: "Summer Reel",
+            relativePath: "Artifacts/\(artifactId).mp4",
+            displayName: "Summer Reel - AI Video",
+            duration: 12.5,
+            width: 1080,
+            height: 1920,
+            fileSize: 15728640,
+            formattedFileSize: "15.0 MB",
+            createdAt: Date(),
+            validationStatus: "VALIDATED",
+            generationStatus: "COMPLETED"
+        )
+        
+        #expect(artifact.generationId == genId)
+        #expect(artifact.artifactId == artifactId)
+        #expect(artifact.duration == 12.5)
+        #expect(artifact.width == 1080)
+        #expect(artifact.height == 1920)
+        #expect(artifact.fileURL.path.hasSuffix("Artifacts/\(artifactId).mp4"))
+        
+        // Codable Roundtrip
+        let encoder = JSONEncoder()
+        let data = try encoder.encode(artifact)
+        let decoder = JSONDecoder()
+        let decoded = try decoder.decode(VideoArtifact.self, from: data)
+        
+        #expect(decoded.generationId == artifact.generationId)
+        #expect(decoded.artifactId == artifact.artifactId)
+        #expect(decoded.duration == artifact.duration)
+        #expect(decoded.formattedFileSize == "15.0 MB")
+        #expect(decoded.validationStatus == "VALIDATED")
+    }
+
+    @Test func testProjectManagerArtifactAndJobPersistence() throws {
+        let projectManager = ProjectManager()
+        
+        // Test Artifact Directory Access
+        let artifactsDir = projectManager.artifactsDirectory
+        #expect(FileManager.default.fileExists(atPath: artifactsDir.path))
+        
+        // Test GenerationJobs Persistence
+        let plan = EditPlan(
+            schemaVersion: "1.0",
+            planId: "plan-persist-001",
+            mediaType: .video,
+            goal: "Cinematic Test",
+            scenes: [
+                EditPlanScene(assetId: UUID().uuidString, assetType: "image", duration: 3.0)
+            ]
+        )
+        
+        let job = GenerationJob(
+            projectId: UUID(),
+            projectName: "Persist Project",
+            status: .completed,
+            plan: plan,
+            outputFileSizeFormatted: "12.4 MB",
+            renderDurationSec: 2.1
+        )
+        
+        projectManager.saveGenerationJobs([job])
+        let loaded = projectManager.loadGenerationJobs()
+        #expect(loaded.count >= 1)
+        #expect(loaded.contains(where: { $0.id == job.id && $0.generationId == job.generationId }))
+    }
+
+    @Test func testTelemetryVideoEvents() async throws {
+        let telemetry = await TelemetryService(sessionId: "test-session-001")
+        
+        await telemetry.emit(TelemetryEvent(
+            eventType: TelemetryEventType.videoRenderStarted.rawValue,
+            sessionId: "test-session-001",
+            generationId: "gen_001",
+            artifactId: "art_001",
+            operation: "Render"
+        ))
+        
+        await telemetry.emit(TelemetryEvent(
+            eventType: TelemetryEventType.videoArtifactCreated.rawValue,
+            sessionId: "test-session-001",
+            generationId: "gen_001",
+            artifactId: "art_001",
+            operation: "Persist Artifact"
+        ))
+        
+        await telemetry.emit(TelemetryEvent(
+            eventType: TelemetryEventType.videoPreviewReady.rawValue,
+            sessionId: "test-session-001",
+            generationId: "gen_001",
+            artifactId: "art_001",
+            status: "READY"
+        ))
+        
+        let events = await telemetry.eventsBuffer
+        #expect(events.count == 3)
+        #expect(events[0].eventType == TelemetryEventType.videoRenderStarted.rawValue)
+        #expect(events[1].eventType == TelemetryEventType.videoArtifactCreated.rawValue)
+        #expect(events[2].eventType == TelemetryEventType.videoPreviewReady.rawValue)
+    }
 }
 
 
