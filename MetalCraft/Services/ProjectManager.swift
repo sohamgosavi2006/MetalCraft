@@ -47,6 +47,16 @@ final class ProjectManager: Sendable {
         videosFolder(for: projectId).appendingPathComponent(videoId.uuidString, isDirectory: true)
     }
     
+    // MARK: - Music Folders
+    
+    func musicFolder(for projectId: UUID) -> URL {
+        let folder = projectFolder(for: projectId).appendingPathComponent("music", isDirectory: true)
+        if !fileManager.fileExists(atPath: folder.path) {
+            try? fileManager.createDirectory(at: folder, withIntermediateDirectories: true)
+        }
+        return folder
+    }
+    
     // MARK: - Save Project Document
     
     func saveProject(_ project: Project) {
@@ -252,6 +262,48 @@ final class ProjectManager: Sendable {
         return projects.sorted { $0.modifiedAt > $1.modifiedAt }
     }
     
+    // MARK: - Music Persistence
+    
+    func saveMusicTrack(from sourceURL: URL, projectId: UUID, musicId: UUID, filename: String) -> URL? {
+        let folder = musicFolder(for: projectId)
+        let ext = (filename as NSString).pathExtension
+        let safeFilename = "\(musicId.uuidString).\(ext.isEmpty ? "m4a" : ext)"
+        let destinationURL = folder.appendingPathComponent(safeFilename)
+        
+        if fileManager.fileExists(atPath: destinationURL.path) {
+            try? fileManager.removeItem(at: destinationURL)
+        }
+        
+        do {
+            let accessing = sourceURL.startAccessingSecurityScopedResource()
+            defer {
+                if accessing {
+                    sourceURL.stopAccessingSecurityScopedResource()
+                }
+            }
+            try fileManager.copyItem(at: sourceURL, to: destinationURL)
+            return destinationURL
+        } catch {
+            print("Failed to copy audio track: \(error)")
+            return nil
+        }
+    }
+    
+    func loadMusicURL(projectId: UUID, music: ProjectMusic) -> URL? {
+        let folder = musicFolder(for: projectId)
+        let primaryURL = folder.appendingPathComponent(music.originalFilename)
+        if fileManager.fileExists(atPath: primaryURL.path) {
+            return primaryURL
+        }
+        
+        let idNamedURL = folder.appendingPathComponent("\(music.id.uuidString).\(music.format)")
+        if fileManager.fileExists(atPath: idNamedURL.path) {
+            return idNamedURL
+        }
+        
+        return nil
+    }
+    
     // MARK: - Delete
     
     func deleteProject(id: UUID) {
@@ -267,5 +319,11 @@ final class ProjectManager: Sendable {
     func deleteVideo(projectId: UUID, videoId: UUID) {
         let folder = videoFolder(projectId: projectId, videoId: videoId)
         try? fileManager.removeItem(at: folder)
+    }
+    
+    func deleteMusic(projectId: UUID, musicId: UUID, format: String = "m4a") {
+        let folder = musicFolder(for: projectId)
+        let fileURL = folder.appendingPathComponent("\(musicId.uuidString).\(format)")
+        try? fileManager.removeItem(at: fileURL)
     }
 }

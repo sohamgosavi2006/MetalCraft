@@ -117,5 +117,36 @@ class AgentBackendTests(unittest.TestCase):
         obs_data = obs_resp.get_json()
         self.assertGreaterEqual(obs_data["sampleCount"], 1)
 
+    def test_agent_create_audio_plan(self):
+        payload = {
+            "prompt": "Create a 20-second cinematic product video with emotional background music",
+            "mediaMetadata": {
+                "type": "video",
+                "width": 1080,
+                "height": 1920,
+                "format": "mp4",
+                "projectName": "Watch Commercial",
+                "targetDuration": 20.0,
+                "assets": [
+                    {"id": "img-1", "name": "Watch Dial", "type": "image"},
+                    {"id": "img-2", "name": "Watch Strap", "type": "image"}
+                ]
+            }
+        }
+        response = self.app.post("/api/v1/agent/create", json=payload)
+        self.assertEqual(response.status_code, 200)
+        data = response.get_json()
+        
+        plan = data["editPlan"]
+        self.assertIn("audioPlan", plan)
+        audio = plan["audioPlan"]
+        self.assertTrue(audio["requested"])
+        self.assertIsNotNone(audio["trackId"])
+        self.assertIn("volume", audio)
+        self.assertGreater(audio["volume"], 0.0)
+        
+        val = validate_edit_plan(plan)
+        self.assertTrue(val["isValid"])
+
 if __name__ == "__main__":
     unittest.main()

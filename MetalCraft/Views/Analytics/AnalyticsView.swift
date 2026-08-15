@@ -17,6 +17,7 @@ enum AnalyticsSection: String, CaseIterable, Identifiable {
     case performance = "Performance"
     case media = "Media"
     case telemetry = "Telemetry"
+    case audit = "Audit"
     case aiSettings = "AI Settings"
     case diagnostics = "Diagnostics"
     
@@ -30,6 +31,7 @@ enum AnalyticsSection: String, CaseIterable, Identifiable {
         case .performance: return "gauge.with.needle.fill"
         case .media: return "photo.on.rectangle.angled"
         case .telemetry: return "chart.xyaxis.line"
+        case .audit: return "list.clipboard.fill"
         case .aiSettings: return "gearshape.2.fill"
         case .diagnostics: return "stethoscope"
         }
@@ -39,6 +41,11 @@ enum AnalyticsSection: String, CaseIterable, Identifiable {
 struct AnalyticsView: View {
     let appState: AppState
     @State private var selectedSection: AnalyticsSection = .overview
+    
+    // Audit Section States
+    @State private var auditCategoryFilter: AuditCategory = .all
+    @State private var auditSearchQuery: String = ""
+    @State private var isShowingClearAuditConfirmation: Bool = false
     
     // AI Settings States
     @State private var endpointURLInput: String = ""
@@ -71,6 +78,8 @@ struct AnalyticsView: View {
                             mediaInspectorSection
                         case .telemetry:
                             telemetryEventStreamSection
+                        case .audit:
+                            auditSection
                         case .aiSettings:
                             aiSettingsSection
                         case .diagnostics:
@@ -594,7 +603,208 @@ struct AnalyticsView: View {
         return .blue
     }
     
-    // MARK: - 7. AI SETTINGS SECTION (Moved from AI Create)
+    // MARK: - 7. AUDIT SECTION
+    
+    private var auditSection: some View {
+        VStack(spacing: 16) {
+            // Search Bar & Filter Bar
+            VStack(alignment: .leading, spacing: 10) {
+                HStack {
+                    Image(systemName: "magnifyingglass")
+                        .foregroundStyle(.secondary)
+                    
+                    TextField("Search actions, projects, descriptions...", text: $auditSearchQuery)
+                        .font(.subheadline)
+                    
+                    if !auditSearchQuery.isEmpty {
+                        Button {
+                            auditSearchQuery = ""
+                        } label: {
+                            Image(systemName: "xmark.circle.fill")
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+                .padding(10)
+                .background(Color(uiColor: .tertiarySystemBackground))
+                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                
+                // Category Filter Carousel
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(AuditCategory.allCases, id: \.self) { cat in
+                            Button {
+                                auditCategoryFilter = cat
+                            } label: {
+                                HStack(spacing: 4) {
+                                    Image(systemName: cat.iconName)
+                                        .font(.caption2)
+                                    Text(cat.rawValue)
+                                        .font(.caption.weight(.medium))
+                                }
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 6)
+                                .background(auditCategoryFilter == cat ? Color.purple : Color(uiColor: .tertiarySystemBackground))
+                                .foregroundStyle(auditCategoryFilter == cat ? .white : .primary)
+                                .clipShape(Capsule())
+                            }
+                        }
+                    }
+                }
+            }
+            .padding(14)
+            .background(Color(uiColor: .secondarySystemBackground))
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            
+            // Audit Log List
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    Text("AUDIT TRAIL (\(filteredAuditRecords.count) RECORDS)")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(.secondary)
+                    
+                    Spacer()
+                    
+                    Button(role: .destructive) {
+                        isShowingClearAuditConfirmation = true
+                    } label: {
+                        Text("Clear History")
+                            .font(.caption2.weight(.medium))
+                            .foregroundStyle(.red)
+                    }
+                }
+                
+                if filteredAuditRecords.isEmpty {
+                    VStack(spacing: 6) {
+                        Image(systemName: "list.clipboard")
+                            .font(.largeTitle)
+                            .foregroundStyle(.secondary)
+                        Text("No Audit Records Found")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                        Text("Activity matching '\(auditCategoryFilter.rawValue)' will appear here.")
+                            .font(.caption2)
+                            .foregroundStyle(.tertiary)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 24)
+                } else {
+                    LazyVStack(spacing: 10) {
+                        ForEach(filteredAuditRecords) { record in
+                            auditRecordRow(record)
+                        }
+                    }
+                }
+            }
+            .padding(14)
+            .background(Color(uiColor: .secondarySystemBackground))
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        }
+        .confirmationDialog(
+            "Clear Audit Trail?",
+            isPresented: $isShowingClearAuditConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button("Clear All Records", role: .destructive) {
+                AuditService.shared.clearAuditTrail()
+            }
+            Button("Cancel", role: .cancel) { }
+        } message: {
+            Text("This will permanently remove all stored activity records from your device.")
+        }
+    }
+    
+    private var filteredAuditRecords: [AuditRecord] {
+        AuditService.shared.getRecords(
+            category: auditCategoryFilter,
+            searchQuery: auditSearchQuery,
+            limit: 150
+        )
+    }
+    
+    private func auditRecordRow(_ record: AuditRecord) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 8) {
+                // Category Icon
+                Image(systemName: record.category.iconName)
+                    .font(.caption)
+                    .foregroundStyle(.purple)
+                
+                Text(record.category.rawValue.uppercased())
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundStyle(.secondary)
+                
+                Spacer()
+                
+                // Status Badge
+                Text(record.status.rawValue)
+                    .font(.system(size: 9, weight: .bold))
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(statusColor(for: record.status).opacity(0.15))
+                    .foregroundStyle(statusColor(for: record.status))
+                    .cornerRadius(4)
+                
+                // Timestamp
+                Text("\(record.formattedDate) \(record.formattedTime)")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+            
+            // Action Title
+            Text(record.action)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.primary)
+            
+            // Description Text
+            Text(record.description)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            
+            // Footer: Project & Source Badges
+            HStack(spacing: 8) {
+                if let proj = record.projectName {
+                    HStack(spacing: 3) {
+                        Image(systemName: "folder")
+                        Text(proj)
+                    }
+                    .font(.caption2)
+                    .foregroundStyle(.purple)
+                }
+                
+                if let media = record.mediaType {
+                    HStack(spacing: 3) {
+                        Image(systemName: "tag")
+                        Text(media)
+                    }
+                    .font(.caption2)
+                    .foregroundStyle(.blue)
+                }
+                
+                Spacer()
+                
+                Text("via \(record.source)")
+                    .font(.system(size: 9))
+                    .foregroundStyle(.tertiary)
+            }
+            .padding(.top, 2)
+        }
+        .padding(12)
+        .background(Color(uiColor: .tertiarySystemBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+    }
+    
+    private func statusColor(for status: AuditStatus) -> Color {
+        switch status {
+        case .success: return .green
+        case .info: return .blue
+        case .warning: return .orange
+        case .failure: return .red
+        }
+    }
+    
+    // MARK: - 8. AI SETTINGS SECTION (Moved from AI Create)
     
     private var aiSettingsSection: some View {
         VStack(spacing: 16) {

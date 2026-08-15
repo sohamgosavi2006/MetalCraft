@@ -76,6 +76,8 @@ enum ExportError: LocalizedError {
     case imageCreationFailed
     case encodingFailed
     case saveFailed
+    case exportSessionFailed(String)
+    case audioTrackFailed(String)
     
     var errorDescription: String? {
         switch self {
@@ -87,6 +89,10 @@ enum ExportError: LocalizedError {
             return "Failed to encode image in the selected format."
         case .saveFailed:
             return "Failed to save image."
+        case .exportSessionFailed(let msg):
+            return "Export session failed: \(msg)"
+        case .audioTrackFailed(let msg):
+            return "Audio track processing failed: \(msg)"
         }
     }
 }

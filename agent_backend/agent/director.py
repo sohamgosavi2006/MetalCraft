@@ -20,7 +20,8 @@ from agent.tools import (
     research_creative_context,
     query_observability,
     create_edit_plan,
-    validate_edit_plan
+    validate_edit_plan,
+    match_soundtrack
 )
 
 logger = logging.getLogger(__name__)
@@ -255,6 +256,27 @@ Generate a valid EditPlan JSON adhering to schemaVersion 1.0."""
                     "operations": operations
                 })
 
+        # Match soundtrack if requested or generating video reel
+        audio_plan = None
+        if "no music" in p or "without music" in p or "silent" in p:
+            audio_plan = None
+        elif mtype.lower() == "video" or any(w in p for w in ["music", "soundtrack", "audio", "reel", "montage", "cinematic"]):
+            matched = match_soundtrack(prompt)
+            audio_plan = {
+                "requested": True,
+                "mood": matched["mood"],
+                "style": matched["category"],
+                "energy": matched["energy"],
+                "duration": target_duration if scenes else 15.0,
+                "source": "metalcraft_library",
+                "trackId": matched["trackId"],
+                "trackTitle": matched["title"],
+                "volume": 0.7,
+                "fadeInDuration": 0.5,
+                "fadeOutDuration": 1.0,
+                "duckingFactor": 0.3
+            }
+
         plan = create_edit_plan(
             goal=goal,
             reasoning=reasoning,
@@ -262,6 +284,7 @@ Generate a valid EditPlan JSON adhering to schemaVersion 1.0."""
             adjustments=adjustments,
             operations=operations,
             scenes=scenes if scenes else None,
+            audio_plan=audio_plan,
             target_duration=target_duration if scenes else None,
             aspect_ratio=aspect_ratio,
             research_context=research.get("summary") if research else None

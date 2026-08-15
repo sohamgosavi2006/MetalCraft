@@ -270,6 +270,71 @@ struct EditPlanScene: Identifiable, Codable, Sendable, Equatable {
     }
 }
 
+// MARK: - AudioPlan (Soundtrack & Music Mixing Contract)
+
+struct AudioPlan: Codable, Sendable, Equatable {
+    var requested: Bool
+    var mood: String?           // "cinematic", "emotional", "energetic", "ambient", "corporate", "playful", "luxury", "adventure"
+    var style: String?
+    var energy: String?         // "low", "medium", "high"
+    var duration: Double?       // Target audio duration in seconds
+    var source: String          // "metalcraft_library", "project_music", "imported", "none"
+    var trackId: String?        // Controlled track ID (e.g. "cinematic_emotional_01", "corporate_tech_01")
+    var trackTitle: String?     // Human-readable title
+    var volume: Float           // [0.0 ... 1.0], default 0.7
+    var fadeInDuration: Double  // in seconds, e.g. 0.5
+    var fadeOutDuration: Double // in seconds, e.g. 1.0
+    var duckingFactor: Float    // [0.0 ... 1.0] when dialogue or original audio is present
+    
+    init(
+        requested: Bool = false,
+        mood: String? = "cinematic",
+        style: String? = "cinematic",
+        energy: String? = "medium",
+        duration: Double? = nil,
+        source: String = "metalcraft_library",
+        trackId: String? = nil,
+        trackTitle: String? = nil,
+        volume: Float = 0.7,
+        fadeInDuration: Double = 0.5,
+        fadeOutDuration: Double = 1.0,
+        duckingFactor: Float = 0.3
+    ) {
+        self.requested = requested
+        self.mood = mood
+        self.style = style
+        self.energy = energy
+        self.duration = duration
+        self.source = source
+        self.trackId = trackId
+        self.trackTitle = trackTitle
+        self.volume = volume
+        self.fadeInDuration = fadeInDuration
+        self.fadeOutDuration = fadeOutDuration
+        self.duckingFactor = duckingFactor
+    }
+    
+    enum CodingKeys: String, CodingKey {
+        case requested, mood, style, energy, duration, source, trackId, trackTitle, volume, fadeInDuration, fadeOutDuration, duckingFactor
+    }
+    
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.requested = try container.decodeIfPresent(Bool.self, forKey: .requested) ?? false
+        self.mood = try container.decodeIfPresent(String.self, forKey: .mood)
+        self.style = try container.decodeIfPresent(String.self, forKey: .style)
+        self.energy = try container.decodeIfPresent(String.self, forKey: .energy)
+        self.duration = try container.decodeIfPresent(Double.self, forKey: .duration)
+        self.source = try container.decodeIfPresent(String.self, forKey: .source) ?? "metalcraft_library"
+        self.trackId = try container.decodeIfPresent(String.self, forKey: .trackId)
+        self.trackTitle = try container.decodeIfPresent(String.self, forKey: .trackTitle)
+        self.volume = try container.decodeIfPresent(Float.self, forKey: .volume) ?? 0.7
+        self.fadeInDuration = try container.decodeIfPresent(Double.self, forKey: .fadeInDuration) ?? 0.5
+        self.fadeOutDuration = try container.decodeIfPresent(Double.self, forKey: .fadeOutDuration) ?? 1.0
+        self.duckingFactor = try container.decodeIfPresent(Float.self, forKey: .duckingFactor) ?? 0.3
+    }
+}
+
 // MARK: - EditPlan (Root Contract)
 
 struct EditPlan: Identifiable, Codable, Sendable, Equatable {
@@ -284,6 +349,7 @@ struct EditPlan: Identifiable, Codable, Sendable, Equatable {
     var adjustments: EditPlanAdjustments
     var operations: [EditPlanOperation]
     var scenes: [EditPlanScene]
+    var audioPlan: AudioPlan?
     var targetDuration: Double?
     var aspectRatio: String?
     var output: EditPlanOutput
@@ -299,6 +365,7 @@ struct EditPlan: Identifiable, Codable, Sendable, Equatable {
         adjustments: EditPlanAdjustments = .default,
         operations: [EditPlanOperation] = [],
         scenes: [EditPlanScene] = [],
+        audioPlan: AudioPlan? = nil,
         targetDuration: Double? = nil,
         aspectRatio: String? = nil,
         output: EditPlanOutput = .default
@@ -313,13 +380,14 @@ struct EditPlan: Identifiable, Codable, Sendable, Equatable {
         self.adjustments = adjustments
         self.operations = operations
         self.scenes = scenes
+        self.audioPlan = audioPlan
         self.targetDuration = targetDuration
         self.aspectRatio = aspectRatio
         self.output = output
     }
     
     enum CodingKeys: String, CodingKey {
-        case schemaVersion, planId, createdAt, mediaType, goal, reasoning, researchContext, adjustments, operations, scenes, targetDuration, aspectRatio, output
+        case schemaVersion, planId, createdAt, mediaType, goal, reasoning, researchContext, adjustments, operations, scenes, audioPlan, targetDuration, aspectRatio, output
     }
     
     init(from decoder: Decoder) throws {
@@ -334,6 +402,7 @@ struct EditPlan: Identifiable, Codable, Sendable, Equatable {
         self.adjustments = try container.decodeIfPresent(EditPlanAdjustments.self, forKey: .adjustments) ?? .default
         self.operations = try container.decodeIfPresent([EditPlanOperation].self, forKey: .operations) ?? []
         self.scenes = try container.decodeIfPresent([EditPlanScene].self, forKey: .scenes) ?? []
+        self.audioPlan = try container.decodeIfPresent(AudioPlan.self, forKey: .audioPlan)
         self.targetDuration = try container.decodeIfPresent(Double.self, forKey: .targetDuration)
         self.aspectRatio = try container.decodeIfPresent(String.self, forKey: .aspectRatio)
         self.output = try container.decodeIfPresent(EditPlanOutput.self, forKey: .output) ?? .default

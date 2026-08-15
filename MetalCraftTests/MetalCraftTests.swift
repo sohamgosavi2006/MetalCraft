@@ -843,6 +843,142 @@ struct MetalCraftTests {
         #expect(decoded.scenes[1].assetType == "video")
         #expect(decoded.totalSceneDuration == 7.5)
     }
+
+    // MARK: - Project Music Model & Persistence Tests
+    
+    @Test func testProjectMusicPersistenceAndMetadata() throws {
+        let music1 = ProjectMusic(
+            id: UUID(),
+            name: "Summer Vibes",
+            originalFilename: "summer.m4a",
+            duration: 125.4,
+            format: "m4a",
+            fileSizeBytes: 2_450_000,
+            category: "Travel",
+            mood: "Upbeat",
+            isPreferred: true
+        )
+        
+        #expect(music1.formattedDuration == "02:05")
+        #expect(music1.fileSizeFormatted.contains("MB"))
+        #expect(music1.isPreferred == true)
+        
+        var project = Project(
+            name: "Vacation Reel",
+            music: [music1]
+        )
+        
+        #expect(project.music.count == 1)
+        #expect(project.preferredMusic?.name == "Summer Vibes")
+        #expect(project.mediaSummaryText.contains("1 Track"))
+        
+        let encoder = JSONEncoder()
+        let data = try encoder.encode(project)
+        
+        let decoder = JSONDecoder()
+        let decodedProject = try decoder.decode(Project.self, from: data)
+        
+        #expect(decodedProject.name == "Vacation Reel")
+        #expect(decodedProject.music.count == 1)
+        #expect(decodedProject.music.first?.name == "Summer Vibes")
+        #expect(decodedProject.music.first?.duration == 125.4)
+    }
+
+    // MARK: - AudioPlan Serialization & Bounds Validation Tests
+    
+    @Test func testAudioPlanSerializationAndValidation() throws {
+        let audioPlan = AudioPlan(
+            requested: true,
+            mood: "Dramatic",
+            style: "Cinematic",
+            energy: "High",
+            duration: 30.0,
+            source: "metalcraft_library",
+            trackId: "cinematic_dramatic_02",
+            trackTitle: "Titan Ascent",
+            volume: 0.8,
+            fadeInDuration: 0.8,
+            fadeOutDuration: 1.5,
+            duckingFactor: 0.25
+        )
+        
+        var plan = EditPlan(
+            schemaVersion: "1.0",
+            planId: "plan-audio-001",
+            mediaType: .video,
+            goal: "Cinematic Reel with Audio",
+            audioPlan: audioPlan
+        )
+        
+        #expect(plan.audioPlan != nil)
+        #expect(plan.audioPlan?.requested == true)
+        #expect(plan.audioPlan?.trackId == "cinematic_dramatic_02")
+        #expect(plan.audioPlan?.volume == 0.8)
+        
+        let encoder = JSONEncoder()
+        let data = try encoder.encode(plan)
+        
+        let decoder = JSONDecoder()
+        let decoded = try decoder.decode(EditPlan.self, from: data)
+        
+        #expect(decoded.audioPlan?.trackTitle == "Titan Ascent")
+        #expect(decoded.audioPlan?.fadeInDuration == 0.8)
+        #expect(decoded.audioPlan?.fadeOutDuration == 1.5)
+    }
+
+    // MARK: - Audit Trail Record Persistence & Filtering Tests
+    
+    @Test func testAuditServicePersistenceAndFiltering() async throws {
+        let auditService = await AuditService.shared
+        
+        await auditService.record(
+            category: .project,
+            action: "Test Project Created",
+            status: .success,
+            projectId: UUID(),
+            projectName: "Alpha Project",
+            description: "Unit test project creation audit log entry.",
+            source: "Unit Test"
+        )
+        
+        await auditService.record(
+            category: .video,
+            action: "Test Video Render",
+            status: .success,
+            projectId: UUID(),
+            projectName: "Alpha Project",
+            mediaType: "Video",
+            description: "Rendered 3 scenes on Apple Metal GPU.",
+            source: "GPU Engine"
+        )
+        
+        let allRecords = await auditService.getRecords(category: .all)
+        #expect(allRecords.count >= 2)
+        
+        let videoRecords = await auditService.getRecords(category: .video)
+        #expect(videoRecords.contains(where: { $0.action == "Test Video Render" }))
+        
+        let searchRecords = await auditService.getRecords(category: .all, searchQuery: "Alpha Project")
+        #expect(searchRecords.count >= 2)
+    }
+
+    // MARK: - Soundtrack Library Catalog Tests
+    
+    @Test func testSoundtrackLibraryMetadata() async throws {
+        let library = await SoundtrackLibrary.shared
+        let tracks = await library.tracks
+        
+        #expect(tracks.count >= 8)
+        
+        let cinematic = await library.track(for: "cinematic_emotional_01")
+        #expect(cinematic != nil)
+        #expect(cinematic?.title == "Celestial Horizons")
+        #expect(cinematic?.category == .cinematic)
+        #expect(cinematic?.license.contains("Royalty-Free") == true)
+        
+        let matched = await library.bestMatch(for: "Make a high energy cyberpunk video")
+        #expect(matched.category == .cinematic || matched.category == .energetic)
+    }
 }
 
 

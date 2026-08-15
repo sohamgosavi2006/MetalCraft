@@ -2,8 +2,8 @@
 //  Project.swift
 //  MetalCraft
 //
-//  Persistent Project, ProjectImage, and ProjectVideo models representing
-//  multi-image and multi-video editing documents.
+//  Persistent Project, ProjectImage, ProjectVideo, and ProjectMusic models representing
+//  multi-image, multi-video, and soundtrack audio editing documents.
 //  Preserves pipeline configuration, adjustments, media metadata, and history.
 //
 
@@ -14,6 +14,7 @@ import Foundation
 enum MediaType: String, Codable, Sendable, CaseIterable {
     case image = "Image"
     case video = "Video"
+    case audio = "Audio"
 }
 
 // MARK: - Video Metadata Model
@@ -210,6 +211,60 @@ struct ProjectVideo: Identifiable, Codable, Sendable, Equatable {
     }
 }
 
+// MARK: - Project Music Document Model
+
+struct ProjectMusic: Identifiable, Codable, Sendable, Equatable {
+    let id: UUID
+    var name: String
+    var originalFilename: String
+    var duration: Double            // in seconds
+    var format: String              // "m4a", "mp3", "wav"
+    var fileSizeBytes: Int64
+    var category: String?           // "Cinematic", "Emotional", "Energetic", "Calm", etc.
+    var mood: String?               // "Warm", "Upbeat", "Dramatic", etc.
+    var isPreferred: Bool
+    var createdAt: Date
+    var source: String?             // "Imported", "MetalCraft Library", etc.
+    
+    init(
+        id: UUID = UUID(),
+        name: String = "Track",
+        originalFilename: String = "audio.m4a",
+        duration: Double = 0.0,
+        format: String = "m4a",
+        fileSizeBytes: Int64 = 0,
+        category: String? = "Cinematic",
+        mood: String? = "Dramatic",
+        isPreferred: Bool = false,
+        createdAt: Date = Date(),
+        source: String? = "Imported"
+    ) {
+        self.id = id
+        self.name = name
+        self.originalFilename = originalFilename
+        self.duration = duration
+        self.format = format
+        self.fileSizeBytes = fileSizeBytes
+        self.category = category
+        self.mood = mood
+        self.isPreferred = isPreferred
+        self.createdAt = createdAt
+        self.source = source
+    }
+    
+    var formattedDuration: String {
+        let totalSeconds = Int(duration.rounded())
+        let minutes = totalSeconds / 60
+        let seconds = totalSeconds % 60
+        return String(format: "%02d:%02d", minutes, seconds)
+    }
+    
+    var fileSizeFormatted: String {
+        let mb = Double(fileSizeBytes) / (1024.0 * 1024.0)
+        return String(format: "%.1f MB", mb)
+    }
+}
+
 // MARK: - Persistent Project Model
 
 struct Project: Identifiable, Codable, Sendable, Equatable {
@@ -220,6 +275,7 @@ struct Project: Identifiable, Codable, Sendable, Equatable {
     var isFavorite: Bool
     var images: [ProjectImage]
     var videos: [ProjectVideo]
+    var music: [ProjectMusic]
     
     init(
         id: UUID = UUID(),
@@ -228,7 +284,8 @@ struct Project: Identifiable, Codable, Sendable, Equatable {
         modifiedAt: Date = Date(),
         isFavorite: Bool = false,
         images: [ProjectImage] = [],
-        videos: [ProjectVideo] = []
+        videos: [ProjectVideo] = [],
+        music: [ProjectMusic] = []
     ) {
         self.id = id
         self.name = name
@@ -237,6 +294,7 @@ struct Project: Identifiable, Codable, Sendable, Equatable {
         self.isFavorite = isFavorite
         self.images = images
         self.videos = videos
+        self.music = music
     }
     
     var primaryImage: ProjectImage? {
@@ -247,7 +305,15 @@ struct Project: Identifiable, Codable, Sendable, Equatable {
         videos.first
     }
     
+    var preferredMusic: ProjectMusic? {
+        music.first(where: { $0.isPreferred }) ?? music.first
+    }
+    
     var totalMediaCount: Int {
+        images.count + videos.count + music.count
+    }
+    
+    var visualMediaCount: Int {
         images.count + videos.count
     }
     
@@ -287,6 +353,9 @@ struct Project: Identifiable, Codable, Sendable, Equatable {
         if !videos.isEmpty {
             parts.append(videos.count == 1 ? "1 Video" : "\(videos.count) Videos")
         }
+        if !music.isEmpty {
+            parts.append(music.count == 1 ? "1 Track" : "\(music.count) Tracks")
+        }
         if parts.isEmpty {
             return "No Media"
         }
@@ -296,7 +365,7 @@ struct Project: Identifiable, Codable, Sendable, Equatable {
     // MARK: - Codable with Backward-Compatible Legacy Migration
     
     enum CodingKeys: String, CodingKey {
-        case id, name, createdAt, modifiedAt, isFavorite, images, videos
+        case id, name, createdAt, modifiedAt, isFavorite, images, videos, music
         case originalImageFilename, previewFilename, pipeline, adjustments, comparisonMode, imageInfo, processingHistory, exportHistory
     }
     
@@ -310,6 +379,7 @@ struct Project: Identifiable, Codable, Sendable, Equatable {
         
         self.images = try container.decodeIfPresent([ProjectImage].self, forKey: .images) ?? []
         self.videos = try container.decodeIfPresent([ProjectVideo].self, forKey: .videos) ?? []
+        self.music = try container.decodeIfPresent([ProjectMusic].self, forKey: .music) ?? []
         
         // Backward-compatible migration for early single-image schema
         if self.images.isEmpty && self.videos.isEmpty && container.contains(.pipeline) {
@@ -349,5 +419,6 @@ struct Project: Identifiable, Codable, Sendable, Equatable {
         try container.encode(isFavorite, forKey: .isFavorite)
         try container.encode(images, forKey: .images)
         try container.encode(videos, forKey: .videos)
+        try container.encode(music, forKey: .music)
     }
 }

@@ -175,6 +175,55 @@ struct EditPlanPreviewView: View {
                 }
             }
             
+            // Audio Soundtrack Plan Section (if audio requested)
+            if let audio = plan.audioPlan, audio.requested {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("SOUNDTRACK & AUDIO MIX")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundStyle(.secondary)
+                    
+                    HStack(spacing: 10) {
+                        Image(systemName: "music.note")
+                            .font(.caption)
+                            .foregroundStyle(.cyan)
+                            .frame(width: 24, height: 24)
+                            .background(Color.cyan.opacity(0.15))
+                            .clipShape(Circle())
+                        
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(audio.trackTitle ?? "Soundtrack Selected")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(.primary)
+                            
+                            HStack(spacing: 6) {
+                                if let mood = audio.mood {
+                                    Text(mood)
+                                }
+                                if let style = audio.style {
+                                    Text("• \(style)")
+                                }
+                                Text("• Vol \(Int((audio.volume ?? 0.7) * 100))%")
+                            }
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                        }
+                        
+                        Spacer()
+                        
+                        Text("AAC 44.1kHz")
+                            .font(.system(size: 9, weight: .bold))
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(Color.cyan.opacity(0.12))
+                            .foregroundStyle(.cyan)
+                            .cornerRadius(4)
+                    }
+                    .padding(10)
+                    .background(Color(uiColor: .tertiarySystemBackground))
+                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                }
+            }
+            
             // Execute Button
             if let onApply {
                 Button {

@@ -3,8 +3,8 @@
 //  MetalCraft
 //
 //  Agentic Media-Production Workspace connecting SwiftUI to Gemini Creative Director,
-//  Parallel creative research, multi-scene timeline synthesis, and real-time
-//  Apple Metal GPU video generation from project media.
+//  Parallel creative research, multi-scene timeline synthesis, soundtrack audio composition,
+//  and real-time Apple Metal GPU video generation from project media.
 //
 
 import SwiftUI
@@ -16,27 +16,29 @@ struct AICreateView: View {
     @State private var promptText: String = ""
     @FocusState private var isPromptFocused: Bool
     
-    // Project Selection
-    @State private var isProjectPickerPresented: Bool = false
-    @State private var selectedProject: Project? = nil
+    // Media & Project Settings Modal Sheet
+    @State private var isShowingMediaSettingsSheet: Bool = false
     
-    // Video Playback & Fullscreen Preview
-    @State private var isShowingVideoPlayer: Bool = false
+    // Alerts
     @State private var isShowingPhotosSuccessAlert: Bool = false
     @State private var isShowingProjectSuccessAlert: Bool = false
     
     private let promptSuggestions = [
-        "Create a 15-second cinematic product reel",
-        "Fast-paced social media highlight reel",
-        "Warm golden hour vintage montage",
-        "Moody neo-noir cyberpunk showcase",
-        "High-contrast black and white gallery tape"
+        "Create a 15-second cinematic product reel with emotional music",
+        "Fast-paced social media highlight reel with upbeat music",
+        "Warm golden hour vintage montage with acoustic soundtrack",
+        "Moody neo-noir cyberpunk showcase with electronic pulse",
+        "High-contrast black and white gallery tape with ambient music"
     ]
+    
+    private var activeProject: Project? {
+        appState.selectedProjectForAICreate ?? appState.currentProject ?? appState.projects.first
+    }
     
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                // 1. Project & Media Asset Strip Header
+                // 1. Creative Context Strip
                 projectMediaHeader
                 
                 Divider()
@@ -44,7 +46,7 @@ struct AICreateView: View {
                 // 2. Main Production Workspace Stream
                 ScrollViewReader { proxy in
                     ScrollView {
-                        LazyVStack(spacing: 18) {
+                        LazyVStack(spacing: 16) {
                             if appState.agentMessages.isEmpty && !appState.isGeneratingVideo && appState.generatedVideoURL == nil {
                                 emptyStateHero
                             } else {
@@ -69,7 +71,7 @@ struct AICreateView: View {
                             }
                         }
                         .padding(.vertical, 16)
-                        .padding(.horizontal, 14)
+                        .padding(.horizontal, 16)
                     }
                     .onChange(of: appState.agentMessages.count) { _, _ in
                         if let lastId = appState.agentMessages.last?.id {
@@ -102,7 +104,16 @@ struct AICreateView: View {
                     projectSelectorMenu
                 }
                 
-                ToolbarItem(placement: .topBarTrailing) {
+                ToolbarItemGroup(placement: .topBarTrailing) {
+                    Button {
+                        isShowingMediaSettingsSheet = true
+                    } label: {
+                        Image(systemName: "gearshape")
+                            .font(.subheadline)
+                            .foregroundStyle(.primary)
+                    }
+                    .accessibilityLabel("AI Create Settings")
+                    
                     if !appState.agentMessages.isEmpty || appState.generatedVideoURL != nil {
                         Button {
                             appState.clearAgentConversation()
@@ -111,122 +122,101 @@ struct AICreateView: View {
                                 .font(.subheadline)
                                 .foregroundStyle(.secondary)
                         }
+                        .accessibilityLabel("Clear Conversation")
                     }
                 }
             }
-            .onAppear {
-                if selectedProject == nil {
-                    selectedProject = appState.currentProject ?? appState.projects.first
-                }
+            .sheet(isPresented: $isShowingMediaSettingsSheet) {
+                AICreateMediaSettingsSheet()
             }
             .alert("Saved to Photos!", isPresented: $isShowingPhotosSuccessAlert) {
                 Button("OK", role: .cancel) { }
             } message: {
-                Text("Your generated cinematic video has been exported directly to your Photo Library.")
+                Text("Your generated cinematic video with soundtrack has been exported directly to your Photo Library.")
             }
             .alert("Added to Project!", isPresented: $isShowingProjectSuccessAlert) {
                 Button("OK", role: .cancel) { }
             } message: {
-                Text("The generated video was saved into '\(selectedProject?.name ?? "Project")' as a new video asset.")
+                Text("The generated video was saved into '\(activeProject?.name ?? "Project")' as a new video asset.")
             }
         }
     }
     
-    // MARK: - Project & Media Header
+    // MARK: - Project & Media Header Context
     
     private var projectMediaHeader: some View {
-        VStack(spacing: 8) {
-            HStack(spacing: 10) {
-                // Project Icon & Name
-                Image(systemName: "folder.fill.badge.gearshape")
-                    .font(.subheadline)
-                    .foregroundStyle(.purple)
-                
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(selectedProject?.name ?? "No Project Selected")
-                        .font(.caption.weight(.bold))
-                        .foregroundStyle(.primary)
-                        .lineLimit(1)
+        Button {
+            isShowingMediaSettingsSheet = true
+        } label: {
+            HStack(spacing: 12) {
+                if let project = activeProject {
+                    Image(systemName: "folder.fill")
+                        .foregroundStyle(.purple)
+                        .font(.subheadline)
                     
-                    Text("\(selectedProject?.images.count ?? 0) Images • \(selectedProject?.videos.count ?? 0) Videos")
-                        .font(.caption2)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(project.name)
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(.primary)
+                        
+                        HStack(spacing: 8) {
+                            Text("\(project.images.count) img • \(project.videos.count) vid")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                            
+                            Text("•")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                            
+                            HStack(spacing: 3) {
+                                Image(systemName: appState.aiCreateMusicOption == .noMusic ? "speaker.slash" : "music.note")
+                                Text(musicStatusText)
+                            }
+                            .font(.caption2.weight(.medium))
+                            .foregroundStyle(appState.aiCreateMusicOption == .noMusic ? Color.secondary : Color.cyan)
+                        }
+                    }
+                } else {
+                    Label("Select Project & Media", systemImage: "folder.badge.plus")
+                        .font(.subheadline.weight(.medium))
                         .foregroundStyle(.secondary)
                 }
                 
                 Spacer()
                 
-                // Agent Lifecycle State Badge
-                HStack(spacing: 5) {
-                    if appState.agentState.isBusy {
-                        ProgressView()
-                            .scaleEffect(0.6)
-                    } else {
-                        Image(systemName: appState.agentState.systemIcon)
-                            .font(.caption2)
-                    }
-                    
-                    Text(appState.agentState.rawValue)
-                        .font(.caption2.weight(.medium))
-                }
-                .padding(.horizontal, 8)
-                .padding(.vertical, 4)
-                .background(statePillBackground)
-                .foregroundStyle(statePillForeground)
-                .clipShape(Capsule())
-            }
-            
-            // Horizontal Asset Strip
-            if let proj = selectedProject, (!proj.images.isEmpty || !proj.videos.isEmpty) {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 8) {
-                        ForEach(proj.images) { img in
-                            assetThumbnail(title: img.name, isVideo: false)
-                        }
-                        ForEach(proj.videos) { vid in
-                            assetThumbnail(title: vid.name, isVideo: true, duration: vid.videoInfo?.formattedDuration)
-                        }
-                    }
-                    .padding(.vertical, 2)
-                }
-            }
-        }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 8)
-        .background(Color(uiColor: .secondarySystemBackground))
-    }
-    
-    private func assetThumbnail(title: String, isVideo: Bool, duration: String? = nil) -> some View {
-        HStack(spacing: 5) {
-            Image(systemName: isVideo ? "video.fill" : "photo.fill")
-                .font(.system(size: 10))
-                .foregroundStyle(isVideo ? .orange : .purple)
-            
-            Text(title)
-                .font(.system(size: 11, weight: .medium))
-                .lineLimit(1)
-            
-            if let dur = duration {
-                Text(dur)
-                    .font(.system(size: 9, weight: .semibold))
+                Image(systemName: "sliders.horizontal")
+                    .font(.caption)
                     .foregroundStyle(.secondary)
             }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 8)
+            .background(Color(uiColor: .secondarySystemBackground).opacity(0.6))
         }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 4)
-        .background(Color(uiColor: .tertiarySystemBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+        .buttonStyle(.plain)
+    }
+    
+    private var musicStatusText: String {
+        switch appState.aiCreateMusicOption {
+        case .auto: return "Auto Music"
+        case .project: return "Project Track"
+        case .library:
+            if let tr = SoundtrackLibrary.shared.track(for: appState.aiCreateSelectedSoundtrackId ?? "") {
+                return tr.title
+            }
+            return "Library Music"
+        case .noMusic: return "No Music"
+        }
     }
     
     private var projectSelectorMenu: some View {
         Menu {
             ForEach(appState.projects) { proj in
                 Button {
-                    selectedProject = proj
                     appState.selectedProjectForAICreate = proj
                 } label: {
                     HStack {
                         Text(proj.name)
-                        if selectedProject?.id == proj.id {
+                        if activeProject?.id == proj.id {
                             Image(systemName: "checkmark")
                         }
                     }
@@ -234,32 +224,12 @@ struct AICreateView: View {
             }
         } label: {
             HStack(spacing: 4) {
-                Text(selectedProject?.name ?? "Select Project")
+                Text(activeProject?.name ?? "Select Project")
                     .font(.subheadline.weight(.semibold))
                 Image(systemName: "chevron.up.chevron.down")
                     .font(.caption2)
             }
             .foregroundStyle(.purple)
-        }
-    }
-    
-    private var statePillBackground: Color {
-        if appState.agentState.isBusy {
-            return Color.purple.opacity(0.15)
-        } else if appState.agentState == .failed {
-            return Color.red.opacity(0.15)
-        } else {
-            return Color(uiColor: .tertiarySystemBackground)
-        }
-    }
-    
-    private var statePillForeground: Color {
-        if appState.agentState.isBusy {
-            return .purple
-        } else if appState.agentState == .failed {
-            return .red
-        } else {
-            return .secondary
         }
     }
     
@@ -276,24 +246,24 @@ struct AICreateView: View {
                     .font(.system(size: 36, weight: .light))
                     .foregroundStyle(.purple)
             }
-            .padding(.top, 30)
+            .padding(.top, 24)
             
-            Text("Agentic Video Studio")
+            Text("Agentic Media Studio")
                 .font(.title3.weight(.bold))
                 .foregroundStyle(.primary)
             
-            Text("Select a project containing images and videos, then describe your creative vision. Gemini will formulate a multi-scene timeline rendered live on your Apple GPU.")
+            Text("Describe your creative intent. Gemini will formulate a multi-scene timeline, match a licensed soundtrack, and compose GPU video with AVFoundation audio.")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
-                .padding(.horizontal, 28)
+                .padding(.horizontal, 24)
         }
     }
     
     // MARK: - Live Generation Progress Card
     
     private func generationProgressCard(_ progress: VideoGenerationProgress) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 10) {
             HStack {
                 Label(progress.stage.rawValue, systemImage: "bolt.fill")
                     .font(.subheadline.weight(.bold))
@@ -335,25 +305,26 @@ struct AICreateView: View {
     // MARK: - Generated Video Result Card
     
     private func generatedVideoResultCard(_ videoURL: URL) -> some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Label("Final Video Ready", systemImage: "checkmark.circle.fill")
+                Label("Production Ready", systemImage: "checkmark.circle.fill")
                     .font(.subheadline.weight(.bold))
                     .foregroundStyle(.green)
                 
                 Spacer()
                 
-                Text("H.264 • 1080p • 30 FPS")
+                Text("H.264 • 1080p • 30 FPS • AAC")
                     .font(.caption2.weight(.medium))
                     .foregroundStyle(.secondary)
             }
             
             // Video Player
             VideoPlayer(player: AVPlayer(url: videoURL))
-                .frame(height: 240)
+                .aspectRatio(9/16, contentMode: .fit)
+                .frame(maxHeight: 280)
                 .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
             
-            // Action Controls: Save to Photos & Add to Project
+            // Action Controls
             HStack(spacing: 12) {
                 Button {
                     Task {
@@ -391,7 +362,7 @@ struct AICreateView: View {
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
     
-    // MARK: - Prompt Suggestion Pills
+    // MARK: - Prompt Suggestions Carousel
     
     private var suggestionPills: some View {
         ScrollView(.horizontal, showsIndicators: false) {
@@ -425,7 +396,7 @@ struct AICreateView: View {
     
     private var inputBar: some View {
         HStack(spacing: 10) {
-            TextField("Describe video intent (e.g. 15s cinematic reel)...", text: $promptText, axis: .vertical)
+            TextField("Describe creative intent...", text: $promptText, axis: .vertical)
                 .focused($isPromptFocused)
                 .lineLimit(1...4)
                 .padding(.horizontal, 14)
@@ -473,7 +444,7 @@ struct AICreateView: View {
         promptText = ""
         isPromptFocused = false
         
-        let proj = selectedProject ?? appState.currentProject ?? appState.projects.first
+        let proj = activeProject
         
         Task {
             if let validProj = proj {
@@ -486,14 +457,12 @@ struct AICreateView: View {
     
     private func handlePlanAction(_ plan: EditPlan) {
         if !plan.scenes.isEmpty || plan.mediaType == .video {
-            // Multi-scene Video Generation
-            if let proj = selectedProject ?? appState.currentProject ?? appState.projects.first {
+            if let proj = activeProject {
                 Task {
                     await appState.executeVideoGeneration(for: plan, in: proj)
                 }
             }
         } else {
-            // Single-Image Pipeline Execution
             do {
                 try appState.applyEditPlan(plan)
                 withAnimation {
@@ -506,3 +475,4 @@ struct AICreateView: View {
         }
     }
 }
+

@@ -31,6 +31,24 @@ enum AppTab: String, CaseIterable, Identifiable {
     }
 }
 
+// MARK: - AI Create Music Preference Option
+
+enum AICreateMusicOption: String, Codable, Sendable, CaseIterable {
+    case auto = "Auto Select"
+    case project = "Project Music"
+    case library = "MetalCraft Library"
+    case noMusic = "No Music"
+    
+    var iconName: String {
+        switch self {
+        case .auto: return "sparkles"
+        case .project: return "folder.badge.gearshape"
+        case .library: return "music.note.list"
+        case .noMusic: return "speaker.slash"
+        }
+    }
+}
+
 @Observable
 @MainActor
 final class AppState {
@@ -129,6 +147,18 @@ final class AppState {
     var generationProgress: VideoGenerationProgress? = nil
     var generatedVideoURL: URL? = nil
     var generatedVideoThumbnail: UIImage? = nil
+    
+    // MARK: - AI Create Configuration & Media Selection State
+    var aiCreateMusicOption: AICreateMusicOption = .auto
+    var aiCreateSelectedSoundtrackId: String? = "cinematic_emotional_01"
+    var aiCreateSelectedMediaIDs: Set<UUID> = []
+    var aiCreateAspectRatio: String = "9:16"
+    var aiCreateTargetDuration: Double = 15.0
+    
+    // MARK: - Audio Preview Player
+    private var audioPlayer: AVAudioPlayer? = nil
+    var isPlayingAudioPreview: Bool = false
+    var currentlyPlayingTrackURL: URL? = nil
     
     // MARK: - Diagnostics
     var lastDiagnosticsResult: DiagnosticsResponse? = nil
@@ -1146,6 +1176,80 @@ final class AppState {
             .appendingPathComponent("MetalCraft_Generated_\(UUID().uuidString).mp4")
         
         let startTime = CFAbsoluteTimeGetCurrent()
+        
+        // Resolve Audio Plan & Soundtrack based on User Preference / Gemini plan
+        var effectivePlan = plan
+        var resolvedAudioURL: URL? = nil
+        
+        switch aiCreateMusicOption {
+        case .noMusic:
+            effectivePlan.audioPlan = nil
+        case .library:
+            let trackId = aiCreateSelectedSoundtrackId ?? plan.audioPlan?.trackId ?? "cinematic_emotional_01"
+            let trackMeta = SoundtrackLibrary.shared.track(for: trackId) ?? SoundtrackLibrary.shared.tracks.first!
+            effectivePlan.audioPlan = AudioPlan(
+                requested: true,
+                mood: trackMeta.mood,
+                style: trackMeta.category.rawValue,
+                energy: trackMeta.energy,
+                source: "metalcraft_library",
+                trackId: trackMeta.id,
+                trackTitle: trackMeta.title,
+                volume: 0.7,
+                fadeInDuration: 0.5,
+                fadeOutDuration: 1.0
+            )
+            resolvedAudioURL = try? await SoundtrackLibrary.shared.resolveAudioURL(for: trackMeta)
+        case .project:
+            if let prefMusic = project.preferredMusic {
+                effectivePlan.audioPlan = AudioPlan(
+                    requested: true,
+                    mood: prefMusic.mood,
+                    style: prefMusic.category,
+                    energy: "Medium",
+                    source: "project_music",
+                    trackId: prefMusic.id.uuidString,
+                    trackTitle: prefMusic.name,
+                    volume: 0.7,
+                    fadeInDuration: 0.5,
+                    fadeOutDuration: 1.0
+                )
+                resolvedAudioURL = projectManager.loadMusicURL(projectId: project.id, music: prefMusic)
+            }
+        case .auto:
+            if let autoAudio = plan.audioPlan, autoAudio.requested {
+                let trackId = autoAudio.trackId ?? "cinematic_emotional_01"
+                resolvedAudioURL = try? await SoundtrackLibrary.shared.resolveAudioURL(for: trackId)
+            } else {
+                // If user asked in prompt for music, match from library
+                let bestTrack = SoundtrackLibrary.shared.bestMatch(for: plan.goal)
+                effectivePlan.audioPlan = AudioPlan(
+                    requested: true,
+                    mood: bestTrack.mood,
+                    style: bestTrack.category.rawValue,
+                    energy: bestTrack.energy,
+                    source: "metalcraft_library",
+                    trackId: bestTrack.id,
+                    trackTitle: bestTrack.title,
+                    volume: 0.7,
+                    fadeInDuration: 0.5,
+                    fadeOutDuration: 1.0
+                )
+                resolvedAudioURL = try? await SoundtrackLibrary.shared.resolveAudioURL(for: bestTrack)
+            }
+        }
+        
+        AuditService.shared.record(
+            category: .video,
+            action: "Video Generation Started",
+            status: .info,
+            projectId: project.id,
+            projectName: project.name,
+            mediaType: "Video",
+            description: "Started rendering \(effectivePlan.scenes.count) scenes with \(effectivePlan.audioPlan?.trackTitle ?? "No Music").",
+            source: "AI Studio"
+        )
+        
         telemetryService.emit(TelemetryEvent(
             eventType: TelemetryEventType.processingStarted.rawValue,
             sessionId: telemetryService.sessionId,
@@ -1155,11 +1259,12 @@ final class AppState {
         
         do {
             try await multiSceneVideoGenerator.generateVideo(
-                editPlan: plan,
+                editPlan: effectivePlan,
                 project: project,
                 projectManager: projectManager,
                 metalProcessor: metalProcessor,
                 textureProvider: videoTextureProvider,
+                soundtrackOverrideURL: resolvedAudioURL,
                 destinationURL: destURL
             ) { [weak self] progress in
                 Task { @MainActor [weak self] in
@@ -1188,14 +1293,26 @@ final class AppState {
                 mediaType: "video"
             ))
             
+            AuditService.shared.record(
+                category: .video,
+                action: "Video Generation Completed",
+                status: .success,
+                projectId: project.id,
+                projectName: project.name,
+                mediaType: "Video",
+                description: "Rendered \(effectivePlan.scenes.count) scenes (\(String(format: "%.1f", effectivePlan.totalSceneDuration))s) with soundtrack in \(String(format: "%.2f", elapsedSec))s.",
+                source: "Metal GPU Engine"
+            )
+            
             self.agentState = .completed
             self.isGeneratingVideo = false
             
+            let musicNote = effectivePlan.audioPlan?.trackTitle != nil ? " with soundtrack '\(effectivePlan.audioPlan!.trackTitle!)'" : ""
             let evalMsg = AgentMessage(
                 role: .assistant,
-                content: "✅ Video production complete! Rendered \(plan.scenes.count) scenes (\(String(format: "%.1f", plan.totalSceneDuration))s) on Apple GPU in \(String(format: "%.2f", elapsedSec))s. Ready for preview and export.",
-                reasoning: "Evaluated render output: Target frame rate 30 FPS achieved with zero dropped frames. Video encoded to H.264 MP4 container.",
-                editPlan: plan
+                content: "✅ Video production complete! Rendered \(effectivePlan.scenes.count) scenes (\(String(format: "%.1f", effectivePlan.totalSceneDuration))s)\(musicNote) on Apple GPU in \(String(format: "%.2f", elapsedSec))s. Ready for preview and export.",
+                reasoning: "Evaluated render output: Target frame rate 30 FPS achieved with zero dropped frames. Video and audio composited into H.264 MP4 container.",
+                editPlan: effectivePlan
             )
             self.agentMessages.append(evalMsg)
             
@@ -1204,6 +1321,17 @@ final class AppState {
             self.isGeneratingVideo = false
             self.errorMessage = "Video generation failed: \(error.localizedDescription)"
             self.showError = true
+            
+            AuditService.shared.record(
+                category: .errors,
+                action: "Video Generation Failed",
+                status: .failure,
+                projectId: project.id,
+                projectName: project.name,
+                mediaType: "Video",
+                description: "Failed rendering video: \(error.localizedDescription)",
+                source: "Metal GPU Engine"
+            )
             
             let failMsg = AgentMessage(
                 role: .system,
@@ -1265,6 +1393,141 @@ final class AppState {
         self.projects = projectManager.loadAllProjects()
         if self.currentProject?.id == targetProject.id {
             self.currentProject = targetProject
+        }
+    }
+    
+    // MARK: - Project Music Operations
+    
+    func addMusicToProject(url: URL, to project: Project, name: String? = nil) async -> ProjectMusic? {
+        guard let index = projects.firstIndex(where: { $0.id == project.id }) else { return nil }
+        
+        let musicId = UUID()
+        let filename = url.lastPathComponent
+        let trackName = name ?? (filename as NSString).deletingPathExtension
+        let ext = (filename as NSString).pathExtension.lowercased()
+        
+        // Read audio duration
+        let asset = AVURLAsset(url: url)
+        let durationSeconds = (try? await asset.load(.duration))?.seconds ?? 0.0
+        
+        // Copy audio file into project music directory
+        guard let savedURL = projectManager.saveMusicTrack(from: url, projectId: project.id, musicId: musicId, filename: filename) else {
+            return nil
+        }
+        
+        let attributes = try? FileManager.default.attributesOfItem(atPath: savedURL.path)
+        let fileSize = (attributes?[.size] as? Int64) ?? 0
+        
+        let isFirstTrack = projects[index].music.isEmpty
+        let newMusic = ProjectMusic(
+            id: musicId,
+            name: trackName,
+            originalFilename: savedURL.lastPathComponent,
+            duration: durationSeconds,
+            format: ext.isEmpty ? "m4a" : ext,
+            fileSizeBytes: fileSize,
+            category: "Project Audio",
+            mood: "Original",
+            isPreferred: isFirstTrack,
+            createdAt: Date(),
+            source: "Imported"
+        )
+        
+        projects[index].music.append(newMusic)
+        projects[index].modifiedAt = Date()
+        projectManager.saveProject(projects[index])
+        
+        if currentProject?.id == project.id {
+            currentProject = projects[index]
+        }
+        
+        AuditService.shared.record(
+            category: .audio,
+            action: "Music Imported",
+            status: .success,
+            projectId: project.id,
+            projectName: project.name,
+            mediaType: "Audio",
+            description: "Imported soundtrack '\(trackName)' (\(newMusic.formattedDuration)) to project '\(project.name)'.",
+            source: "Project Manager"
+        )
+        
+        return newMusic
+    }
+    
+    func deleteMusicFromProject(_ music: ProjectMusic, from project: Project) {
+        guard let index = projects.firstIndex(where: { $0.id == project.id }) else { return }
+        
+        projects[index].music.removeAll(where: { $0.id == music.id })
+        projectManager.deleteMusic(projectId: project.id, musicId: music.id, format: music.format)
+        projects[index].modifiedAt = Date()
+        projectManager.saveProject(projects[index])
+        
+        if currentProject?.id == project.id {
+            currentProject = projects[index]
+        }
+        
+        AuditService.shared.record(
+            category: .audio,
+            action: "Music Removed",
+            status: .info,
+            projectId: project.id,
+            projectName: project.name,
+            mediaType: "Audio",
+            description: "Removed track '\(music.name)' from project '\(project.name)'.",
+            source: "Project Manager"
+        )
+    }
+    
+    func toggleMusicPreferred(_ music: ProjectMusic, in project: Project) {
+        guard let pIndex = projects.firstIndex(where: { $0.id == project.id }) else { return }
+        
+        for i in 0..<projects[pIndex].music.count {
+            if projects[pIndex].music[i].id == music.id {
+                projects[pIndex].music[i].isPreferred.toggle()
+            } else {
+                projects[pIndex].music[i].isPreferred = false
+            }
+        }
+        
+        projects[pIndex].modifiedAt = Date()
+        projectManager.saveProject(projects[pIndex])
+        
+        if currentProject?.id == project.id {
+            currentProject = projects[pIndex]
+        }
+    }
+    
+    // MARK: - Audio Preview Player
+    
+    func playAudioPreview(url: URL) {
+        stopAudioPreview()
+        do {
+            try AVAudioSession.sharedInstance().setCategory(.playback, mode: .default)
+            try AVAudioSession.sharedInstance().setActive(true)
+            let player = try AVAudioPlayer(contentsOf: url)
+            player.prepareToPlay()
+            player.play()
+            self.audioPlayer = player
+            self.isPlayingAudioPreview = true
+            self.currentlyPlayingTrackURL = url
+        } catch {
+            print("Failed to play audio preview: \(error)")
+        }
+    }
+    
+    func stopAudioPreview() {
+        audioPlayer?.stop()
+        audioPlayer = nil
+        isPlayingAudioPreview = false
+        currentlyPlayingTrackURL = nil
+    }
+    
+    func toggleAudioPreview(url: URL) {
+        if isPlayingAudioPreview && currentlyPlayingTrackURL == url {
+            stopAudioPreview()
+        } else {
+            playAudioPreview(url: url)
         }
     }
     

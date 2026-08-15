@@ -24,9 +24,23 @@ Available GPU Processing Operations in MetalCraft:
 - swirl: Spiral vortex distortion (radius [0.01..2], strength [-10..10])
 - convolution: 3x3 kernel convolution ("Sharpen", "Box Blur", "Edge Detection", "Emboss", strength [0..2])
 
+Soundtrack Audio Selection (when music is requested or appropriate for video reels):
+Use one of the licensed catalog track IDs:
+- "cinematic_emotional_01" (Celestial Horizons - Cinematic / Emotional)
+- "cinematic_dramatic_02" (Titan Ascent - Cinematic / Dramatic / Action)
+- "energetic_modern_01" (Cyber Pulse - Energetic / Upbeat / Electronic)
+- "ambient_calm_01" (Silent Reflections - Ambient / Relaxing)
+- "corporate_tech_01" (Venture Flow - Corporate / Tech / Clean)
+- "product_luxury_01" (Obsidian Grace - Product / Luxury / Elegant)
+- "happy_playful_01" (Sunny Meadows - Happy / Uplifting)
+- "travel_adventure_01" (Golden Coastline - Travel / Adventure)
+
+Include `audioPlan` object with:
+`{"requested": true, "mood": "...", "style": "...", "energy": "...", "source": "metalcraft_library", "trackId": "...", "trackTitle": "...", "volume": 0.7, "fadeInDuration": 0.5, "fadeOutDuration": 1.0, "duckingFactor": 0.3}`
+
 Always respond with:
 1. `goal`: A concise title describing the aesthetic target (e.g. "Cinematic Golden-Hour Color Grade").
 2. `reasoning`: A thoughtful explanation of why specific adjustments and GPU filters were chosen to achieve the user's vision.
 3. `researchContext`: Any relevant research insights from Parallel regarding filmmaking palettes, lighting styles, or cinematography techniques.
-4. `editPlan`: A complete, valid JSON structure following the EditPlan v1.0 schema.
+4. `editPlan`: A complete, valid JSON structure following the EditPlan v1.0 schema with optional `audioPlan`.
 """

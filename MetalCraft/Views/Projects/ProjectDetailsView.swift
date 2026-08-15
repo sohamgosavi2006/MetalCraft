@@ -2,13 +2,14 @@
 //  ProjectDetailsView.swift
 //  MetalCraft
 //
-//  Detailed multi-image and multi-video document browser for a Project.
-//  Presents distinct Images and Videos sections, allows importing media,
+//  Detailed multi-image, multi-video, and soundtrack document browser for a Project.
+//  Presents distinct Images, Videos, and Music sections, allows importing media,
 //  and previews/opens selected media in the Editor.
 //
 
 import SwiftUI
 import PhotosUI
+import UniformTypeIdentifiers
 
 struct ProjectDetailsView: View {
     @Bindable var appState: AppState
@@ -19,6 +20,7 @@ struct ProjectDetailsView: View {
     @State private var newProjectName = ""
     @State private var selectedPhotoItems: [PhotosPickerItem] = []
     @State private var selectedVideoItems: [PhotosPickerItem] = []
+    @State private var isShowingAudioImporter = false
     @State private var selectedImageForPreview: ProjectImage? = nil
     @State private var selectedVideoForPreview: ProjectVideo? = nil
     
@@ -133,6 +135,54 @@ struct ProjectDetailsView: View {
                             .padding(.horizontal)
                         }
                     }
+                    
+                    Divider()
+                        .padding(.horizontal)
+                    
+                    // MARK: - Music & Soundtracks Section
+                    VStack(alignment: .leading, spacing: 12) {
+                        HStack {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("MUSIC & SOUNDTRACKS")
+                                    .font(.caption2.weight(.bold))
+                                    .foregroundStyle(.secondary)
+                                Text("\(currentProjectData.music.count) \(currentProjectData.music.count == 1 ? "Track" : "Tracks")")
+                                    .font(.subheadline.weight(.semibold))
+                            }
+                            
+                            Spacer()
+                            
+                            Button {
+                                isShowingAudioImporter = true
+                            } label: {
+                                Label("Add Music", systemImage: "music.note.badge.plus")
+                                    .font(.subheadline.weight(.semibold))
+                            }
+                            .accessibilityLabel("Add Music to Project")
+                        }
+                        .padding(.horizontal)
+                        
+                        if currentProjectData.music.isEmpty {
+                            emptySectionPlaceholder(title: "No Music in Project", subtitle: "Tap 'Add Music' to import .m4a, .mp3, or .wav soundtracks.")
+                        } else {
+                            VStack(spacing: 8) {
+                                ForEach(currentProjectData.music) { track in
+                                    ProjectMusicRowItem(
+                                        projectId: currentProjectData.id,
+                                        music: track,
+                                        appState: appState,
+                                        onTogglePreferred: {
+                                            appState.toggleMusicPreferred(track, in: currentProjectData)
+                                        },
+                                        onDelete: {
+                                            appState.deleteMusicFromProject(track, from: currentProjectData)
+                                        }
+                                    )
+                                }
+                            }
+                            .padding(.horizontal)
+                        }
+                    }
                 }
                 .padding(.vertical)
             }
@@ -140,7 +190,10 @@ struct ProjectDetailsView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    Button("Done") { dismiss() }
+                    Button("Done") {
+                        appState.stopAudioPreview()
+                        dismiss()
+                    }
                 }
                 
                 ToolbarItemGroup(placement: .topBarTrailing) {
@@ -176,7 +229,7 @@ struct ProjectDetailsView: View {
                     Task {
                         for item in newItems {
                             if let data = try? await item.loadTransferable(type: Data.self),
-                               let uiImage = UIImage(data: data) {
+                                let uiImage = UIImage(data: data) {
                                 appState.addImage(to: currentProjectData, uiImage: uiImage)
                             }
                         }
@@ -194,6 +247,22 @@ struct ProjectDetailsView: View {
                         }
                         selectedVideoItems = []
                     }
+                }
+            }
+            .fileImporter(
+                isPresented: $isShowingAudioImporter,
+                allowedContentTypes: [.audio],
+                allowsMultipleSelection: false
+            ) { result in
+                switch result {
+                case .success(let urls):
+                    if let url = urls.first {
+                        Task {
+                            _ = await appState.addMusicToProject(url: url, to: currentProjectData)
+                        }
+                    }
+                case .failure(let error):
+                    print("Audio file import failed: \(error.localizedDescription)")
                 }
             }
             .sheet(item: $selectedImageForPreview) { img in
@@ -298,62 +367,72 @@ private struct ProjectImageGridItem: View {
     
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            ZStack(alignment: .topTrailing) {
-                RoundedRectangle(cornerRadius: 10)
-                    .fill(Color(.secondarySystemBackground))
-                    .aspectRatio(1.0, contentMode: .fit)
-                
+            ZStack(alignment: .bottomTrailing) {
                 if let thumbnail {
                     Image(uiImage: thumbnail)
                         .resizable()
                         .aspectRatio(contentMode: .fill)
-                        .frame(maxWidth: .infinity)
-                        .aspectRatio(1.0, contentMode: .fit)
+                        .frame(minWidth: 0, maxWidth: .infinity)
+                        .frame(height: 120)
                         .clipped()
-                        .clipShape(RoundedRectangle(cornerRadius: 10))
+                        .cornerRadius(10)
                 } else {
-                    ProgressView()
-                        .scaleEffect(0.7)
+                    RoundedRectangle(cornerRadius: 10)
+                        .fill(Color(.secondarySystemBackground))
+                        .frame(height: 120)
+                        .overlay {
+                            ProgressView()
+                        }
+                }
+                
+                if image.activeOperationCount > 0 {
+                    HStack(spacing: 3) {
+                        Image(systemName: "sparkles")
+                        Text("\(image.activeOperationCount)")
+                    }
+                    .font(.system(size: 10, weight: .bold))
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(.ultraThinMaterial)
+                    .cornerRadius(6)
+                    .padding(6)
                 }
             }
+            .contentShape(Rectangle())
             .onTapGesture {
                 onTap()
             }
             
-            VStack(alignment: .leading, spacing: 1) {
-                Text(image.name)
-                    .font(.caption.weight(.semibold))
-                    .lineLimit(1)
-                
-                if let info = image.imageInfo {
-                    Text(info.dimensionsText)
-                        .font(.system(size: 10))
-                        .foregroundStyle(.secondary)
-                }
-            }
+            Text(image.name)
+                .font(.caption.weight(.medium))
+                .lineLimit(1)
+            
+            Text(image.imageInfo?.dimensionsText ?? "Image")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
         }
-        .padding(8)
-        .background(Color(.secondarySystemBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 12))
         .contextMenu {
-            Button(action: onOpenDirectly) {
-                Label("Open in Editor", systemImage: "slider.horizontal.3")
+            Button {
+                onOpenDirectly()
+            } label: {
+                Label("Open in Editor", systemImage: "pencil.and.outline")
             }
-            Button(action: onTap) {
-                Label("Preview Image", systemImage: "eye")
-            }
-            Divider()
-            Button(role: .destructive, action: onDelete) {
+            
+            Button(role: .destructive) {
+                onDelete()
+            } label: {
                 Label("Delete Image", systemImage: "trash")
             }
         }
         .task {
-            thumbnail = appState.projectManager.loadPreviewImage(projectId: projectId, image: image) ?? appState.projectManager.loadOriginalImage(projectId: projectId, image: image)
+            if thumbnail == nil {
+                thumbnail = appState.projectManager.loadOriginalImage(projectId: projectId, image: image)
+            }
         }
     }
 }
 
-// MARK: - Project Video Grid Item (with Play icon & Duration badge)
+// MARK: - Project Video Grid Item
 
 private struct ProjectVideoGridItem: View {
     let projectId: UUID
@@ -367,77 +446,148 @@ private struct ProjectVideoGridItem: View {
     
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            ZStack(alignment: .bottomLeading) {
-                ZStack {
+            ZStack(alignment: .bottomTrailing) {
+                if let thumbnail {
+                    Image(uiImage: thumbnail)
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                        .frame(minWidth: 0, maxWidth: .infinity)
+                        .frame(height: 120)
+                        .clipped()
+                        .cornerRadius(10)
+                } else {
                     RoundedRectangle(cornerRadius: 10)
-                        .fill(Color.black.opacity(0.8))
-                        .aspectRatio(1.0, contentMode: .fit)
-                    
-                    if let thumbnail {
-                        Image(uiImage: thumbnail)
-                            .resizable()
-                            .aspectRatio(contentMode: .fill)
-                            .frame(maxWidth: .infinity)
-                            .aspectRatio(1.0, contentMode: .fit)
-                            .clipped()
-                            .clipShape(RoundedRectangle(cornerRadius: 10))
-                    } else {
-                        ProgressView()
-                            .scaleEffect(0.7)
-                            .tint(.white)
-                    }
-                    
-                    // Center Play Badge
-                    Image(systemName: "play.circle.fill")
-                        .font(.title2)
-                        .foregroundStyle(.white.opacity(0.9))
-                        .shadow(color: .black.opacity(0.5), radius: 4)
+                        .fill(Color(.secondarySystemBackground))
+                        .frame(height: 120)
+                        .overlay {
+                            Image(systemName: "video.fill")
+                                .font(.title2)
+                                .foregroundStyle(.secondary)
+                        }
                 }
                 
-                // Bottom Duration Tag
-                if let info = video.videoInfo {
-                    Text(info.formattedDuration)
-                        .font(.system(size: 10, weight: .bold).monospacedDigit())
+                if let durationText = video.videoInfo?.formattedDuration {
+                    Text(durationText)
+                        .font(.system(size: 10, weight: .bold))
                         .padding(.horizontal, 6)
                         .padding(.vertical, 2)
-                        .background(.ultraThinMaterial, in: Capsule())
+                        .background(.black.opacity(0.75))
                         .foregroundStyle(.white)
+                        .cornerRadius(4)
                         .padding(6)
                 }
             }
+            .contentShape(Rectangle())
             .onTapGesture {
                 onTap()
             }
             
-            VStack(alignment: .leading, spacing: 1) {
-                Text(video.name)
-                    .font(.caption.weight(.semibold))
-                    .lineLimit(1)
-                
-                if let info = video.videoInfo {
-                    Text(info.dimensionsText)
-                        .font(.system(size: 10))
-                        .foregroundStyle(.secondary)
-                }
-            }
+            Text(video.name)
+                .font(.caption.weight(.medium))
+                .lineLimit(1)
+            
+            Text("\(video.videoInfo?.dimensionsText ?? "Video") • \(video.videoInfo?.fpsText ?? "")")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
         }
-        .padding(8)
-        .background(Color(.secondarySystemBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 12))
         .contextMenu {
-            Button(action: onOpenDirectly) {
-                Label("Open in Editor", systemImage: "slider.horizontal.3")
+            Button {
+                onOpenDirectly()
+            } label: {
+                Label("Open in Editor", systemImage: "pencil.and.outline")
             }
-            Button(action: onTap) {
-                Label("Preview Video", systemImage: "eye")
-            }
-            Divider()
-            Button(role: .destructive, action: onDelete) {
+            
+            Button(role: .destructive) {
+                onDelete()
+            } label: {
                 Label("Delete Video", systemImage: "trash")
             }
         }
         .task {
-            thumbnail = appState.projectManager.loadVideoThumbnail(projectId: projectId, video: video)
+            if thumbnail == nil {
+                thumbnail = appState.projectManager.loadVideoThumbnail(projectId: projectId, video: video)
+            }
         }
+    }
+}
+
+// MARK: - Project Music Row Item
+
+private struct ProjectMusicRowItem: View {
+    let projectId: UUID
+    let music: ProjectMusic
+    let appState: AppState
+    let onTogglePreferred: () -> Void
+    let onDelete: () -> Void
+    
+    private var isPlaying: Bool {
+        if let currentURL = appState.currentlyPlayingTrackURL,
+           let trackURL = appState.projectManager.loadMusicURL(projectId: projectId, music: music) {
+            return appState.isPlayingAudioPreview && currentURL == trackURL
+        }
+        return false
+    }
+    
+    var body: some View {
+        HStack(spacing: 12) {
+            // Play/Pause Preview Button
+            Button {
+                if let url = appState.projectManager.loadMusicURL(projectId: projectId, music: music) {
+                    appState.toggleAudioPreview(url: url)
+                }
+            } label: {
+                Image(systemName: isPlaying ? "stop.circle.fill" : "play.circle.fill")
+                    .font(.title2)
+                    .foregroundStyle(.cyan)
+            }
+            .buttonStyle(.plain)
+            
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 6) {
+                    Text(music.name)
+                        .font(.subheadline.weight(.medium))
+                        .foregroundStyle(.primary)
+                    
+                    if music.isPreferred {
+                        Image(systemName: "star.fill")
+                            .font(.caption2)
+                            .foregroundStyle(.yellow)
+                    }
+                }
+                
+                Text("\(music.formattedDuration) • \(music.format.uppercased()) • \(music.fileSizeFormatted)")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+            
+            Spacer()
+            
+            // Preferred Star Action
+            Button {
+                onTogglePreferred()
+            } label: {
+                Image(systemName: music.isPreferred ? "star.fill" : "star")
+                    .font(.subheadline)
+                    .foregroundStyle(music.isPreferred ? .yellow : .secondary)
+            }
+            .buttonStyle(.plain)
+            
+            // Delete Action Menu
+            Menu {
+                Button(role: .destructive) {
+                    onDelete()
+                } label: {
+                    Label("Delete Track", systemImage: "trash")
+                }
+            } label: {
+                Image(systemName: "ellipsis")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 4)
+            }
+        }
+        .padding(12)
+        .background(Color(.secondarySystemBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 10))
     }
 }
