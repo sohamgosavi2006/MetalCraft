@@ -1541,8 +1541,8 @@ final class AppState {
     }
     
     /// Saves the generated video to the iOS Photos Library.
-    func saveGeneratedVideoToPhotos() async -> Bool {
-        guard let videoURL = generatedVideoURL else { return false }
+    func saveGeneratedVideoToPhotos(url: URL? = nil) async -> Bool {
+        guard let videoURL = url ?? generatedVideoURL else { return false }
         
         let status = await PHPhotoLibrary.requestAuthorization(for: .addOnly)
         guard status == .authorized || status == .limited else {
@@ -1564,8 +1564,8 @@ final class AppState {
     }
     
     /// Saves the generated video into the currently active Project.
-    func saveGeneratedVideoToCurrentProject() {
-        guard let videoURL = generatedVideoURL, var targetProject = selectedProjectForAICreate ?? currentProject else { return }
+    func saveGeneratedVideoToCurrentProject(url: URL? = nil) {
+        guard let videoURL = url ?? generatedVideoURL, var targetProject = selectedProjectForAICreate ?? currentProject else { return }
         
         let videoId = UUID()
         let projVideo = ProjectVideo(
