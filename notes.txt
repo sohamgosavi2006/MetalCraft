@@ -3,3 +3,8 @@ METAL CRAFT ->
 1.) Grafana -
     
     Link - http://localhost:3000
+
+2.) Local Agent -
+
+    Link - http://localhost:8080
+

@@ -108,6 +108,10 @@ struct AgentHealthInfo: Codable, Sendable {
     let hostname: String?
     var latencyMs: Double = 0.0
     var endpointURL: String = ""
+    
+    enum CodingKeys: String, CodingKey {
+        case status, service, version, hostname
+    }
 }
 
 // MARK: - Connection Status Enum
@@ -220,14 +224,15 @@ final class AgentService: Sendable {
     
     /// Checks health of a specific endpoint URL with latency measurement.
     func checkHealth(at baseURL: String) async -> AgentHealthInfo? {
-        guard let url = URL(string: "\(baseURL)/health") else { return nil }
+        let cleanBase = baseURL.trimmingCharacters(in: .whitespacesAndNewlines).trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        guard !cleanBase.isEmpty, let url = URL(string: "\(cleanBase)/health") else { return nil }
         
         var request = URLRequest(url: url)
         request.timeoutInterval = 3.0
         
         let start = CFAbsoluteTimeGetCurrent()
         do {
-            logger.debug("[AgentConnection] Probing \(baseURL)/health")
+            logger.info("[AgentConnection] Probing \(cleanBase)/health")
             let (data, response) = try await session.data(for: request)
             let elapsedMs = (CFAbsoluteTimeGetCurrent() - start) * 1000.0
             
@@ -237,10 +242,11 @@ final class AgentService: Sendable {
             
             var info = try JSONDecoder().decode(AgentHealthInfo.self, from: data)
             info.latencyMs = elapsedMs
-            info.endpointURL = baseURL
+            info.endpointURL = cleanBase
+            logger.info("[AgentConnection] Verified reachable endpoint \(cleanBase) (\(Int(elapsedMs))ms)")
             return info
         } catch {
-            logger.debug("[AgentConnection] Health check failed for \(baseURL): \(error.localizedDescription)")
+            logger.error("[AgentConnection] Health check error for \(cleanBase): \(error.localizedDescription)")
             return nil
         }
     }
