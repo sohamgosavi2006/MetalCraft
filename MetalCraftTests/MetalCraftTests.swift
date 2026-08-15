@@ -721,7 +721,72 @@ struct MetalCraftTests {
         buffer = await service.eventsBuffer
         #expect(buffer.isEmpty)
     }
+
+    // MARK: - Phase 4: Agent Service DTO & Serialization Tests
+    
+    @Test func testAgentServiceRequestAndResponseSerialization() throws {
+        let metadata = MediaMetadata(
+            type: "video",
+            width: 3840,
+            height: 2160,
+            format: "HEVC",
+            fps: 60.0,
+            duration: 18.5,
+            histogramSummary: ["red_mean": 0.52, "green_mean": 0.48, "blue_mean": 0.60]
+        )
+        
+        let request = AgentRequest(
+            requestId: "req-agent-001",
+            prompt: "Give this video a moody neo-noir cyberpunk aesthetic with deep contrast and teal/orange grade.",
+            mediaMetadata: metadata,
+            thumbnailBase64: "dGVzdC10aHVtYm5haWw=",
+            preferences: ["style": .string("cyberpunk"), "autoApprove": .bool(false)]
+        )
+        
+        // Test JSON encode/decode
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        let reqData = try encoder.encode(request)
+        
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let decodedReq = try decoder.decode(AgentRequest.self, from: reqData)
+        
+        #expect(decodedReq.requestId == "req-agent-001")
+        #expect(decodedReq.prompt.contains("neo-noir cyberpunk"))
+        #expect(decodedReq.mediaMetadata.width == 3840)
+        #expect(decodedReq.mediaMetadata.fps == 60.0)
+        #expect(decodedReq.preferences?["style"]?.stringValue == "cyberpunk")
+        
+        // Test Response serialization
+        let editPlan = EditPlan(
+            goal: "Neo-Noir Cyberpunk Grade",
+            reasoning: "Deepened contrast, cooled shadows, and saturated highlights.",
+            adjustments: EditPlanAdjustments(contrast: 1.4, exposure: -0.2, saturation: 1.2, temperature: -0.3, tint: 0.1),
+            operations: [EditPlanOperation(type: "sharpen", parameters: ["strength": .double(1.1)])]
+        )
+        
+        let response = AgentResponse(
+            requestId: "req-agent-001",
+            agentState: .waitingForApproval,
+            editPlan: editPlan,
+            reasoning: "Applied cool color balance and contrast boost.",
+            researchContext: "Parallel research: Neo-noir palettes favor teal shadows and amber highlights.",
+            confidence: 0.94,
+            estimatedProcessingTimeMs: 180.0
+        )
+        
+        let respData = try encoder.encode(response)
+        let decodedResp = try decoder.decode(AgentResponse.self, from: respData)
+        
+        #expect(decodedResp.requestId == "req-agent-001")
+        #expect(decodedResp.agentState == .waitingForApproval)
+        #expect(decodedResp.confidence == 0.94)
+        #expect(decodedResp.editPlan?.goal == "Neo-Noir Cyberpunk Grade")
+        #expect(decodedResp.researchContext?.contains("Neo-noir palettes") == true)
+    }
 }
+
 
 
 

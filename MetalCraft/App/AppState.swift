@@ -140,6 +140,7 @@ final class AppState {
     let videoPlayerController: VideoPlayerController
     let editPlanExecutor: EditPlanExecutor
     let telemetryService: TelemetryService
+    let agentService: AgentService
     
     init(metalContext: MetalContext? = nil) {
         guard let context = metalContext ?? MetalContext() else {
@@ -148,6 +149,7 @@ final class AppState {
         self.metalContext = context
         self.editPlanExecutor = EditPlanExecutor()
         self.telemetryService = TelemetryService()
+        self.agentService = AgentService()
         let processor = MetalProcessor(context: context)
         self.metalProcessor = processor
         self.benchmarkEngine = BenchmarkEngine(metalProcessor: processor)
@@ -938,7 +940,7 @@ final class AppState {
         reprocessImage()
     }
     
-    // MARK: - Agentic EditPlan Application
+    // MARK: - Agentic EditPlan Application & Conversation
     
     func applyEditPlan(_ plan: EditPlan) throws {
         recordUndoSnapshot()
@@ -949,6 +951,91 @@ final class AppState {
         self.agentState = .executing
         reprocessImage()
         self.agentState = .completed
+    }
+    
+    func sendAgentCreativePrompt(_ promptText: String) async {
+        guard !promptText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        
+        // 1. Add user message to conversation
+        let userMsg = AgentMessage(
+            role: .user,
+            content: promptText
+        )
+        self.agentMessages.append(userMsg)
+        self.agentState = .analyzing
+        
+        // 2. Extract media metadata
+        let metadata: MediaMetadata
+        if activeMediaType == .video, let vidInfo = videoInfo {
+            metadata = MediaMetadata(
+                type: "video",
+                width: vidInfo.width,
+                height: vidInfo.height,
+                format: vidInfo.codec,
+                fps: vidInfo.frameRate,
+                duration: vidInfo.duration
+            )
+        } else if let source = originalTexture {
+            metadata = MediaMetadata(
+                type: "image",
+                width: source.width,
+                height: source.height,
+                format: "jpeg"
+            )
+        } else {
+            metadata = MediaMetadata(type: "image", width: 1920, height: 1080)
+        }
+        
+        // 3. Emit telemetry for agent request
+        telemetryService.emit(TelemetryEvent(
+            eventType: TelemetryEventType.agentRequest.rawValue,
+            sessionId: telemetryService.sessionId,
+            operation: "Creative Prompt",
+            mediaType: metadata.type
+        ))
+        
+        // 4. Send request to Agent Service
+        do {
+            self.agentState = .planning
+            let response = try await agentService.sendCreativeRequest(
+                prompt: promptText,
+                mediaMetadata: metadata,
+                thumbnail: displayImage
+            )
+            
+            self.agentState = response.agentState
+            self.activeEditPlan = response.editPlan
+            
+            let assistantMsg = AgentMessage(
+                role: .assistant,
+                content: response.reasoning ?? "Formulated an EditPlan based on your creative vision.",
+                reasoning: response.reasoning,
+                researchContext: response.researchContext,
+                editPlan: response.editPlan
+            )
+            self.agentMessages.append(assistantMsg)
+            
+            telemetryService.emit(TelemetryEvent(
+                eventType: TelemetryEventType.agentResponse.rawValue,
+                sessionId: telemetryService.sessionId,
+                requestId: response.requestId,
+                operation: response.editPlan?.goal,
+                mediaType: metadata.type
+            ))
+        } catch {
+            self.agentState = .failed
+            let errorMsg = AgentMessage(
+                role: .system,
+                content: "Error communicating with Agent: \(error.localizedDescription)"
+            )
+            self.agentMessages.append(errorMsg)
+        }
+    }
+    
+    func clearAgentConversation() {
+        self.agentMessages.removeAll()
+        self.agentState = .idle
+        self.activeEditPlan = nil
     }
     
     func saveCurrentAsPreset(name: String) {
