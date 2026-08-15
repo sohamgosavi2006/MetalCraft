@@ -2,187 +2,65 @@
 //  ProjectDetailsView.swift
 //  MetalCraft
 //
-//  Detailed multi-image, multi-video, and soundtrack document browser for a Project.
-//  Presents distinct Images, Videos, and Music sections, allows importing media,
-//  and previews/opens selected media in the Editor.
+//  Rich Detail View for a single Project.
+//  Displays metadata, image grids, video clips, and soundtrack music tracks with:
+//  - Renaming support for project, photos, videos, and music
+//  - Direct Open in Editor
+//  - Quick fullscreen preview sheets
+//  - Multi-photo & video importer
+//  - Direct soundtrack audio file importer (.m4a, .mp3, .wav)
+//  - Audio preview player & preferred soundtrack toggle
 //
 
 import SwiftUI
 import PhotosUI
-import UniformTypeIdentifiers
 
 struct ProjectDetailsView: View {
-    @Bindable var appState: AppState
+    let appState: AppState
     let project: Project
     @Environment(\.dismiss) private var dismiss
     
-    @State private var showingRenameAlert = false
-    @State private var newProjectName = ""
     @State private var selectedPhotoItems: [PhotosPickerItem] = []
     @State private var selectedVideoItems: [PhotosPickerItem] = []
-    @State private var isShowingAudioImporter = false
+    @State private var isShowingAudioImporter: Bool = false
     @State private var selectedImageForPreview: ProjectImage? = nil
     @State private var selectedVideoForPreview: ProjectVideo? = nil
+    @State private var showingRenameAlert = false
+    @State private var newProjectName = ""
     
-    private let columns = [
-        GridItem(.adaptive(minimum: 140, maximum: 180), spacing: 14)
-    ]
+    // Media Renaming State
+    @State private var itemToRename: (type: String, id: UUID, name: String)? = nil
+    @State private var mediaRenameText: String = ""
+    @State private var showingMediaRenameAlert: Bool = false
     
     private var currentProjectData: Project {
         appState.projects.first(where: { $0.id == project.id }) ?? project
     }
     
+    private let columns = [
+        GridItem(.adaptive(minimum: 140, maximum: 180), spacing: 14)
+    ]
+    
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: 24) {
-                    // Project Header Info Card
-                    projectHeaderCard
-                    
-                    // MARK: - Images Section
-                    VStack(alignment: .leading, spacing: 12) {
-                        HStack {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text("IMAGES")
-                                    .font(.caption2.weight(.bold))
-                                    .foregroundStyle(.secondary)
-                                Text("\(currentProjectData.images.count) \(currentProjectData.images.count == 1 ? "Image" : "Images")")
-                                    .font(.subheadline.weight(.semibold))
-                            }
-                            
-                            Spacer()
-                            
-                            PhotosPicker(selection: $selectedPhotoItems, matching: .images, photoLibrary: .shared()) {
-                                Label("Add Image", systemImage: "photo.badge.plus")
-                                    .font(.subheadline.weight(.semibold))
-                            }
-                            .accessibilityLabel("Add Image to Project")
-                        }
-                        .padding(.horizontal)
-                        
-                        if currentProjectData.images.isEmpty {
-                            emptySectionPlaceholder(title: "No Images in Project", subtitle: "Tap 'Add Image' to import photos.")
-                        } else {
-                            LazyVGrid(columns: columns, spacing: 14) {
-                                ForEach(currentProjectData.images) { img in
-                                    ProjectImageGridItem(
-                                        projectId: currentProjectData.id,
-                                        image: img,
-                                        appState: appState,
-                                        onTap: {
-                                            selectedImageForPreview = img
-                                        },
-                                        onOpenDirectly: {
-                                            appState.openProject(currentProjectData, image: img)
-                                            dismiss()
-                                        },
-                                        onDelete: {
-                                            appState.deleteImage(img, from: currentProjectData)
-                                        }
-                                    )
-                                }
-                            }
-                            .padding(.horizontal)
-                        }
-                    }
+                VStack(alignment: .leading, spacing: 20) {
+                    projectInfoCard
                     
                     Divider()
                         .padding(.horizontal)
                     
-                    // MARK: - Videos Section
-                    VStack(alignment: .leading, spacing: 12) {
-                        HStack {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text("VIDEOS")
-                                    .font(.caption2.weight(.bold))
-                                    .foregroundStyle(.secondary)
-                                Text("\(currentProjectData.videos.count) \(currentProjectData.videos.count == 1 ? "Video" : "Videos")")
-                                    .font(.subheadline.weight(.semibold))
-                            }
-                            
-                            Spacer()
-                            
-                            PhotosPicker(selection: $selectedVideoItems, matching: .videos, photoLibrary: .shared()) {
-                                Label("Add Video", systemImage: "video.badge.plus")
-                                    .font(.subheadline.weight(.semibold))
-                            }
-                            .accessibilityLabel("Add Video to Project")
-                        }
-                        .padding(.horizontal)
-                        
-                        if currentProjectData.videos.isEmpty {
-                            emptySectionPlaceholder(title: "No Videos in Project", subtitle: "Tap 'Add Video' to import video clips.")
-                        } else {
-                            LazyVGrid(columns: columns, spacing: 14) {
-                                ForEach(currentProjectData.videos) { vid in
-                                    ProjectVideoGridItem(
-                                        projectId: currentProjectData.id,
-                                        video: vid,
-                                        appState: appState,
-                                        onTap: {
-                                            selectedVideoForPreview = vid
-                                        },
-                                        onOpenDirectly: {
-                                            appState.openProject(currentProjectData, video: vid)
-                                            dismiss()
-                                        },
-                                        onDelete: {
-                                            appState.deleteVideo(vid, from: currentProjectData)
-                                        }
-                                    )
-                                }
-                            }
-                            .padding(.horizontal)
-                        }
-                    }
+                    imagesSection
                     
                     Divider()
                         .padding(.horizontal)
                     
-                    // MARK: - Music & Soundtracks Section
-                    VStack(alignment: .leading, spacing: 12) {
-                        HStack {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text("MUSIC & SOUNDTRACKS")
-                                    .font(.caption2.weight(.bold))
-                                    .foregroundStyle(.secondary)
-                                Text("\(currentProjectData.music.count) \(currentProjectData.music.count == 1 ? "Track" : "Tracks")")
-                                    .font(.subheadline.weight(.semibold))
-                            }
-                            
-                            Spacer()
-                            
-                            Button {
-                                isShowingAudioImporter = true
-                            } label: {
-                                Label("Add Music", systemImage: "music.note.badge.plus")
-                                    .font(.subheadline.weight(.semibold))
-                            }
-                            .accessibilityLabel("Add Music to Project")
-                        }
+                    videosSection
+                    
+                    Divider()
                         .padding(.horizontal)
-                        
-                        if currentProjectData.music.isEmpty {
-                            emptySectionPlaceholder(title: "No Music in Project", subtitle: "Tap 'Add Music' to import .m4a, .mp3, or .wav soundtracks.")
-                        } else {
-                            VStack(spacing: 8) {
-                                ForEach(currentProjectData.music) { track in
-                                    ProjectMusicRowItem(
-                                        projectId: currentProjectData.id,
-                                        music: track,
-                                        appState: appState,
-                                        onTogglePreferred: {
-                                            appState.toggleMusicPreferred(track, in: currentProjectData)
-                                        },
-                                        onDelete: {
-                                            appState.deleteMusicFromProject(track, from: currentProjectData)
-                                        }
-                                    )
-                                }
-                            }
-                            .padding(.horizontal)
-                        }
-                    }
+                    
+                    musicSection
                 }
                 .padding(.vertical)
             }
@@ -286,17 +164,206 @@ struct ProjectDetailsView: View {
                 }
                 Button("Cancel", role: .cancel) {}
             }
+            .alert("Rename \(itemToRename?.type ?? "Media")", isPresented: $showingMediaRenameAlert) {
+                TextField("Name", text: $mediaRenameText)
+                Button("Save") {
+                    guard let item = itemToRename else { return }
+                    if item.type == "Photo" {
+                        if let img = currentProjectData.images.first(where: { $0.id == item.id }) {
+                            appState.renameImage(in: currentProjectData, image: img, newName: mediaRenameText)
+                        }
+                    } else if item.type == "Video" {
+                        if let vid = currentProjectData.videos.first(where: { $0.id == item.id }) {
+                            appState.renameVideo(in: currentProjectData, video: vid, newName: mediaRenameText)
+                        }
+                    } else if item.type == "Music" {
+                        if let mus = currentProjectData.music.first(where: { $0.id == item.id }) {
+                            appState.renameMusic(in: currentProjectData, music: mus, newName: mediaRenameText)
+                        }
+                    }
+                    itemToRename = nil
+                }
+                Button("Cancel", role: .cancel) {
+                    itemToRename = nil
+                }
+            }
         }
     }
     
-    // MARK: - Header Info Card
+    // MARK: - Images Section
     
-    private var projectHeaderCard: some View {
+    @ViewBuilder
+    private var imagesSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 VStack(alignment: .leading, spacing: 2) {
+                    Text("IMAGES")
+                        .font(.caption2.weight(.bold))
+                        .foregroundStyle(.secondary)
+                    Text("\(currentProjectData.images.count) \(currentProjectData.images.count == 1 ? "Image" : "Images")")
+                        .font(.subheadline.weight(.semibold))
+                }
+                
+                Spacer()
+                
+                PhotosPicker(selection: $selectedPhotoItems, matching: .images, photoLibrary: .shared()) {
+                    Label("Add Image", systemImage: "photo.badge.plus")
+                        .font(.subheadline.weight(.semibold))
+                }
+                .accessibilityLabel("Add Image to Project")
+            }
+            .padding(.horizontal)
+            
+            if currentProjectData.images.isEmpty {
+                emptySectionPlaceholder(title: "No Images in Project", subtitle: "Tap 'Add Image' to import photos.")
+            } else {
+                LazyVGrid(columns: columns, spacing: 14) {
+                    ForEach(currentProjectData.images) { img in
+                        ProjectImageGridItem(
+                            projectId: currentProjectData.id,
+                            image: img,
+                            appState: appState,
+                            onTap: {
+                                selectedImageForPreview = img
+                            },
+                            onOpenDirectly: {
+                                appState.openProject(currentProjectData, image: img)
+                                dismiss()
+                            },
+                            onRename: {
+                                itemToRename = (type: "Photo", id: img.id, name: img.name)
+                                mediaRenameText = img.name
+                                showingMediaRenameAlert = true
+                            },
+                            onDelete: {
+                                appState.deleteImage(img, from: currentProjectData)
+                            }
+                        )
+                    }
+                }
+                .padding(.horizontal)
+            }
+        }
+    }
+    
+    // MARK: - Videos Section
+    
+    @ViewBuilder
+    private var videosSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("VIDEOS")
+                        .font(.caption2.weight(.bold))
+                        .foregroundStyle(.secondary)
+                    Text("\(currentProjectData.videos.count) \(currentProjectData.videos.count == 1 ? "Video" : "Videos")")
+                        .font(.subheadline.weight(.semibold))
+                }
+                
+                Spacer()
+                
+                PhotosPicker(selection: $selectedVideoItems, matching: .videos, photoLibrary: .shared()) {
+                    Label("Add Video", systemImage: "video.badge.plus")
+                        .font(.subheadline.weight(.semibold))
+                }
+                .accessibilityLabel("Add Video to Project")
+            }
+            .padding(.horizontal)
+            
+            if currentProjectData.videos.isEmpty {
+                emptySectionPlaceholder(title: "No Videos in Project", subtitle: "Tap 'Add Video' to import video clips.")
+            } else {
+                LazyVGrid(columns: columns, spacing: 14) {
+                    ForEach(currentProjectData.videos) { vid in
+                        ProjectVideoGridItem(
+                            projectId: currentProjectData.id,
+                            video: vid,
+                            appState: appState,
+                            onTap: {
+                                selectedVideoForPreview = vid
+                            },
+                            onOpenDirectly: {
+                                appState.openProject(currentProjectData, video: vid)
+                                dismiss()
+                            },
+                            onRename: {
+                                itemToRename = (type: "Video", id: vid.id, name: vid.name)
+                                mediaRenameText = vid.name
+                                showingMediaRenameAlert = true
+                            },
+                            onDelete: {
+                                appState.deleteVideo(vid, from: currentProjectData)
+                            }
+                        )
+                    }
+                }
+                .padding(.horizontal)
+            }
+        }
+    }
+    
+    // MARK: - Music & Soundtracks Section
+    
+    @ViewBuilder
+    private var musicSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("MUSIC & SOUNDTRACKS")
+                        .font(.caption2.weight(.bold))
+                        .foregroundStyle(.secondary)
+                    Text("\(currentProjectData.music.count) \(currentProjectData.music.count == 1 ? "Track" : "Tracks")")
+                        .font(.subheadline.weight(.semibold))
+                }
+                
+                Spacer()
+                
+                Button {
+                    isShowingAudioImporter = true
+                } label: {
+                    Label("Add Music", systemImage: "music.note.badge.plus")
+                        .font(.subheadline.weight(.semibold))
+                }
+                .accessibilityLabel("Add Music to Project")
+            }
+            .padding(.horizontal)
+            
+            if currentProjectData.music.isEmpty {
+                emptySectionPlaceholder(title: "No Music in Project", subtitle: "Tap 'Add Music' to import .m4a, .mp3, or .wav soundtracks.")
+            } else {
+                VStack(spacing: 8) {
+                    ForEach(currentProjectData.music) { track in
+                        ProjectMusicRowItem(
+                            projectId: currentProjectData.id,
+                            music: track,
+                            appState: appState,
+                            onTogglePreferred: {
+                                appState.toggleMusicPreferred(track, in: currentProjectData)
+                            },
+                            onRename: {
+                                itemToRename = (type: "Music", id: track.id, name: track.name)
+                                mediaRenameText = track.name
+                                showingMediaRenameAlert = true
+                            },
+                            onDelete: {
+                                appState.deleteMusicFromProject(track, from: currentProjectData)
+                            }
+                        )
+                    }
+                }
+                .padding(.horizontal)
+            }
+        }
+    }
+    
+    // MARK: - Project Info Card
+    
+    private var projectInfoCard: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
                     Text(currentProjectData.name)
-                        .font(.headline)
+                        .font(.headline.weight(.bold))
                     Text("Created \(currentProjectData.createdAt.formatted(date: .abbreviated, time: .shortened))")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
@@ -361,6 +428,7 @@ private struct ProjectImageGridItem: View {
     let appState: AppState
     let onTap: () -> Void
     let onOpenDirectly: () -> Void
+    let onRename: () -> Void
     let onDelete: () -> Void
     
     @State private var thumbnail: UIImage? = nil
@@ -388,6 +456,7 @@ private struct ProjectImageGridItem: View {
                 if image.activeOperationCount > 0 {
                     HStack(spacing: 3) {
                         Image(systemName: "sparkles")
+                            .font(.system(size: 8))
                         Text("\(image.activeOperationCount)")
                     }
                     .font(.system(size: 10, weight: .bold))
@@ -412,6 +481,12 @@ private struct ProjectImageGridItem: View {
                 .foregroundStyle(.secondary)
         }
         .contextMenu {
+            Button {
+                onRename()
+            } label: {
+                Label("Rename Photo", systemImage: "pencil")
+            }
+            
             Button {
                 onOpenDirectly()
             } label: {
@@ -440,6 +515,7 @@ private struct ProjectVideoGridItem: View {
     let appState: AppState
     let onTap: () -> Void
     let onOpenDirectly: () -> Void
+    let onRename: () -> Void
     let onDelete: () -> Void
     
     @State private var thumbnail: UIImage? = nil
@@ -492,6 +568,12 @@ private struct ProjectVideoGridItem: View {
         }
         .contextMenu {
             Button {
+                onRename()
+            } label: {
+                Label("Rename Video", systemImage: "pencil")
+            }
+            
+            Button {
                 onOpenDirectly()
             } label: {
                 Label("Open in Editor", systemImage: "pencil.and.outline")
@@ -518,6 +600,7 @@ private struct ProjectMusicRowItem: View {
     let music: ProjectMusic
     let appState: AppState
     let onTogglePreferred: () -> Void
+    let onRename: () -> Void
     let onDelete: () -> Void
     
     private var isPlaying: Bool {
@@ -530,7 +613,6 @@ private struct ProjectMusicRowItem: View {
     
     var body: some View {
         HStack(spacing: 12) {
-            // Play/Pause Preview Button
             Button {
                 if let url = appState.projectManager.loadMusicURL(projectId: projectId, music: music) {
                     appState.toggleAudioPreview(url: url)
@@ -562,7 +644,6 @@ private struct ProjectMusicRowItem: View {
             
             Spacer()
             
-            // Preferred Star Action
             Button {
                 onTogglePreferred()
             } label: {
@@ -572,8 +653,19 @@ private struct ProjectMusicRowItem: View {
             }
             .buttonStyle(.plain)
             
-            // Delete Action Menu
             Menu {
+                Button {
+                    onRename()
+                } label: {
+                    Label("Rename Track", systemImage: "pencil")
+                }
+                
+                Button {
+                    onTogglePreferred()
+                } label: {
+                    Label(music.isPreferred ? "Unmark Preferred" : "Mark as Preferred", systemImage: "star")
+                }
+                
                 Button(role: .destructive) {
                     onDelete()
                 } label: {

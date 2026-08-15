@@ -3,12 +3,18 @@
 //  MetalCraft
 //
 //  Main TabView container presenting Editor, AI Create, Analytics, and Projects tabs.
+//  Dynamically hides bottom tab bar in landscape to give full screen real estate to active workspaces.
 //
 
 import SwiftUI
 
 struct ContentView: View {
     @Environment(AppState.self) private var appState
+    @Environment(\.verticalSizeClass) private var verticalSizeClass
+    
+    var isLandscape: Bool {
+        verticalSizeClass == .compact
+    }
     
     var body: some View {
         @Bindable var state = appState
@@ -39,6 +45,7 @@ struct ContentView: View {
                 .tag(AppTab.projects)
                 .badge(appState.projects.count > 0 ? "\(appState.projects.count)" : nil)
         }
+        .toolbar(isLandscape ? .hidden : .visible, for: .tabBar)
         .tint(.tint)
         .alert("Metal Craft Alert", isPresented: $state.showError) {
             Button("OK", role: .cancel) {

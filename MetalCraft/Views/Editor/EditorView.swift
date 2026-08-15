@@ -377,14 +377,15 @@ struct EditorView: View {
                     .font(.caption)
             }
             .disabled(!appState.canRedo)
-            .accessibilityLabel("Redo")
-            
-            // Export Button
+            // Export Button (Share)
             Button {
                 showingExportDialog = true
             } label: {
                 Image(systemName: "square.and.arrow.up")
-                    .font(.caption)
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(.primary)
+                    .frame(minWidth: 44, minHeight: 44)
+                    .contentShape(Rectangle())
             }
             .accessibilityLabel("Export Media")
             
@@ -392,14 +393,16 @@ struct EditorView: View {
             Button(role: .destructive) {
                 appState.closeCurrentProject()
             } label: {
-                Image(systemName: "xmark.circle")
-                    .font(.caption)
+                Image(systemName: "xmark.circle.fill")
+                    .font(.system(size: 18, weight: .medium))
                     .foregroundStyle(.red)
+                    .frame(minWidth: 44, minHeight: 44)
+                    .contentShape(Rectangle())
             }
             .accessibilityLabel("Close Media")
         }
         .padding(.horizontal, 12)
-        .padding(.vertical, 8)
+        .padding(.vertical, 4)
         .background(Color(.systemBackground))
     }
     
@@ -589,30 +592,32 @@ struct EditorView: View {
     @ToolbarContentBuilder
     private var toolbarContent: some ToolbarContent {
         ToolbarItemGroup(placement: .topBarLeading) {
-            Menu {
-                PhotosPicker(selection: $selectedPhotoItem, matching: .images) {
-                    Label("Import Photo", systemImage: "photo")
+            if hasActiveMedia {
+                Menu {
+                    PhotosPicker(selection: $selectedPhotoItem, matching: .images) {
+                        Label("Import Photo", systemImage: "photo")
+                    }
+                    PhotosPicker(selection: $selectedVideoItem, matching: .videos) {
+                        Label("Import Video", systemImage: "video")
+                    }
+                } label: {
+                    Image(systemName: "plus.circle")
+                        .accessibilityLabel("Import Media")
                 }
-                PhotosPicker(selection: $selectedVideoItem, matching: .videos) {
-                    Label("Import Video", systemImage: "video")
-                }
-            } label: {
-                Image(systemName: "plus.circle")
-                    .accessibilityLabel("Import Media")
-            }
-            .onChange(of: selectedPhotoItem) { _, newItem in
-                if let newItem {
-                    Task {
-                        await appState.startImageImport(from: newItem)
-                        selectedPhotoItem = nil
+                .onChange(of: selectedPhotoItem) { _, newItem in
+                    if let newItem {
+                        Task {
+                            await appState.startImageImport(from: newItem)
+                            selectedPhotoItem = nil
+                        }
                     }
                 }
-            }
-            .onChange(of: selectedVideoItem) { _, newItem in
-                if let newItem {
-                    Task {
-                        await appState.startVideoImport(from: newItem)
-                        selectedVideoItem = nil
+                .onChange(of: selectedVideoItem) { _, newItem in
+                    if let newItem {
+                        Task {
+                            await appState.startVideoImport(from: newItem)
+                            selectedVideoItem = nil
+                        }
                     }
                 }
             }

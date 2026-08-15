@@ -53,6 +53,14 @@ struct ProjectsView: View {
         return list
     }
     
+    private var otherProjects: [Project] {
+        if searchText.isEmpty {
+            return allProjects.filter { !$0.isFavorite }
+        } else {
+            return allProjects
+        }
+    }
+    
     var body: some View {
         NavigationStack {
             Group {
@@ -90,7 +98,7 @@ struct ProjectsView: View {
                             }
                             
                             Section(favoriteProjects.isEmpty || !searchText.isEmpty ? "All Projects" : "Other Projects") {
-                                ForEach(searchText.isEmpty ? allProjects.filter { !$0.isFavorite } : allProjects) { project in
+                                ForEach(otherProjects) { project in
                                     projectRow(project: project)
                                 }
                             }

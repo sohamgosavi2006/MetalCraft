@@ -142,11 +142,20 @@ final class AppState {
     var activeEditPlan: EditPlan? = nil
     var agentState: AgentState = .idle
     var agentMessages: [AgentMessage] = []
+    var generationJobs: [GenerationJob] = []
+    var activeGenerationJobId: UUID? = nil
     var selectedProjectForAICreate: Project? = nil
     var isGeneratingVideo: Bool = false
     var generationProgress: VideoGenerationProgress? = nil
     var generatedVideoURL: URL? = nil
     var generatedVideoThumbnail: UIImage? = nil
+    
+    var activeGenerationJob: GenerationJob? {
+        if let id = activeGenerationJobId {
+            return generationJobs.first(where: { $0.id == id })
+        }
+        return generationJobs.last
+    }
     
     // MARK: - AI Create Configuration & Media Selection State
     var aiCreateMusicOption: AICreateMusicOption = .auto
@@ -730,6 +739,96 @@ final class AppState {
         self.projects = projectManager.loadAllProjects()
     }
     
+    func renameImage(in project: Project, image: ProjectImage, newName: String) {
+        let cleanName = newName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cleanName.isEmpty else { return }
+        guard let pIndex = projects.firstIndex(where: { $0.id == project.id }) else { return }
+        guard let imgIndex = projects[pIndex].images.firstIndex(where: { $0.id == image.id }) else { return }
+        
+        let oldName = projects[pIndex].images[imgIndex].name
+        projects[pIndex].images[imgIndex].name = cleanName
+        projects[pIndex].modifiedAt = Date()
+        projectManager.saveProject(projects[pIndex])
+        
+        if currentProject?.id == project.id {
+            currentProject = projects[pIndex]
+            if currentProjectImage?.id == image.id {
+                currentProjectImage?.name = cleanName
+            }
+        }
+        self.projects = projectManager.loadAllProjects()
+        
+        AuditService.shared.record(
+            category: .media,
+            action: "Photo Renamed",
+            status: .info,
+            projectId: project.id,
+            projectName: project.name,
+            mediaType: "Image",
+            description: "Renamed photo from '\(oldName)' to '\(cleanName)'.",
+            source: "Project Manager"
+        )
+    }
+    
+    func renameVideo(in project: Project, video: ProjectVideo, newName: String) {
+        let cleanName = newName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cleanName.isEmpty else { return }
+        guard let pIndex = projects.firstIndex(where: { $0.id == project.id }) else { return }
+        guard let vidIndex = projects[pIndex].videos.firstIndex(where: { $0.id == video.id }) else { return }
+        
+        let oldName = projects[pIndex].videos[vidIndex].name
+        projects[pIndex].videos[vidIndex].name = cleanName
+        projects[pIndex].modifiedAt = Date()
+        projectManager.saveProject(projects[pIndex])
+        
+        if currentProject?.id == project.id {
+            currentProject = projects[pIndex]
+            if currentProjectVideo?.id == video.id {
+                currentProjectVideo?.name = cleanName
+            }
+        }
+        self.projects = projectManager.loadAllProjects()
+        
+        AuditService.shared.record(
+            category: .video,
+            action: "Video Renamed",
+            status: .info,
+            projectId: project.id,
+            projectName: project.name,
+            mediaType: "Video",
+            description: "Renamed video from '\(oldName)' to '\(cleanName)'.",
+            source: "Project Manager"
+        )
+    }
+    
+    func renameMusic(in project: Project, music: ProjectMusic, newName: String) {
+        let cleanName = newName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cleanName.isEmpty else { return }
+        guard let pIndex = projects.firstIndex(where: { $0.id == project.id }) else { return }
+        guard let musIndex = projects[pIndex].music.firstIndex(where: { $0.id == music.id }) else { return }
+        
+        let oldName = projects[pIndex].music[musIndex].name
+        projects[pIndex].music[musIndex].name = cleanName
+        projects[pIndex].modifiedAt = Date()
+        projectManager.saveProject(projects[pIndex])
+        
+        if currentProject?.id == project.id {
+            currentProject = projects[pIndex]
+        }
+        self.projects = projectManager.loadAllProjects()
+        
+        AuditService.shared.record(
+            category: .audio,
+            action: "Music Renamed",
+            status: .info,
+            projectId: project.id,
+            projectName: project.name,
+            mediaType: "Audio",
+            description: "Renamed track from '\(oldName)' to '\(cleanName)'.",
+            source: "Project Manager"
+        )
+    }
+    
     func toggleProjectFavorite(_ project: Project) {
         var updated = project
         updated.isFavorite.toggle()
@@ -1048,12 +1147,30 @@ final class AppState {
             self.agentState = response.agentState
             self.activeEditPlan = response.editPlan
             
+            // Manage GenerationJob for visual artifact separation
+            if let plan = response.editPlan, (!plan.scenes.isEmpty || plan.mediaType == .video) {
+                if let existingJobIndex = generationJobs.firstIndex(where: { $0.id == activeGenerationJobId }) {
+                    generationJobs[existingJobIndex].plan = plan
+                    generationJobs[existingJobIndex].updatedAt = Date()
+                    generationJobs[existingJobIndex].status = .planning
+                } else {
+                    let newJob = GenerationJob(
+                        projectId: currentProject?.id,
+                        projectName: currentProject?.name,
+                        status: .planning,
+                        plan: plan
+                    )
+                    generationJobs.append(newJob)
+                    activeGenerationJobId = newJob.id
+                }
+            }
+            
             let assistantMsg = AgentMessage(
                 role: .assistant,
                 content: response.reasoning ?? "Formulated an EditPlan based on your creative vision.",
                 reasoning: response.reasoning,
                 researchContext: response.researchContext,
-                editPlan: response.editPlan
+                editPlan: nil // Plan is rendered exclusively through GenerationJob to prevent duplication
             )
             self.agentMessages.append(assistantMsg)
             
@@ -1075,13 +1192,29 @@ final class AppState {
     }
     
     func sendAgentProjectCreativePrompt(_ promptText: String, project: Project) async {
-        guard !promptText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        let cleanPrompt = promptText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cleanPrompt.isEmpty else { return }
         
         let userMsg = AgentMessage(
             role: .user,
-            content: "Project [\(project.name)]: \(promptText)"
+            content: "Project [\(project.name)]: \(cleanPrompt)"
         )
         self.agentMessages.append(userMsg)
+        
+        // Check for follow-up prompt referring to active plan (e.g. "Generate the video with Apple Metal")
+        let lower = cleanPrompt.lowercased()
+        let isExecutionFollowUp = (lower.contains("generate") || lower.contains("render") || lower.contains("metal") || lower.contains("make video") || lower.contains("create video")) && !lower.contains("change") && !lower.contains("different")
+        
+        if isExecutionFollowUp, let activeJob = activeGenerationJob, activeJob.status == .planning {
+            let confirmMsg = AgentMessage(
+                role: .assistant,
+                content: "⚡ Executing your video production plan on Apple Metal GPU and mixing soundtrack..."
+            )
+            self.agentMessages.append(confirmMsg)
+            await executeVideoGeneration(for: activeJob.plan, in: project)
+            return
+        }
+        
         self.agentState = .analyzing
         
         // 1. Build rich Project Asset Metadata
@@ -1115,15 +1248,15 @@ final class AppState {
             format: "mp4",
             projectName: project.name,
             assets: assetMetas,
-            targetDuration: 15.0,
-            aspectRatio: "9:16"
+            targetDuration: aiCreateTargetDuration,
+            aspectRatio: aiCreateAspectRatio
         )
         
         // 2. Emit Telemetry
         telemetryService.emit(TelemetryEvent(
             eventType: TelemetryEventType.agentRequest.rawValue,
             sessionId: telemetryService.sessionId,
-            operation: "Project Video Prompt: \(promptText)",
+            operation: "Project Video Prompt: \(cleanPrompt)",
             mediaType: "video"
         ))
         
@@ -1131,7 +1264,7 @@ final class AppState {
         do {
             self.agentState = .planning
             let response = try await agentService.sendCreativeRequest(
-                prompt: promptText,
+                prompt: cleanPrompt,
                 mediaMetadata: metadata,
                 thumbnail: displayImage
             )
@@ -1139,12 +1272,32 @@ final class AppState {
             self.agentState = response.agentState
             self.activeEditPlan = response.editPlan
             
+            // Manage GenerationJob for visual artifact separation
+            if let plan = response.editPlan {
+                if let existingJobIndex = generationJobs.firstIndex(where: { $0.id == activeGenerationJobId }) {
+                    generationJobs[existingJobIndex].plan = plan
+                    generationJobs[existingJobIndex].updatedAt = Date()
+                    generationJobs[existingJobIndex].status = .planning
+                    generationJobs[existingJobIndex].progress = 0.0
+                    generationJobs[existingJobIndex].outputURL = nil
+                } else {
+                    let newJob = GenerationJob(
+                        projectId: project.id,
+                        projectName: project.name,
+                        status: .planning,
+                        plan: plan
+                    )
+                    generationJobs.append(newJob)
+                    activeGenerationJobId = newJob.id
+                }
+            }
+            
             let assistantMsg = AgentMessage(
                 role: .assistant,
                 content: response.reasoning ?? "Formulated a structured multi-scene production plan for project '\(project.name)'.",
                 reasoning: response.reasoning,
                 researchContext: response.researchContext,
-                editPlan: response.editPlan
+                editPlan: nil // Rendered via single GenerationJob card
             )
             self.agentMessages.append(assistantMsg)
             
@@ -1171,6 +1324,27 @@ final class AppState {
         self.isGeneratingVideo = true
         self.agentState = .executing
         self.generatedVideoURL = nil
+        
+        // Find or create the canonical GenerationJob
+        var targetJobId: UUID
+        if let activeId = activeGenerationJobId, let idx = generationJobs.firstIndex(where: { $0.id == activeId }) {
+            targetJobId = activeId
+            generationJobs[idx].status = .preparing
+            generationJobs[idx].progress = 0.0
+            generationJobs[idx].progressMessage = "Preparing media assets & textures..."
+            generationJobs[idx].updatedAt = Date()
+        } else {
+            let newJob = GenerationJob(
+                projectId: project.id,
+                projectName: project.name,
+                status: .preparing,
+                plan: plan,
+                progressMessage: "Preparing media assets & textures..."
+            )
+            generationJobs.append(newJob)
+            activeGenerationJobId = newJob.id
+            targetJobId = newJob.id
+        }
         
         let destURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("MetalCraft_Generated_\(UUID().uuidString).mp4")
@@ -1268,14 +1442,37 @@ final class AppState {
                 destinationURL: destURL
             ) { [weak self] progress in
                 Task { @MainActor [weak self] in
-                    self?.generationProgress = progress
+                    guard let self = self else { return }
+                    self.generationProgress = progress
+                    if let idx = self.generationJobs.firstIndex(where: { $0.id == targetJobId }) {
+                        self.generationJobs[idx].status = .rendering
+                        self.generationJobs[idx].progress = progress.progress
+                        self.generationJobs[idx].progressMessage = progress.message
+                        self.generationJobs[idx].currentFrame = progress.currentFrame
+                        self.generationJobs[idx].totalFrames = progress.totalFrames
+                        self.generationJobs[idx].updatedAt = Date()
+                    }
                 }
             }
             
-            self.generatedVideoURL = destURL
-            self.agentState = .evaluating
-            
             let elapsedSec = CFAbsoluteTimeGetCurrent() - startTime
+            let fileSizeMB = (Double((try? FileManager.default.attributesOfItem(atPath: destURL.path)[.size] as? Int64) ?? 0)) / (1024.0 * 1024.0)
+            let formattedSize = String(format: "%.1f MB", fileSizeMB)
+            
+            self.generatedVideoURL = destURL
+            self.agentState = .completed
+            self.isGeneratingVideo = false
+            
+            // Update the canonical GenerationJob to completed
+            if let idx = self.generationJobs.firstIndex(where: { $0.id == targetJobId }) {
+                self.generationJobs[idx].status = .completed
+                self.generationJobs[idx].progress = 1.0
+                self.generationJobs[idx].progressMessage = "Production Ready"
+                self.generationJobs[idx].outputURL = destURL
+                self.generationJobs[idx].outputFileSizeFormatted = formattedSize
+                self.generationJobs[idx].renderDurationSec = elapsedSec
+                self.generationJobs[idx].updatedAt = Date()
+            }
             
             // Generate quick preview thumbnail
             let asset = AVURLAsset(url: destURL)
@@ -1304,21 +1501,23 @@ final class AppState {
                 source: "Metal GPU Engine"
             )
             
-            self.agentState = .completed
-            self.isGeneratingVideo = false
-            
             let musicNote = effectivePlan.audioPlan?.trackTitle != nil ? " with soundtrack '\(effectivePlan.audioPlan!.trackTitle!)'" : ""
             let evalMsg = AgentMessage(
                 role: .assistant,
                 content: "✅ Video production complete! Rendered \(effectivePlan.scenes.count) scenes (\(String(format: "%.1f", effectivePlan.totalSceneDuration))s)\(musicNote) on Apple GPU in \(String(format: "%.2f", elapsedSec))s. Ready for preview and export.",
                 reasoning: "Evaluated render output: Target frame rate 30 FPS achieved with zero dropped frames. Video and audio composited into H.264 MP4 container.",
-                editPlan: effectivePlan
+                editPlan: nil // Do not embed duplicate plan card
             )
             self.agentMessages.append(evalMsg)
             
         } catch {
             self.agentState = .failed
             self.isGeneratingVideo = false
+            if let idx = self.generationJobs.firstIndex(where: { $0.id == targetJobId }) {
+                self.generationJobs[idx].status = .failed
+                self.generationJobs[idx].error = error.localizedDescription
+                self.generationJobs[idx].updatedAt = Date()
+            }
             self.errorMessage = "Video generation failed: \(error.localizedDescription)"
             self.showError = true
             
@@ -1548,6 +1747,8 @@ final class AppState {
     
     func clearAgentConversation() {
         self.agentMessages.removeAll()
+        self.generationJobs.removeAll()
+        self.activeGenerationJobId = nil
         self.agentState = .idle
         self.activeEditPlan = nil
         self.generatedVideoURL = nil

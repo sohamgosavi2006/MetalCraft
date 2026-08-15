@@ -10,7 +10,7 @@ import Foundation
 
 // MARK: - Audit Categories
 
-enum AuditCategory: String, Codable, Sendable, CaseIterable {
+enum AuditCategory: String, Codable, Sendable, CaseIterable, Identifiable {
     case all = "All"
     case project = "Projects"
     case media = "Media"
@@ -19,6 +19,8 @@ enum AuditCategory: String, Codable, Sendable, CaseIterable {
     case audio = "Audio"
     case system = "System"
     case errors = "Errors"
+    
+    var id: String { rawValue }
     
     var iconName: String {
         switch self {

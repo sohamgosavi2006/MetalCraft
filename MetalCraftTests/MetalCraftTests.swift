@@ -979,7 +979,117 @@ struct MetalCraftTests {
         let matched = await library.bestMatch(for: "Make a high energy cyberpunk video")
         #expect(matched.category == .cinematic || matched.category == .energetic)
     }
+
+    // MARK: - GenerationJob Lifecycle & Idempotency Tests
+    
+    @Test func testGenerationJobLifecycleAndIdempotency() throws {
+        let plan = EditPlan(
+            schemaVersion: "1.0",
+            planId: "plan-gen-001",
+            mediaType: .video,
+            goal: "Cinematic Product Reel",
+            scenes: [
+                EditPlanScene(assetId: UUID().uuidString, assetType: "image", assetName: "Scene 1", duration: 4.0, transition: "dissolve"),
+                EditPlanScene(assetId: UUID().uuidString, assetType: "image", assetName: "Scene 2", duration: 4.0, transition: "fade")
+            ]
+        )
+        
+        var job = GenerationJob(
+            projectId: UUID(),
+            projectName: "Launch Reel",
+            status: .planning,
+            plan: plan
+        )
+        
+        #expect(job.status == .planning)
+        #expect(job.generationId.hasPrefix("gen_"))
+        #expect(job.artifactId.hasPrefix("artifact_video_"))
+        #expect(job.isTerminal == false)
+        #expect(job.isActiveRendering == false)
+        
+        // Transition to Rendering
+        job.status = .rendering
+        job.progress = 0.55
+        job.currentFrame = 165
+        job.totalFrames = 300
+        job.progressMessage = "Rendering frame 165/300 on GPU"
+        
+        #expect(job.isActiveRendering == true)
+        #expect(job.progress == 0.55)
+        #expect(job.currentFrame == 165)
+        
+        // Transition to Completed
+        let tempURL = URL(fileURLWithPath: "/tmp/output_reel.mp4")
+        job.status = .completed
+        job.progress = 1.0
+        job.outputURL = tempURL
+        job.outputFileSizeFormatted = "18.4 MB"
+        job.renderDurationSec = 3.2
+        
+        #expect(job.isTerminal == true)
+        #expect(job.isActiveRendering == false)
+        #expect(job.outputURL == tempURL)
+        
+        // JSON Serialization & Idempotency Key Preservation
+        let encoder = JSONEncoder()
+        let data = try encoder.encode(job)
+        let decoder = JSONDecoder()
+        let decoded = try decoder.decode(GenerationJob.self, from: data)
+        
+        #expect(decoded.generationId == job.generationId)
+        #expect(decoded.artifactId == job.artifactId)
+        #expect(decoded.status == .completed)
+        #expect(decoded.outputFileSizeFormatted == "18.4 MB")
+    }
+
+    // MARK: - Project Media Renaming Tests
+    
+    @Test func testProjectMediaRenaming() throws {
+        var project = Project(name: "Showcase Project")
+        let imgId = UUID()
+        let vidId = UUID()
+        let musId = UUID()
+        
+        let initialImage = ProjectImage(id: imgId, name: "IMG_0001.PNG")
+        let initialVideo = ProjectVideo(id: vidId, name: "CLIP_0001.MOV")
+        let initialMusic = ProjectMusic(
+            id: musId,
+            name: "soundtrack_raw.m4a",
+            originalFilename: "soundtrack_raw.m4a",
+            duration: 45.0,
+            format: "m4a",
+            fileSizeBytes: 2048000,
+            category: "Cinematic",
+            mood: "Dramatic"
+        )
+        
+        project.images.append(initialImage)
+        project.videos.append(initialVideo)
+        project.music.append(initialMusic)
+        
+        // Rename Image
+        if let idx = project.images.firstIndex(where: { $0.id == imgId }) {
+            project.images[idx].name = "Product Front View"
+        }
+        #expect(project.images.first?.name == "Product Front View")
+        #expect(project.images.first?.id == imgId) // Stable UUID preserved
+        
+        // Rename Video
+        if let idx = project.videos.firstIndex(where: { $0.id == vidId }) {
+            project.videos[idx].name = "Hero Drone Shot"
+        }
+        #expect(project.videos.first?.name == "Hero Drone Shot")
+        #expect(project.videos.first?.id == vidId) // Stable UUID preserved
+        
+        // Rename Music
+        if let idx = project.music.firstIndex(where: { $0.id == musId }) {
+            project.music[idx].name = "Emotional Theme"
+        }
+        #expect(project.music.first?.name == "Emotional Theme")
+        #expect(project.music.first?.id == musId) // Stable UUID preserved
+    }
 }
+
 
 
 
