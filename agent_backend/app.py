@@ -9,12 +9,12 @@ import uuid
 import socket
 import logging
 import subprocess
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, render_template_string
 
 # Add directory to Python path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from config import HOST, PORT
+from config import HOST, PORT, GEMINI_API_KEY, PARALLEL_API_KEY, GRAFANA_URL, GRAFANA_TOKEN
 from agent.director import CreativeDirector
 from agent.tools import grafana_client
 
@@ -40,6 +40,258 @@ def start_bonjour_advertisement():
             logger.info(f"[AgentConnection] Bonjour service registered: _metalcraft._tcp on port {PORT}")
         except Exception as e:
             logger.warning(f"[AgentConnection] Could not start Bonjour advertisement: {e}")
+
+HOME_HTML = """
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MetalCraft Agent Backend</title>
+    <style>
+        :root {
+            --bg: #0d1117;
+            --card-bg: #161b22;
+            --border: #30363d;
+            --text: #c9d1d9;
+            --text-heading: #f0f6fc;
+            --purple: #a371f7;
+            --green: #3fb950;
+            --blue: #58a6ff;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 40px 20px;
+            display: flex;
+            justify-content: center;
+        }
+        .container {
+            max-width: 780px;
+            width: 100%;
+        }
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 24px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid var(--border);
+        }
+        .title-group h1 {
+            color: var(--text-heading);
+            font-size: 26px;
+            margin: 0 0 6px 0;
+        }
+        .title-group p {
+            margin: 0;
+            color: #8b949e;
+            font-size: 14px;
+        }
+        .badge-live {
+            background: rgba(63, 185, 80, 0.15);
+            color: var(--green);
+            border: 1px solid rgba(63, 185, 80, 0.4);
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .badge-live::before {
+            content: "";
+            width: 8px;
+            height: 8px;
+            background: var(--green);
+            border-radius: 50%;
+            display: inline-block;
+        }
+        .card {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .card h2 {
+            font-size: 16px;
+            color: var(--text-heading);
+            margin-top: 0;
+            margin-bottom: 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 12px;
+        }
+        .item {
+            background: #0d1117;
+            padding: 12px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+        }
+        .item-label {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #8b949e;
+            margin-bottom: 4px;
+        }
+        .item-value {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-heading);
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        }
+        .status-pill {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        .pill-active { background: rgba(63, 185, 80, 0.2); color: var(--green); }
+        .pill-purple { background: rgba(163, 113, 247, 0.2); color: var(--purple); }
+        .pill-blue { background: rgba(88, 166, 255, 0.2); color: var(--blue); }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+        th, td {
+            text-align: left;
+            padding: 10px 12px;
+            border-bottom: 1px solid var(--border);
+        }
+        th {
+            color: #8b949e;
+            font-weight: 500;
+        }
+        td code {
+            background: #0d1117;
+            padding: 2px 6px;
+            border-radius: 4px;
+            color: var(--purple);
+            font-family: ui-monospace, monospace;
+        }
+        a {
+            color: var(--blue);
+            text-decoration: none;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="title-group">
+                <h1>MetalCraft Agent Backend</h1>
+                <p>Local AI Creative Director, Parallel Research & Grafana Observability Server</p>
+            </div>
+            <div class="badge-live">Online & Ready</div>
+        </div>
+
+        <div class="card">
+            <h2>⚡ Connection Endpoints for iPhone 11</h2>
+            <div class="grid">
+                <div class="item">
+                    <div class="item-label">iPhone Hotspot LAN</div>
+                    <div class="item-value">http://172.20.10.4:{{ port }}</div>
+                </div>
+                <div class="item">
+                    <div class="item-label">Bonjour Localhost</div>
+                    <div class="item-value">http://{{ hostname }}:{{ port }}</div>
+                </div>
+                <div class="item">
+                    <div class="item-label">Mac Localhost</div>
+                    <div class="item-value">http://127.0.0.1:{{ port }}</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>🤖 Agentic Services</h2>
+            <table>
+                <tr>
+                    <th>Service</th>
+                    <th>Model / Provider</th>
+                    <th>Status</th>
+                </tr>
+                <tr>
+                    <td><strong>Gemini Creative Director</strong></td>
+                    <td><code>gemini-2.5-flash</code></td>
+                    <td><span class="status-pill pill-purple">Configured</span></td>
+                </tr>
+                <tr>
+                    <td><strong>Parallel Creative Research</strong></td>
+                    <td>Cinematography & Color Science</td>
+                    <td><span class="status-pill pill-blue">Active</span></td>
+                </tr>
+                <tr>
+                    <td><strong>Grafana Observability</strong></td>
+                    <td><code>{{ grafana_url }}</code></td>
+                    <td><span class="status-pill pill-active">Port 3000</span></td>
+                </tr>
+                <tr>
+                    <td><strong>ZeroConf / Bonjour</strong></td>
+                    <td><code>_metalcraft._tcp</code></td>
+                    <td><span class="status-pill pill-active">Broadcasting</span></td>
+                </tr>
+            </table>
+        </div>
+
+        <div class="card">
+            <h2>📡 Available REST API Routes</h2>
+            <table>
+                <tr>
+                    <th>Method</th>
+                    <th>Endpoint</th>
+                    <th>Description</th>
+                </tr>
+                <tr>
+                    <td><code>GET</code></td>
+                    <td><a href="/health">/health</a></td>
+                    <td>Server health check and latency probing</td>
+                </tr>
+                <tr>
+                    <td><code>POST</code></td>
+                    <td><code>/api/v1/agent/create</code></td>
+                    <td>Creative Director prompt analysis & EditPlan synthesis</td>
+                </tr>
+                <tr>
+                    <td><code>POST</code></td>
+                    <td><code>/api/v1/telemetry</code></td>
+                    <td>MetalCraft GPU execution & latency event ingestion</td>
+                </tr>
+                <tr>
+                    <td><code>GET</code></td>
+                    <td><a href="/api/v1/observability">/api/v1/observability</a></td>
+                    <td>Live performance & GPU frame-budget metrics</td>
+                </tr>
+            </table>
+        </div>
+    </div>
+</body>
+</html>
+"""
+
+@app.route("/", methods=["GET"])
+def home():
+    return render_template_string(
+        HOME_HTML,
+        port=PORT,
+        hostname=socket.gethostname(),
+        grafana_url=GRAFANA_URL
+    ), 200
 
 @app.route("/health", methods=["GET"])
 def health():
