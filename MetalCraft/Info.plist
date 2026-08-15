@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDisplayName</key>
+	<string>Metal Craft</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Metal Craft requires photo library access to import images for GPU processing and save exported results.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Metal Craft requires photo library access to save exported images to your Photo Library.</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>remote-notification</string>
+	</array>
+</dict>
+</plist>

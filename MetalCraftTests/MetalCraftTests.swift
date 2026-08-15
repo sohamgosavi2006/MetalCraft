@@ -1,0 +1,396 @@
+//
+//  MetalCraftTests.swift
+//  MetalCraftTests
+//
+//  Automated Unit Tests for Metal Craft GPU compute shaders,
+//  pipeline state compilation, memory layouts, convolution matrices,
+//  histogram calculation, persistent multi-image & multi-video project management,
+//  CVMetalTextureCache video texture provider, and live analytics.
+//
+
+import Testing
+import Foundation
+import Metal
+import UIKit
+import CoreVideo
+@testable import MetalCraft
+
+struct MetalCraftTests {
+
+    // MARK: - Memory Alignment Tests
+    
+    @Test func testShaderTypesMemoryLayout() throws {
+        #expect(MemoryLayout<AdjustmentParams>.size == 32)
+        #expect(MemoryLayout<ConvolutionParams>.size == 64)
+        #expect(MemoryLayout<GaussianBlurParams>.size == 528)
+        #expect(MemoryLayout<EffectParams>.size == 32)
+        #expect(MemoryLayout<DistortionParams>.size == 32)
+    }
+
+    // MARK: - Metal Context & Pipeline Compilation Tests
+    
+    @Test func testMetalContextAndShaderCompilation() async throws {
+        guard let context = MetalContext() else {
+            Issue.record("MetalContext could not find default.metallib")
+            return
+        }
+        
+        #expect(context.device.name.count > 0)
+        
+        let processor = await MetalProcessor(context: context)
+        
+        // Verify all 10 compute kernel shaders compile successfully
+        let requiredFunctions = [
+            "adjustments_kernel",
+            "grayscale_kernel",
+            "invert_kernel",
+            "gaussian_blur_h_kernel",
+            "gaussian_blur_v_kernel",
+            "convolution_kernel",
+            "sobel_kernel",
+            "pixelate_kernel",
+            "ripple_kernel",
+            "swirl_kernel"
+        ]
+        
+        for funcName in requiredFunctions {
+            let pipeline = try await processor.getOrCreatePipeline(functionName: funcName)
+            #expect(pipeline.maxTotalThreadsPerThreadgroup > 0)
+        }
+    }
+
+    // MARK: - Gaussian Blur Weights Normalization
+    
+    @Test func testGaussianWeightsNormalization() async throws {
+        guard let context = MetalContext() else { return }
+        let processor = await MetalProcessor(context: context)
+        
+        for sigma in [0.5, 1.0, 2.5, 5.0, 10.0] as [Float] {
+            let radius = Int(ceil(sigma * 3.0))
+            let weights = await processor.computeGaussianWeights(sigma: sigma, radius: radius)
+            let sum = weights.reduce(0.0, +)
+            #expect(abs(sum - 1.0) < 0.001)
+        }
+    }
+
+    // MARK: - Texture Pool Tests
+    
+    @Test func testTexturePoolAcquisitionAndReuse() throws {
+        guard let device = MTLCreateSystemDefaultDevice() else { return }
+        var pool = TexturePool()
+        
+        let tex1 = pool.acquire(device: device, width: 256, height: 256)
+        #expect(tex1 != nil)
+        #expect(tex1?.width == 256)
+        #expect(tex1?.height == 256)
+        
+        if let tex1 {
+            pool.release(tex1)
+            #expect(pool.pooledCount == 1)
+            
+            let tex2 = pool.acquire(device: device, width: 256, height: 256)
+            #expect(tex2 === tex1) // Reused same instance
+            #expect(pool.pooledCount == 0)
+            
+            if let tex2 {
+                pool.release(tex2)
+            }
+        }
+        
+        pool.drain()
+        #expect(pool.pooledCount == 0)
+    }
+
+    // MARK: - Convolution Kernel Validation Tests
+    
+    @Test func testConvolutionKernelPresetsAndValidation() throws {
+        let sharpen = ConvolutionKernel.sharpen
+        #expect(sharpen.isValid)
+        #expect(sharpen.values.count == 9)
+        #expect(sharpen.divisor == 1.0)
+        
+        let blur = ConvolutionKernel.blur
+        #expect(blur.isValid)
+        #expect(blur.divisor == 9.0)
+        
+        let edge = ConvolutionKernel.edgeDetection
+        #expect(edge.isValid)
+        
+        let emboss = ConvolutionKernel.emboss
+        #expect(emboss.isValid)
+        
+        let invalidDivisor = ConvolutionKernel(name: "Invalid", values: [0,0,0,0,1,0,0,0,0], divisor: 0.0)
+        #expect(invalidDivisor.divisor != 0.0) // Auto-corrected to 1.0
+    }
+
+    // MARK: - Pipeline Mutations Tests
+    
+    @Test func testPipelineMutations() throws {
+        var pipeline = ProcessingPipeline()
+        #expect(pipeline.isEmpty)
+        
+        let node1 = PipelineNode(operation: .grayscale)
+        let node2 = PipelineNode(operation: .gaussianBlur(sigma: 3.0))
+        let node3 = PipelineNode(operation: .sharpen(strength: 1.0))
+        
+        pipeline.addNode(node1)
+        pipeline.addNode(node2)
+        pipeline.addNode(node3)
+        
+        #expect(pipeline.nodes.count == 3)
+        #expect(pipeline.enabledNodes.count == 3)
+        
+        // Toggle node 2
+        pipeline.toggleNode(id: node2.id)
+        #expect(pipeline.enabledNodes.count == 2)
+        #expect(!pipeline.enabledNodes.contains(where: { $0.id == node2.id }))
+        
+        // Remove node 1
+        pipeline.removeNode(id: node1.id)
+        #expect(pipeline.nodes.count == 2)
+        
+        // Reset
+        pipeline.reset()
+        #expect(pipeline.isEmpty)
+    }
+
+    // MARK: - Histogram Calculation Tests
+    
+    @Test func testHistogramCalculation() async throws {
+        guard let device = MTLCreateSystemDefaultDevice() else { return }
+        
+        let size = CGSize(width: 32, height: 32)
+        let renderer = UIGraphicsImageRenderer(size: size)
+        let uiImage = renderer.image { ctx in
+            UIColor.red.setFill()
+            ctx.fill(CGRect(origin: .zero, size: size))
+        }
+        
+        guard let texture = TextureLoader.textureFromUIImage(uiImage, device: device) else {
+            Issue.record("TextureLoader failed to create texture from UIImage")
+            return
+        }
+        
+        let calculator = HistogramCalculator()
+        let hist = await calculator.calculate(from: texture)
+        
+        let totalPixels = texture.width * texture.height
+        #expect(hist.red[255] == totalPixels)
+        #expect(hist.green[0] == totalPixels)
+        #expect(hist.blue[0] == totalPixels)
+    }
+
+    // MARK: - End-to-End GPU Processing Pipeline Test
+    
+    @Test func testFullGPUPipelineExecution() async throws {
+        guard let context = MetalContext() else {
+            Issue.record("MetalContext unavailable")
+            return
+        }
+        let processor = await MetalProcessor(context: context)
+        
+        let size = CGSize(width: 64, height: 64)
+        let renderer = UIGraphicsImageRenderer(size: size)
+        let uiImage = renderer.image { ctx in
+            UIColor.blue.setFill()
+            ctx.fill(CGRect(origin: .zero, size: size))
+        }
+        
+        guard let sourceTexture = TextureLoader.textureFromUIImage(uiImage, device: context.device) else {
+            Issue.record("Failed to create test texture")
+            return
+        }
+        
+        var pipeline = ProcessingPipeline()
+        pipeline.addNode(PipelineNode(operation: .adjustments(AdjustmentParams(brightness: 0.1, contrast: 1.2, exposure: 0.5, saturation: 1.1, temperature: 0.1, tint: 0.0, gamma: 1.0, _padding: 0.0))))
+        pipeline.addNode(PipelineNode(operation: .gaussianBlur(sigma: 1.5)))
+        pipeline.addNode(PipelineNode(operation: .sharpen(strength: 0.8)))
+        
+        let (outputTexture, metrics) = try await processor.process(pipeline: pipeline, sourceTexture: sourceTexture)
+        
+        #expect(outputTexture.width == sourceTexture.width)
+        #expect(outputTexture.height == sourceTexture.height)
+        #expect(metrics.pixelCount == sourceTexture.width * sourceTexture.height)
+        #expect(metrics.passCount == 4)
+        #expect(metrics.gpuTimeMs > 0.0)
+    }
+
+    // MARK: - Multi-Media Project Model & Persistence Tests
+    
+    @Test func testProjectSerializationAndPersistence() throws {
+        var pipeline = ProcessingPipeline()
+        pipeline.addNode(PipelineNode(operation: .grayscale))
+        pipeline.addNode(PipelineNode(operation: .gaussianBlur(sigma: 2.5)))
+        
+        let img1 = ProjectImage(
+            name: "Vase Study 01",
+            pipeline: pipeline,
+            adjustments: AdjustmentParams(brightness: 0.2, contrast: 1.1, exposure: 0.0, saturation: 1.0, temperature: 0.0, tint: 0.0, gamma: 1.0, _padding: 0.0),
+            comparisonMode: .split
+        )
+        
+        let vid1 = ProjectVideo(
+            name: "Vase Spin 01",
+            pipeline: pipeline,
+            adjustments: .default,
+            comparisonMode: .processed,
+            videoInfo: VideoInfo(duration: 14.5, width: 1920, height: 1080, frameRate: 60.0, hasAudio: true, codec: "H.264", fileSizeBytes: 12000000)
+        )
+        
+        let testProject = Project(
+            name: "Ceramic Collection",
+            isFavorite: true,
+            images: [img1],
+            videos: [vid1]
+        )
+        
+        // Test JSON round-trip
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        let data = try encoder.encode(testProject)
+        
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let decoded = try decoder.decode(Project.self, from: data)
+        
+        #expect(decoded.name == "Ceramic Collection")
+        #expect(decoded.isFavorite == true)
+        #expect(decoded.images.count == 1)
+        #expect(decoded.videos.count == 1)
+        #expect(decoded.videos[0].name == "Vase Spin 01")
+        #expect(decoded.videos[0].videoInfo?.duration == 14.5)
+        #expect(decoded.videos[0].videoInfo?.dimensionsText == "1920 × 1080")
+        #expect(decoded.videos[0].videoInfo?.formattedDuration == "00:15")
+        #expect(decoded.mediaSummaryText == "1 Image, 1 Video")
+        
+        // Test ProjectManager filesystem operations
+        let manager = ProjectManager()
+        let size = CGSize(width: 32, height: 32)
+        let renderer = UIGraphicsImageRenderer(size: size)
+        let uiImage = renderer.image { ctx in
+            UIColor.green.setFill()
+            ctx.fill(CGRect(origin: .zero, size: size))
+        }
+        
+        manager.saveProject(testProject, originalImage: uiImage, previewImage: uiImage, forImageId: img1.id)
+        
+        let allProjects = manager.loadAllProjects()
+        #expect(allProjects.contains(where: { $0.id == testProject.id }))
+        
+        let loadedImg = manager.loadOriginalImage(projectId: testProject.id, image: img1)
+        #expect(loadedImg != nil)
+        
+        // Clean up
+        manager.deleteProject(id: testProject.id)
+        let afterDelete = manager.loadAllProjects()
+        #expect(!afterDelete.contains(where: { $0.id == testProject.id }))
+    }
+
+    // MARK: - Video Metadata & Analytics Formatting Tests
+    
+    @Test func testVideoInfoAndMetadataFormatting() throws {
+        let info = VideoInfo(
+            duration: 84.42,
+            width: 3840,
+            height: 2160,
+            frameRate: 29.97,
+            hasAudio: true,
+            codec: "HEVC / H.265",
+            fileSizeBytes: 45 * 1024 * 1024
+        )
+        
+        #expect(info.dimensionsText == "3840 × 2160")
+        #expect(info.fpsText == "30.0 FPS")
+        #expect(info.formattedDuration == "01:24")
+        #expect(info.formattedDurationWithMilliseconds.contains("01:24"))
+        #expect(info.fileSizeFormatted == "45.0 MB")
+        #expect(info.hasAudio == true)
+    }
+
+    // MARK: - CVMetalTextureCache & Video Texture Provider Tests
+    
+    @Test func testVideoTextureProviderAndCVMetalTextureCache() throws {
+        guard let device = MTLCreateSystemDefaultDevice() else { return }
+        let provider = VideoTextureProvider(device: device)
+        
+        // Create a test CVPixelBuffer
+        let width = 64
+        let height = 64
+        guard let pixelBuffer = provider.createPixelBuffer(width: width, height: height) else {
+            Issue.record("Failed to create test CVPixelBuffer")
+            return
+        }
+        
+        #expect(CVPixelBufferGetWidth(pixelBuffer) == width)
+        #expect(CVPixelBufferGetHeight(pixelBuffer) == height)
+        
+        // Convert to MTLTexture via CVMetalTextureCache
+        let texture = provider.texture(from: pixelBuffer)
+        #expect(texture != nil)
+        #expect(texture?.width == width)
+        #expect(texture?.height == height)
+        
+        provider.flush()
+    }
+
+    // MARK: - Frame-by-Frame Metal Video Pipeline Test
+    
+    @Test func testFrameByFrameMetalVideoPipelineExecution() async throws {
+        guard let context = MetalContext() else { return }
+        let processor = await MetalProcessor(context: context)
+        let provider = VideoTextureProvider(device: context.device)
+        
+        guard let pixelBuffer = provider.createPixelBuffer(width: 128, height: 128) else {
+            Issue.record("Failed to create pixel buffer")
+            return
+        }
+        
+        guard let frameTexture = provider.texture(from: pixelBuffer) else {
+            Issue.record("Failed to obtain MTLTexture from CVPixelBuffer")
+            return
+        }
+        
+        var pipeline = ProcessingPipeline()
+        pipeline.addNode(PipelineNode(operation: .grayscale))
+        pipeline.addNode(PipelineNode(operation: .invert))
+        
+        let (outputTexture, metrics) = try await processor.process(pipeline: pipeline, sourceTexture: frameTexture)
+        #expect(outputTexture.width == 128)
+        #expect(outputTexture.height == 128)
+        #expect(metrics.passCount == 2)
+        
+        // Copy back to destination CVPixelBuffer
+        if let destBuffer = provider.createPixelBuffer(width: outputTexture.width, height: outputTexture.height) {
+            provider.copyTextureToPixelBuffer(outputTexture, pixelBuffer: destBuffer)
+            #expect(CVPixelBufferGetWidth(destBuffer) == 128)
+        }
+    }
+
+    // MARK: - Analytics Models & Memory Telemetry Tests
+    
+    @Test func testAnalyticsModelsAndState() throws {
+        let mem = MemoryResourceMetrics(
+            originalTextureBytesEstimated: 64 * 1024 * 1024,
+            intermediateTexturesBytesEstimated: 128 * 1024 * 1024,
+            activePooledTextures: 2,
+            reusablePooledTextures: 2,
+            memoryPressureState: "Normal"
+        )
+        
+        #expect(mem.originalTextureMBFormatted.contains("64.0 MB"))
+        #expect(mem.intermediateTexturesMBFormatted.contains("128.0 MB"))
+        #expect(mem.totalEstimatedWorkingSetMBFormatted.contains("192.0 MB"))
+        
+        let history = ProcessingHistoryEntry(
+            operationName: "Gaussian Blur",
+            gpuTimeMs: 4.25,
+            frameTimeMs: 5.10,
+            passCount: 2,
+            resolutionText: "2048 × 2048"
+        )
+        
+        #expect(history.operationName == "Gaussian Blur")
+        #expect(history.gpuTimeMs == 4.25)
+        #expect(history.passCount == 2)
+    }
+}
