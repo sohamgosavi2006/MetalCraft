@@ -663,6 +663,65 @@ struct MetalCraftTests {
             try executor.execute(excessivePlan)
         }
     }
+
+    // MARK: - Phase 3: Telemetry Service Tests
+    
+    @Test func testTelemetryServiceEmissionAndBufferEviction() async throws {
+        let service = await TelemetryService(sessionId: "test-session-001")
+        
+        await service.emitProcessingComplete(
+            operation: "Gaussian Blur",
+            gpuTimeMs: 3.45,
+            processingTimeMs: 4.80,
+            passCount: 2,
+            resolution: "3840 × 2160",
+            mediaType: "image",
+            requestId: "req-123"
+        )
+        
+        var buffer = await service.eventsBuffer
+        #expect(buffer.count == 1)
+        #expect(buffer[0].operation == "Gaussian Blur")
+        #expect(buffer[0].gpuTimeMs == 3.45)
+        #expect(buffer[0].eventType == "processing_complete")
+        #expect(buffer[0].sessionId == "test-session-001")
+        #expect(buffer[0].requestId == "req-123")
+        
+        // Test error emission
+        await service.emitProcessingError(
+            operation: "Swirl",
+            errorMessage: "Test shader error",
+            mediaType: "video"
+        )
+        
+        buffer = await service.eventsBuffer
+        #expect(buffer.count == 2)
+        #expect(buffer[1].eventType == "processing_error")
+        #expect(buffer[1].errorMessage == "Test shader error")
+        
+        // Test buffer max capacity eviction (max 100)
+        for i in 0..<120 {
+            await service.emitProcessingComplete(
+                operation: "Op \(i)",
+                gpuTimeMs: 1.0,
+                processingTimeMs: 1.5,
+                passCount: 1,
+                resolution: "1920 × 1080"
+            )
+        }
+        
+        buffer = await service.eventsBuffer
+        #expect(buffer.count == 100)
+        #expect(buffer.last?.operation == "Op 119")
+        
+        // Test flush
+        let flushed = await service.flush()
+        #expect(flushed.count == 100)
+        
+        buffer = await service.eventsBuffer
+        #expect(buffer.isEmpty)
+    }
 }
+
 
 

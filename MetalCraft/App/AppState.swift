@@ -139,6 +139,7 @@ final class AppState {
     let videoExportService: VideoExportService
     let videoPlayerController: VideoPlayerController
     let editPlanExecutor: EditPlanExecutor
+    let telemetryService: TelemetryService
     
     init(metalContext: MetalContext? = nil) {
         guard let context = metalContext ?? MetalContext() else {
@@ -146,6 +147,7 @@ final class AppState {
         }
         self.metalContext = context
         self.editPlanExecutor = EditPlanExecutor()
+        self.telemetryService = TelemetryService()
         let processor = MetalProcessor(context: context)
         self.metalProcessor = processor
         self.benchmarkEngine = BenchmarkEngine(metalProcessor: processor)
@@ -834,6 +836,16 @@ final class AppState {
                     self.isProcessing = false
                     self.updateMemoryMetrics()
                     self.saveCurrentProject()
+                    
+                    self.telemetryService.emitProcessingComplete(
+                        operation: self.currentOperationName,
+                        gpuTimeMs: metrics.gpuTimeMs,
+                        processingTimeMs: elapsedFrameMs,
+                        passCount: metrics.passCount,
+                        resolution: "\(source.width) × \(source.height)",
+                        mediaType: "image",
+                        requestId: self.activeEditPlan?.planId
+                    )
                 }
                 
                 let hist = await histogramCalculator.calculate(from: outputTexture)
@@ -846,6 +858,13 @@ final class AppState {
                     self.currentOperationStatus = .failed
                     self.errorMessage = error.localizedDescription
                     self.showError = true
+                    
+                    self.telemetryService.emitProcessingError(
+                        operation: self.currentOperationName,
+                        errorMessage: error.localizedDescription,
+                        mediaType: "image",
+                        requestId: self.activeEditPlan?.planId
+                    )
                 }
             }
         }
