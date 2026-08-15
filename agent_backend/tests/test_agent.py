@@ -1,0 +1,89 @@
+"""
+Automated unit and integration tests for MetalCraft Agent Backend.
+"""
+
+import sys
+import os
+import unittest
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from app import app
+from agent.director import CreativeDirector
+from agent.tools import validate_edit_plan
+
+class AgentBackendTests(unittest.TestCase):
+    def setUp(self):
+        self.app = app.test_client()
+        self.director = CreativeDirector()
+
+    def test_health_endpoint(self):
+        response = self.app.get("/health")
+        self.assertEqual(response.status_code, 200)
+        data = response.get_json()
+        self.assertEqual(data["status"], "healthy")
+
+    def test_agent_create_golden_hour(self):
+        payload = {
+            "prompt": "Make this photo look cinematic with warm golden hour sunlight",
+            "mediaMetadata": {
+                "type": "image",
+                "width": 3840,
+                "height": 2160,
+                "format": "jpeg"
+            }
+        }
+        response = self.app.post("/api/v1/agent/create", json=payload)
+        self.assertEqual(response.status_code, 200)
+        data = response.get_json()
+        
+        self.assertIn("editPlan", data)
+        plan = data["editPlan"]
+        self.assertEqual(plan["schemaVersion"], "1.0")
+        self.assertIn("temperature", plan["adjustments"])
+        self.assertGreater(plan["adjustments"]["temperature"], 0.0)
+        
+        val = validate_edit_plan(plan)
+        self.assertTrue(val["isValid"])
+
+    def test_agent_create_cyberpunk_video(self):
+        payload = {
+            "prompt": "Give this video a cyberpunk teal and orange night aesthetic",
+            "mediaMetadata": {
+                "type": "video",
+                "width": 1920,
+                "height": 1080,
+                "format": "h264",
+                "fps": 60.0,
+                "duration": 15.0
+            }
+        }
+        response = self.app.post("/api/v1/agent/create", json=payload)
+        self.assertEqual(response.status_code, 200)
+        data = response.get_json()
+        
+        plan = data["editPlan"]
+        self.assertEqual(plan["mediaType"], "Video")
+        self.assertLess(plan["adjustments"]["temperature"], 0.0) # Cool cyan shadows
+        
+        val = validate_edit_plan(plan)
+        self.assertTrue(val["isValid"])
+
+    def test_telemetry_and_observability(self):
+        telemetry_event = {
+            "eventType": "processing_complete",
+            "sessionId": "test-session",
+            "operation": "Gaussian Blur",
+            "gpuTimeMs": 3.8,
+            "processingTimeMs": 5.2
+        }
+        resp = self.app.post("/api/v1/telemetry", json=[telemetry_event])
+        self.assertEqual(resp.status_code, 200)
+        
+        obs_resp = self.app.get("/api/v1/observability")
+        self.assertEqual(obs_resp.status_code, 200)
+        obs_data = obs_resp.get_json()
+        self.assertGreaterEqual(obs_data["sampleCount"], 1)
+
+if __name__ == "__main__":
+    unittest.main()
