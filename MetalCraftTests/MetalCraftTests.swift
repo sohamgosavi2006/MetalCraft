@@ -393,4 +393,112 @@ struct MetalCraftTests {
         #expect(history.gpuTimeMs == 4.25)
         #expect(history.passCount == 2)
     }
+
+    // MARK: - Phase 1: EditPlan & Agent State Models Tests
+    
+    @Test func testEditPlanSerializationAndValidation() throws {
+        let adjustments = EditPlanAdjustments(
+            brightness: 0.15,
+            contrast: 1.2,
+            exposure: 0.5,
+            saturation: 1.3,
+            temperature: 0.2,
+            tint: -0.1,
+            gamma: 1.05
+        )
+        
+        let op1 = EditPlanOperation(
+            type: "gaussianBlur",
+            enabled: true,
+            parameters: ["sigma": .double(3.5)]
+        )
+        
+        let op2 = EditPlanOperation(
+            type: "sobelEdge",
+            enabled: true,
+            parameters: [
+                "strength": .double(1.0),
+                "blend": .double(0.4)
+            ]
+        )
+        
+        let op3 = EditPlanOperation(
+            type: "ripple",
+            enabled: false,
+            parameters: [
+                "frequency": .double(12.0),
+                "strength": .double(0.08),
+                "radius": .double(0.5),
+                "centerX": .double(0.5),
+                "centerY": .double(0.5),
+                "phase": .double(0.0)
+            ]
+        )
+        
+        let output = EditPlanOutput(format: "heif", quality: 0.92, aspectRatio: "16:9")
+        
+        let plan = EditPlan(
+            schemaVersion: "1.0",
+            planId: "test-plan-uuid-001",
+            createdAt: Date(timeIntervalSince1970: 1700000000),
+            mediaType: .image,
+            goal: "Cinematic Warm Golden-Hour Look",
+            reasoning: "Applied slight warm temperature shift with mild gaussian blur and edge sharpening.",
+            researchContext: "Parallel research: Golden hour color palettes emphasize 3500K warmth.",
+            adjustments: adjustments,
+            operations: [op1, op2, op3],
+            output: output
+        )
+        
+        // JSON encode
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        let data = try encoder.encode(plan)
+        
+        // JSON decode
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let decoded = try decoder.decode(EditPlan.self, from: data)
+        
+        #expect(decoded.schemaVersion == "1.0")
+        #expect(decoded.planId == "test-plan-uuid-001")
+        #expect(decoded.mediaType == .image)
+        #expect(decoded.goal == "Cinematic Warm Golden-Hour Look")
+        #expect(decoded.adjustments.brightness == 0.15)
+        #expect(decoded.adjustments.contrast == 1.2)
+        #expect(decoded.operations.count == 3)
+        #expect(decoded.operations[0].type == "gaussianBlur")
+        #expect(decoded.operations[0].enabled == true)
+        #expect(decoded.operations[0].parameters["sigma"]?.doubleValue == 3.5)
+        #expect(decoded.operations[2].enabled == false)
+        #expect(decoded.output.format == "heif")
+        #expect(decoded.output.aspectRatio == "16:9")
+        #expect(decoded.researchContext?.contains("Parallel research") == true)
+    }
+    
+    @Test func testAgentStateAndMessageModel() throws {
+        let idleState = AgentState.idle
+        #expect(!idleState.isBusy)
+        #expect(idleState.systemIcon == "wand.and.sparkles")
+        
+        let planningState = AgentState.planning
+        #expect(planningState.isBusy)
+        #expect(planningState.rawValue == "Formulating EditPlan")
+        
+        let executingState = AgentState.executing
+        #expect(executingState.isBusy)
+        
+        let msg = AgentMessage(
+            role: .assistant,
+            content: "I have formulated an EditPlan for your product video.",
+            reasoning: "High contrast and saturated colors will match the commercial aesthetic.",
+            researchContext: "Parallel research on commercial video pacing.",
+            editPlan: nil
+        )
+        
+        #expect(msg.role == .assistant)
+        #expect(msg.content.contains("formulated an EditPlan"))
+        #expect(msg.reasoning != nil)
+    }
 }
+
