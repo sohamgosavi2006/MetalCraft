@@ -14,6 +14,13 @@ struct AICreateView: View {
     @State private var isAutoScrollEnabled: Bool = true
     @FocusState private var isPromptFocused: Bool
     
+    // Connection State
+    @State private var isShowingSettings: Bool = false
+    @State private var endpointURLInput: String = ""
+    @State private var pingResultText: String? = nil
+    @State private var isPinging: Bool = false
+    @State private var connectionStatus: AgentConnectionStatus = .connecting
+    
     private let promptSuggestions = [
         "Cinematic Golden Hour",
         "Cyberpunk Teal & Orange",
@@ -27,6 +34,9 @@ struct AICreateView: View {
             VStack(spacing: 0) {
                 // Active Media Context Header
                 activeMediaHeader
+                
+                // Agent Connection Status Pill
+                connectionStatusPill
                 
                 Divider()
                 
@@ -72,9 +82,15 @@ struct AICreateView: View {
                     Button {
                         isShowingSettings = true
                     } label: {
-                        Image(systemName: "gearshape")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
+                        HStack(spacing: 4) {
+                            Image(systemName: "gearshape")
+                                .font(.subheadline)
+                            
+                            Circle()
+                                .fill(connectionIndicatorColor)
+                                .frame(width: 7, height: 7)
+                        }
+                        .foregroundStyle(.secondary)
                     }
                 }
                 
@@ -93,38 +109,94 @@ struct AICreateView: View {
             .sheet(isPresented: $isShowingSettings) {
                 agentSettingsSheet
             }
+            .task {
+                await refreshConnectionStatus()
+            }
         }
     }
     
-    @State private var isShowingSettings: Bool = false
-    @State private var endpointURLInput: String = ""
-    @State private var pingResultText: String? = nil
-    @State private var isPinging: Bool = false
+    // MARK: - Connection Status Pill
+    
+    private var connectionStatusPill: some View {
+        HStack(spacing: 6) {
+            Circle()
+                .fill(connectionIndicatorColor)
+                .frame(width: 6, height: 6)
+            
+            Text(connectionStatus.displayText)
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+            
+            Spacer()
+            
+            Button("Configure") {
+                isShowingSettings = true
+            }
+            .font(.system(size: 11, weight: .semibold))
+            .foregroundStyle(.purple)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 4)
+        .background(Color(uiColor: .tertiarySystemBackground).opacity(0.6))
+    }
+    
+    private var connectionIndicatorColor: Color {
+        switch connectionStatus {
+        case .connected: return .green
+        case .connecting: return .orange
+        case .disconnected: return .gray
+        case .failed: return .red
+        }
+    }
+    
+    // MARK: - Settings Sheet
     
     private var agentSettingsSheet: some View {
         NavigationStack {
             Form {
-                Section(header: Text("Agent Backend Configuration")) {
-                    TextField("http://10.3.12.210:8080", text: $endpointURLInput)
+                Section(header: Text("Mac Agent Endpoint")) {
+                    TextField("http://172.20.10.4:8080", text: $endpointURLInput)
                         .autocorrectionDisabled()
                         .textInputAutocapitalization(.never)
                         .keyboardType(.URL)
                     
-                    Button("Set to Current Mac IP (10.3.12.210:8080)") {
+                    Button {
+                        autoDiscover()
+                    } label: {
+                        HStack {
+                            Image(systemName: "sparkle.magnifyingglass")
+                            Text("Auto-Discover Mac on Local Network")
+                            if isPinging {
+                                Spacer()
+                                ProgressView()
+                            }
+                        }
+                    }
+                    .disabled(isPinging)
+                }
+                
+                Section(header: Text("Quick Presets")) {
+                    Button("1. iPhone Hotspot / Direct LAN (172.20.10.4:8080)") {
+                        endpointURLInput = "http://172.20.10.4:8080"
+                    }
+                    Button("2. Bonjour Local Hostname (admins-MacBook-Pro-8.local:8080)") {
+                        endpointURLInput = "http://admins-MacBook-Pro-8.local:8080"
+                    }
+                    Button("3. Wi-Fi Local Network (10.3.12.210:8080)") {
                         endpointURLInput = "http://10.3.12.210:8080"
                     }
-                    
-                    Button("Set to Localhost (127.0.0.1:8080)") {
+                    Button("4. Simulator Localhost (127.0.0.1:8080)") {
                         endpointURLInput = "http://127.0.0.1:8080"
                     }
                 }
                 
-                Section(header: Text("Connection Test")) {
+                Section(header: Text("Diagnostic Connection Test")) {
                     Button {
                         testConnection()
                     } label: {
                         HStack {
-                            Text("Test Connection to Backend")
+                            Text("Test Selected Endpoint")
                             if isPinging {
                                 Spacer()
                                 ProgressView()
@@ -149,9 +221,12 @@ struct AICreateView: View {
                     }
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("Save") {
+                    Button("Save & Connect") {
                         appState.agentService.endpointBaseURLString = endpointURLInput
                         isShowingSettings = false
+                        Task {
+                            await refreshConnectionStatus()
+                        }
                     }
                     .fontWeight(.bold)
                 }
@@ -163,33 +238,50 @@ struct AICreateView: View {
         }
     }
     
+    private func refreshConnectionStatus() async {
+        connectionStatus = .connecting
+        if let info = await appState.agentService.checkHealth(at: appState.agentService.endpointBaseURLString) {
+            connectionStatus = .connected(endpoint: info.endpointURL, latencyMs: info.latencyMs)
+        } else if let discovered = await appState.agentService.autoDiscoverEndpoint() {
+            connectionStatus = .connected(endpoint: discovered.endpointURL, latencyMs: discovered.latencyMs)
+        } else {
+            connectionStatus = .failed(reason: "Unreachable. Tap configure.")
+        }
+    }
+    
+    private func autoDiscover() {
+        isPinging = true
+        pingResultText = "Scanning network candidates..."
+        
+        Task {
+            if let found = await appState.agentService.autoDiscoverEndpoint() {
+                await MainActor.run {
+                    endpointURLInput = found.endpointURL
+                    pingResultText = "Success! Discovered \(found.endpointURL) (\(Int(found.latencyMs))ms)"
+                    isPinging = false
+                }
+            } else {
+                await MainActor.run {
+                    pingResultText = "Could not reach agent on network. Check that Mac backend is running."
+                    isPinging = false
+                }
+            }
+        }
+    }
+    
     private func testConnection() {
         isPinging = true
         pingResultText = nil
-        guard let url = URL(string: "\(endpointURLInput)/health") else {
-            pingResultText = "Invalid URL format"
-            isPinging = false
-            return
-        }
         
         Task {
-            do {
-                let (data, response) = try await URLSession.shared.data(from: url)
-                if let httpResp = response as? HTTPURLResponse, (200...299).contains(httpResp.statusCode) {
-                    let str = String(data: data, encoding: .utf8) ?? "OK"
-                    await MainActor.run {
-                        pingResultText = "Success! Server responded: \(str)"
-                        isPinging = false
-                    }
-                } else {
-                    await MainActor.run {
-                        pingResultText = "Server error (HTTP \((response as? HTTPURLResponse)?.statusCode ?? 0))"
-                        isPinging = false
-                    }
-                }
-            } catch {
+            if let info = await appState.agentService.checkHealth(at: endpointURLInput) {
                 await MainActor.run {
-                    pingResultText = "Connection failed: \(error.localizedDescription)"
+                    pingResultText = "Success! Connected to \(info.service) v\(info.version) at \(endpointURLInput) in \(Int(info.latencyMs))ms"
+                    isPinging = false
+                }
+            } else {
+                await MainActor.run {
+                    pingResultText = "Connection failed: Unable to reach \(endpointURLInput)/health. Check that both devices are on the same network."
                     isPinging = false
                 }
             }

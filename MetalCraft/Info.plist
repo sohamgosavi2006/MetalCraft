@@ -17,6 +17,10 @@
 	</dict>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>MetalCraft requires local network access to communicate with the local agent backend on your Mac.</string>
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_metalcraft._tcp</string>
+	</array>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>remote-notification</string>

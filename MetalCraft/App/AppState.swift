@@ -972,7 +972,7 @@ final class AppState {
                 width: vidInfo.width,
                 height: vidInfo.height,
                 format: vidInfo.codec,
-                fps: vidInfo.frameRate,
+                fps: Double(vidInfo.frameRate),
                 duration: vidInfo.duration
             )
         } else if let source = originalTexture {
