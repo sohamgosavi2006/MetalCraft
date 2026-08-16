@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MetalCraft — Agentic Media Platform</title>
-    <meta name="description" content="MetalCraft Cloud Control Plane for Gemini Agent Orchestration, Parallel Research, and Apple Metal GPU Rendering.">
+    <title>MetalCraft — Agentic Media Production on Apple Metal & Cloud</title>
+    <meta name="description" content="MetalCraft: AI-Powered Media Production platform. Gemini Creative Director, Parallel Research, and Apple Metal GPU Rendering.">
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -29,375 +29,575 @@
                 </div>
                 <div class="logo-text">
                     <span class="brand-name">MetalCraft</span>
-                    <span class="brand-badge">CLOUD CONTROL PLANE</span>
+                    <span class="brand-badge">iOS + CLOUD CONTROL PLANE</span>
                 </div>
             </div>
         </div>
 
-        <nav class="nav-pills">
-            <button class="nav-btn active" data-tab="ai-create" id="tab-ai-create">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
-                AI Create
-            </button>
-            <button class="nav-btn" data-tab="pipeline" id="tab-pipeline">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="6" height="6" rx="1"/><rect x="16" y="3" width="6" height="6" rx="1"/><rect x="9" y="15" width="6" height="6" rx="1"/><path d="M5 9v3a2 2 0 0 0 2 2h5M19 9v3a2 2 0 0 1-2 2h-5"/></svg>
-                Pipeline
-            </button>
-            <button class="nav-btn" data-tab="projects" id="tab-projects">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
-                Projects
-            </button>
-            <button class="nav-btn" data-tab="analytics" id="tab-analytics">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-                Analytics
-            </button>
-            <button class="nav-btn" data-tab="audit" id="tab-audit">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
-                Audit Log
-            </button>
-            <button class="nav-btn" data-tab="docs" id="tab-docs">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-                Docs
-            </button>
+        <nav class="nav-links">
+            <a href="#simulator-section" class="nav-link active">Simulator</a>
+            <a href="#behind-metalcraft" class="nav-link">Behind MetalCraft</a>
+            <a href="#pipeline-section" class="nav-link">Agentic Pipeline</a>
+            <a href="#telemetry-audit" class="nav-link">Observability & Audit</a>
         </nav>
 
         <div class="header-right">
             <div class="device-badge" id="device-status-badge">
                 <span class="device-dot dot-waiting" id="device-dot"></span>
-                <span class="device-label" id="device-label">Discovering iPhone...</span>
+                <span class="device-label" id="device-label">Waiting for iPhone...</span>
             </div>
             <div class="backend-badge" id="backend-status-badge">
                 <span class="backend-dot"></span>
-                <span>Render Live</span>
+                <span id="backend-status-text">Cloud Live</span>
             </div>
         </div>
     </header>
 
     <!-- Main Container -->
     <main class="main-content">
-        <!-- TAB 1: AI CREATE STUDIO -->
-        <section class="tab-pane active" id="pane-ai-create">
-            <div class="pane-header">
-                <div>
-                    <h1 class="pane-title">AI Create Studio</h1>
-                    <p class="pane-subtitle">Gemini 2.5 Flash Creative Director • Parallel Context • Apple Metal GPU Execution</p>
-                </div>
-                <div class="quick-chips">
-                    <span class="chip" data-prompt="Create a 15-second cyberpunk product reel with intense teal and neon orange lighting">⚡ Cyberpunk Reel</span>
-                    <span class="chip" data-prompt="Create a cinematic golden hour luxury showcase with gentle crossfades and emotional soundtrack">🌅 Golden Hour</span>
-                    <span class="chip" data-prompt="Create a high-contrast vintage film noir commercial with dramatic grayscale shadows">🎬 Film Noir</span>
-                    <span class="chip" data-prompt="Create a dynamic 20-second commercial reel with upbeat corporate tech soundtrack">💼 Commercial Ad</span>
-                </div>
+
+        <!-- ======================================================== -->
+        <!-- PRIMARY HERO SECTION: iPHONE 17 PRO SIMULATOR STAGE      -->
+        <!-- ======================================================== -->
+        <section class="hero-stage" id="simulator-section">
+            <div class="hero-header">
+                <div class="hero-tag">AI-POWERED MEDIA PRODUCTION</div>
+                <h1 class="hero-title">MetalCraft on iPhone</h1>
+                <p class="hero-subtitle">Gemini Creative Director ➔ Parallel Context Research ➔ Apple Metal GPU Execution</p>
             </div>
 
-            <div class="studio-grid">
-                <!-- Left: Prompt & Reasoning Panel -->
-                <div class="card glass-panel prompt-panel">
-                    <div class="card-header">
-                        <div class="card-title">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-                            Creative Prompt
-                        </div>
-                        <span class="tag-badge">Gemini 2.5</span>
-                    </div>
+            <div class="simulator-layout">
+                <!-- ================================================ -->
+                <!-- iPHONE 17 PRO TITANIUM DEVICE FRAME              -->
+                <!-- ================================================ -->
+                <div class="phone-frame-wrapper">
+                    <div class="iphone-device">
+                        <!-- Outer Chassis Buttons -->
+                        <div class="device-button btn-action"></div>
+                        <div class="device-button btn-vol-up"></div>
+                        <div class="device-button btn-vol-down"></div>
+                        <div class="device-button btn-power"></div>
 
-                    <div class="prompt-input-wrapper">
-                        <textarea id="prompt-input" placeholder="Describe the media you want to create (e.g. 'Create a 15-second cinematic product reel from this project with golden hour sunlight and emotional music')..."></textarea>
-                        <div class="prompt-actions">
-                            <div class="aspect-selector">
-                                <label>Aspect Ratio:</label>
-                                <select id="aspect-ratio-select">
-                                    <option value="9:16" selected>9:16 (Stories/Reels)</option>
-                                    <option value="16:9">16:9 (Landscape)</option>
-                                    <option value="1:1">1:1 (Square)</option>
-                                </select>
+                        <!-- Inner Screen Bezels -->
+                        <div class="iphone-screen">
+                            <!-- Dynamic Island -->
+                            <div class="dynamic-island" id="dynamic-island">
+                                <div class="island-camera"></div>
+                                <div class="island-sensor"></div>
+                                <div class="island-status-pill" id="island-pill">
+                                    <span class="island-dot"></span>
+                                    <span class="island-text" id="island-text">Gemini Ready</span>
+                                </div>
                             </div>
-                            <button class="btn btn-primary" id="btn-formulate-plan">
+
+                            <!-- iOS Status Bar -->
+                            <div class="ios-status-bar">
+                                <span class="status-time">9:41</span>
+                                <div class="status-icons">
+                                    <svg width="15" height="11" viewBox="0 0 16 12" fill="currentColor"><path d="M0 8.5a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v3a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5v-3zm4-2a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v5a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5v-5zm4-2a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v7a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5v-7zm4-2a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v9a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5v-9z"/></svg>
+                                    <svg width="15" height="11" viewBox="0 0 16 12" fill="currentColor"><path d="M8 11.5a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm-4.24-4.24a6 6 0 0 1 8.48 0 .75.75 0 0 0 1.06-1.06 7.5 7.5 0 0 0-10.6 0 .75.75 0 0 0 1.06 1.06zm-2.12-2.12a9 9 0 0 1 12.72 0 .75.75 0 1 0 1.06-1.06 10.5 10.5 0 0 0-14.84 0 .75.75 0 1 0 1.06 1.06z"/></svg>
+                                    <div class="battery-icon"><div class="battery-fill"></div></div>
+                                </div>
+                            </div>
+
+                            <!-- iOS App Navigation Header -->
+                            <div class="ios-app-header">
+                                <div class="ios-header-left">
+                                    <span class="ios-app-title" id="ios-title">AI Create</span>
+                                    <span class="ios-project-badge" id="ios-project-name">Cyberpunk Reel</span>
+                                </div>
+                                <div class="ios-header-right">
+                                    <button class="ios-icon-btn" id="btn-ios-settings" title="Settings">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- iOS Screen Content Area -->
+                            <div class="ios-screen-content">
+                                <!-- VIEW 1: AI CREATE (Default) -->
+                                <div class="ios-view active" id="ios-view-ai-create">
+                                    <!-- Assistant Message Stream -->
+                                    <div class="ios-chat-feed" id="ios-chat-feed">
+                                        <div class="chat-bubble assistant-bubble">
+                                            <div class="bubble-avatar">
+                                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+                                            </div>
+                                            <div class="bubble-content">
+                                                <p>I am your Gemini Creative Director. Describe your desired video reel and I will synthesize cinematic color grades, transitions, and audio sync for Apple Metal GPU rendering.</p>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Quick Style Chips in Phone -->
+                                    <div class="ios-chips-row">
+                                        <button class="ios-chip" data-prompt="Create a 15-second cyberpunk product reel with neon orange lighting and pulse transitions">⚡ Cyberpunk 15s</button>
+                                        <button class="ios-chip" data-prompt="Create a cinematic golden hour showcase with soft exposure and emotional piano music">🌅 Golden Hour</button>
+                                        <button class="ios-chip" data-prompt="Create a vintage film noir commercial with dramatic monochrome shadows">🎬 Film Noir</button>
+                                    </div>
+
+                                    <!-- Plan Preview / Video Card -->
+                                    <div class="ios-card plan-card" id="ios-plan-card" style="display: none;">
+                                        <div class="ios-card-header">
+                                            <span class="ios-card-badge">EDIT PLAN</span>
+                                            <span class="ios-card-duration" id="ios-plan-duration">15.0s • 3 Scenes</span>
+                                        </div>
+                                        <div class="ios-scenes-preview" id="ios-scenes-preview"></div>
+                                        <div class="ios-audio-pill" id="ios-audio-pill">
+                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+                                            <span id="ios-audio-title">Cinematic Soundtrack</span>
+                                        </div>
+                                    </div>
+
+                                    <!-- Video Preview Card (Post-Generation) -->
+                                    <div class="ios-card video-card" id="ios-video-card" style="display: none;">
+                                        <div class="ios-video-wrapper">
+                                            <video id="ios-preview-player" class="ios-video-player" playsinline loop muted autoplay></video>
+                                            <div class="ios-video-overlay">
+                                                <div class="ios-video-meta">
+                                                    <span class="ios-meta-tag">1080p H.264</span>
+                                                    <span class="ios-meta-tag" id="ios-file-size">11.88 MB</span>
+                                                    <span class="ios-meta-tag tag-metal">Metal GPU</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="ios-video-actions">
+                                            <button class="ios-action-btn primary" id="btn-ios-save-photos">
+                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                                                Save to Photos
+                                            </button>
+                                            <button class="ios-action-btn" id="btn-ios-share">
+                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+                                                Share
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <!-- iOS Prompt Input Bar -->
+                                    <div class="ios-prompt-box">
+                                        <input type="text" id="ios-prompt-input" class="ios-input" placeholder="Describe cinematic reel (e.g. Cyberpunk 15s)..." value="Create a 15-second cyberpunk product reel with neon orange lighting and pulse transitions">
+                                        <button class="ios-send-btn" id="btn-ios-synthesize" title="Synthesize Plan">
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <!-- VIEW 2: EDITOR -->
+                                <div class="ios-view" id="ios-view-editor">
+                                    <div class="editor-canvas-preview">
+                                        <div class="editor-placeholder-media" id="editor-media-target">
+                                            <img src="/static/img/sample_product.jpg" alt="Metal Preview" id="editor-img" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'300\' height=\'300\' viewBox=\'0 0 300 300\'><rect fill=\'%231e293b\' width=\'300\' height=\'300\'/><text fill=\'%2364748b\' x=\'50%25\' y=\'50%25\' dominant-baseline=\'middle\' text-anchor=\'middle\'>Metal Shaders 30 FPS</text></svg>'">
+                                            <span class="canvas-tag">MTLTexture View</span>
+                                        </div>
+                                    </div>
+                                    <div class="editor-sliders">
+                                        <div class="slider-row">
+                                            <span>Exposure</span>
+                                            <input type="range" min="-1" max="1" step="0.05" value="0.15" class="ios-slider">
+                                        </div>
+                                        <div class="slider-row">
+                                            <span>Contrast</span>
+                                            <input type="range" min="0.5" max="2" step="0.05" value="1.25" class="ios-slider">
+                                        </div>
+                                        <div class="slider-row">
+                                            <span>Saturation</span>
+                                            <input type="range" min="0" max="2" step="0.05" value="1.3" class="ios-slider">
+                                        </div>
+                                        <div class="slider-row">
+                                            <span>Sharpness</span>
+                                            <input type="range" min="0" max="1" step="0.05" value="0.6" class="ios-slider">
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- VIEW 3: PROJECTS -->
+                                <div class="ios-view" id="ios-view-projects">
+                                    <div class="projects-list" id="ios-projects-list">
+                                        <div class="ios-project-card active">
+                                            <div class="proj-icon">📁</div>
+                                            <div class="proj-info">
+                                                <div class="proj-name">Cyberpunk Reel</div>
+                                                <div class="proj-sub">3 images • 1 video • 1 soundtrack</div>
+                                            </div>
+                                            <span class="proj-badge">Active</span>
+                                        </div>
+                                        <div class="ios-project-card">
+                                            <div class="proj-icon">📁</div>
+                                            <div class="proj-info">
+                                                <div class="proj-name">Sunset Commercial</div>
+                                                <div class="proj-sub">2 images • 2 videos • 1 soundtrack</div>
+                                            </div>
+                                        </div>
+                                        <div class="ios-project-card">
+                                            <div class="proj-icon">📁</div>
+                                            <div class="proj-info">
+                                                <div class="proj-name">Studio Showcase</div>
+                                                <div class="proj-sub">4 images • 0 videos • 1 soundtrack</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- VIEW 4: ANALYTICS -->
+                                <div class="ios-view" id="ios-view-analytics">
+                                    <div class="ios-telemetry-grid">
+                                        <div class="telemetry-stat">
+                                            <span class="stat-label">Frame Time</span>
+                                            <span class="stat-val" id="stat-gpu-time">14.2 ms</span>
+                                            <span class="stat-sub">Target &lt; 33.3ms</span>
+                                        </div>
+                                        <div class="telemetry-stat">
+                                            <span class="stat-label">Render Rate</span>
+                                            <span class="stat-val">30 FPS</span>
+                                            <span class="stat-sub">Metal Pipeline</span>
+                                        </div>
+                                        <div class="telemetry-stat">
+                                            <span class="stat-label">Shader Passes</span>
+                                            <span class="stat-val" id="stat-passes">4</span>
+                                            <span class="stat-sub">Sobel + Color</span>
+                                        </div>
+                                        <div class="telemetry-stat">
+                                            <span class="stat-label">Device Memory</span>
+                                            <span class="stat-val" id="stat-mem">184 MB</span>
+                                            <span class="stat-sub">Unified RAM</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- iOS Bottom Tab Bar -->
+                            <div class="ios-tab-bar">
+                                <button class="ios-tab-item" data-target="editor">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>
+                                    <span>Editor</span>
+                                </button>
+                                <button class="ios-tab-item active" data-target="ai-create">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+                                    <span>AI Create</span>
+                                </button>
+                                <button class="ios-tab-item" data-target="analytics">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                                    <span>Analytics</span>
+                                </button>
+                                <button class="ios-tab-item" data-target="projects">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+                                    <span>Projects</span>
+                                </button>
+                            </div>
+
+                            <!-- iOS Home Indicator -->
+                            <div class="ios-home-indicator"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ================================================ -->
+                <!-- COMPANION CONTROL & "DON'T HAVE AN APPLE DEVICE?"-->
+                <!-- ================================================ -->
+                <div class="companion-controls">
+                    <!-- Don't Have an Apple Device Card -->
+                    <div class="card glass-card primary-cta-card">
+                        <div class="cta-header">
+                            <span class="cta-tag">NO APPLE HARDWARE?</span>
+                            <h2 class="cta-title">Don’t Have an Apple Device?</h2>
+                            <p class="cta-desc">Try MetalCraft on the interactive simulator. Explore the complete agentic pipeline from your browser while the Apple Metal GPU rendering pipeline remains ready for connected iPhones.</p>
+                        </div>
+
+                        <div class="execution-mode-toggle">
+                            <div class="toggle-btn active" id="toggle-mode-sim">
+                                <span class="toggle-icon">📱</span>
+                                <div class="toggle-text">
+                                    <strong>Browser Simulator Active</strong>
+                                    <small>Executes Gemini & simulated preview</small>
+                                </div>
+                            </div>
+                            <div class="toggle-btn" id="toggle-mode-iphone">
+                                <span class="toggle-icon">📲</span>
+                                <div class="toggle-text">
+                                    <strong>Real iPhone Hardware</strong>
+                                    <small id="real-iphone-status-sub">Waiting for device connection...</small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="cta-actions">
+                            <button class="btn btn-primary" id="btn-companion-synthesize">
                                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-                                Formulate EditPlan
+                                Synthesize on Simulator
+                            </button>
+                            <button class="btn btn-secondary" id="btn-companion-dispatch" disabled>
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></svg>
+                                Dispatch to Real iPhone
                             </button>
                         </div>
                     </div>
 
-                    <!-- Live Reasoning & Research Feed -->
-                    <div class="agent-feed-section">
-                        <div class="section-label">Agent Reasoning Stream</div>
-                        <div class="agent-feed-box" id="agent-feed-box">
-                            <div class="feed-placeholder">Enter a prompt above or pick a chip to formulate a plan.</div>
+                    <!-- Live Pipeline Progress Tracker -->
+                    <div class="card glass-card progress-tracker-card">
+                        <div class="tracker-header">
+                            <span class="tracker-title">Live Pipeline State</span>
+                            <span class="tracker-badge badge-idle" id="tracker-stage-badge">IDLE</span>
                         </div>
-                    </div>
 
-                    <!-- Parallel Research Card -->
-                    <div class="research-card" id="research-card" style="display: none;">
-                        <div class="research-header">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                            <span>Parallel Research Context</span>
+                        <div class="pipeline-steps">
+                            <div class="step-item" id="step-1">
+                                <span class="step-num">1</span>
+                                <div class="step-info">
+                                    <span class="step-name">Gemini 2.5 Creative Director</span>
+                                    <span class="step-detail">Synthesizes timeline & color grading</span>
+                                </div>
+                            </div>
+                            <div class="step-item" id="step-2">
+                                <span class="step-num">2</span>
+                                <div class="step-info">
+                                    <span class="step-name">Parallel Context Research</span>
+                                    <span class="step-detail">Cinematography & transition pacing</span>
+                                </div>
+                            </div>
+                            <div class="step-item" id="step-3">
+                                <span class="step-num">3</span>
+                                <div class="step-info">
+                                    <span class="step-name">Structured EditPlan Ready</span>
+                                    <span class="step-detail">Schema 1.0 JSON validated</span>
+                                </div>
+                            </div>
+                            <div class="step-item" id="step-4">
+                                <span class="step-num">4</span>
+                                <div class="step-info">
+                                    <span class="step-name">Apple Metal GPU Rendering</span>
+                                    <span class="step-detail" id="step-4-detail">30 FPS frame-by-frame pipeline</span>
+                                </div>
+                            </div>
+                            <div class="step-item" id="step-5">
+                                <span class="step-num">5</span>
+                                <div class="step-info">
+                                    <span class="step-name">Video Validation & Artifact</span>
+                                    <span class="step-detail">1080p H.264 stream ready</span>
+                                </div>
+                            </div>
                         </div>
-                        <p id="research-summary-text"></p>
-                    </div>
-                </div>
 
-                <!-- Right: Structured EditPlan Inspector & Dispatch -->
-                <div class="card glass-panel plan-panel">
-                    <div class="card-header">
-                        <div class="card-title">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
-                            Structured EditPlan (Schema 1.0)
+                        <!-- Progress Bar -->
+                        <div class="progress-bar-container" id="progress-container" style="display: none;">
+                            <div class="progress-bar-fill" id="progress-bar"></div>
                         </div>
-                        <div class="plan-header-actions">
-                            <button class="btn btn-ghost btn-sm" id="btn-copy-plan">Copy JSON</button>
-                        </div>
-                    </div>
-
-                    <div class="plan-json-view">
-                        <pre><code id="plan-json-display">// Plan will appear here after Gemini reasoning...</code></pre>
-                    </div>
-
-                    <div class="plan-dispatch-footer">
-                        <div class="plan-stats" id="plan-stats-bar">
-                            <span>Scenes: <strong id="stat-scenes">0</strong></span>
-                            <span>Duration: <strong id="stat-duration">0.0s</strong></span>
-                            <span>Audio: <strong id="stat-audio">None</strong></span>
-                        </div>
-                        <button class="btn btn-success" id="btn-dispatch-job" disabled>
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
-                            Dispatch to iPhone GPU
-                        </button>
+                        <div class="progress-status-text" id="progress-status-text"></div>
                     </div>
                 </div>
             </div>
         </section>
 
-        <!-- TAB 2: INTERACTIVE PIPELINE VISUALIZER -->
-        <section class="tab-pane" id="pane-pipeline">
-            <div class="pane-header">
-                <div>
-                    <h1 class="pane-title">Interactive Pipeline Visualizer</h1>
-                    <p class="pane-subtitle">Live end-to-end execution tracking between Render Cloud and Apple Metal GPU</p>
-                </div>
-                <div class="pipeline-live-tag">
-                    <span class="live-pulse"></span>
-                    <span>LIVE PIPELINE STATE</span>
-                </div>
+        <!-- ======================================================== -->
+        <!-- SECTION 2: BEHIND METALCRAFT (AI & CLOUD CONTROL PLANE)  -->
+        <!-- ======================================================== -->
+        <section class="section-container" id="behind-metalcraft">
+            <div class="section-header">
+                <span class="section-tag">ARCHITECTURE</span>
+                <h2 class="section-title">Behind MetalCraft</h2>
+                <p class="section-subtitle">A distributed media engine: Cloud intelligence orchestrates while Apple Silicon executes.</p>
             </div>
 
-            <!-- Pipeline Flowchart -->
-            <div class="card glass-panel pipeline-flow-container">
-                <div class="pipeline-stages-flow">
-                    <div class="stage-node" id="stage-user-request">
-                        <div class="node-icon">1</div>
-                        <div class="node-title">User Request</div>
-                        <div class="node-sub">AI Create Intent</div>
+            <div class="services-grid">
+                <!-- Service 1: Gemini -->
+                <div class="card glass-card service-card">
+                    <div class="service-icon-wrapper gemini-glow">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
                     </div>
-                    <div class="flow-arrow">→</div>
-                    <div class="stage-node" id="stage-gemini">
-                        <div class="node-icon">2</div>
-                        <div class="node-title">Gemini 2.5</div>
-                        <div class="node-sub">Creative Director</div>
+                    <div class="service-header">
+                        <h3 class="service-title">Google Gemini 2.5 Flash</h3>
+                        <span class="service-role">Creative Director</span>
                     </div>
-                    <div class="flow-arrow">→</div>
-                    <div class="stage-node" id="stage-parallel">
-                        <div class="node-icon">3</div>
-                        <div class="node-title">Parallel</div>
+                    <p class="service-desc">Transforms natural-language creative requests into structured media production plans, assigning GPU shaders, exposure, contrast, and audio sync.</p>
+                    <div class="service-meta">
+                        <div class="meta-row">
+                            <span>Status:</span>
+                            <span class="meta-status status-online" id="gemini-status">● Connected</span>
+                        </div>
+                        <div class="meta-row">
+                            <span>Model:</span>
+                            <span class="meta-val">gemini-2.5-flash</span>
+                        </div>
+                        <div class="meta-row">
+                            <span>Output:</span>
+                            <span class="meta-val">Schema 1.0 JSON</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Service 2: Parallel -->
+                <div class="card glass-card service-card">
+                    <div class="service-icon-wrapper parallel-glow">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                    </div>
+                    <div class="service-header">
+                        <h3 class="service-title">Parallel AI</h3>
+                        <span class="service-role">Creative Research</span>
+                    </div>
+                    <p class="service-desc">Provides contextual research on cinematography styles, lighting palettes, and transition pacing that helps Gemini formulate stronger production plans.</p>
+                    <div class="service-meta">
+                        <div class="meta-row">
+                            <span>Status:</span>
+                            <span class="meta-status status-online" id="parallel-status">● Available</span>
+                        </div>
+                        <div class="meta-row">
+                            <span>Latency:</span>
+                            <span class="meta-val" id="parallel-latency">514 ms</span>
+                        </div>
+                        <div class="meta-row">
+                            <span>Cache:</span>
+                            <span class="meta-val">In-Memory Active</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Service 3: Grafana -->
+                <div class="card glass-card service-card">
+                    <div class="service-icon-wrapper grafana-glow">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                    </div>
+                    <div class="service-header">
+                        <h3 class="service-title">Grafana Cloud</h3>
+                        <span class="service-role">Observability</span>
+                    </div>
+                    <p class="service-desc">Monitors MetalCraft's AI planning latency, device connections, Apple Metal frame render times, and persistent storage health.</p>
+                    <div class="service-meta">
+                        <div class="meta-row">
+                            <span>Status:</span>
+                            <span class="meta-status status-online" id="grafana-status">● Forwarder Active</span>
+                        </div>
+                        <div class="meta-row">
+                            <span>Buffer:</span>
+                            <span class="meta-val" id="grafana-buffer-count">200 Events</span>
+                        </div>
+                        <div class="meta-row">
+                            <span>Sanitizer:</span>
+                            <span class="meta-val">Token Stripping Enabled</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ======================================================== -->
+        <!-- SECTION 3: AGENTIC PIPELINE VISUALIZER                   -->
+        <!-- ======================================================== -->
+        <section class="section-container" id="pipeline-section">
+            <div class="section-header">
+                <span class="section-tag">DATA FLOW</span>
+                <h2 class="section-title">Agentic Media Pipeline</h2>
+                <p class="section-subtitle">Real-time trace from user prompt to Apple Metal GPU frames and video artifact.</p>
+            </div>
+
+            <div class="card glass-card pipeline-visual-card">
+                <div class="pipeline-flow-diagram">
+                    <div class="flow-node active" id="flow-user">
+                        <div class="node-icon">👤</div>
+                        <div class="node-name">User Intent</div>
+                        <div class="node-sub">Natural Language</div>
+                    </div>
+                    <div class="flow-arrow">➔</div>
+                    <div class="flow-node" id="flow-gemini">
+                        <div class="node-icon">✨</div>
+                        <div class="node-name">Gemini Director</div>
+                        <div class="node-sub">Cinematography</div>
+                    </div>
+                    <div class="flow-arrow">➔</div>
+                    <div class="flow-node" id="flow-parallel">
+                        <div class="node-icon">🔍</div>
+                        <div class="node-name">Parallel AI</div>
                         <div class="node-sub">Research Context</div>
                     </div>
-                    <div class="flow-arrow">→</div>
-                    <div class="stage-node" id="stage-editplan">
-                        <div class="node-icon">4</div>
-                        <div class="node-title">EditPlan</div>
+                    <div class="flow-arrow">➔</div>
+                    <div class="flow-node" id="flow-plan">
+                        <div class="node-icon">📋</div>
+                        <div class="node-name">EditPlan</div>
                         <div class="node-sub">Schema 1.0 JSON</div>
                     </div>
-                    <div class="flow-arrow">→</div>
-                    <div class="stage-node" id="stage-device-dispatch">
-                        <div class="node-icon">5</div>
-                        <div class="node-title">iOS Relay</div>
-                        <div class="node-sub">WebSocket Dispatch</div>
+                    <div class="flow-arrow">➔</div>
+                    <div class="flow-node" id="flow-metal">
+                        <div class="node-icon">⚡</div>
+                        <div class="node-name">Apple Metal GPU</div>
+                        <div class="node-sub">30 FPS Shaders</div>
                     </div>
-                    <div class="flow-arrow">→</div>
-                    <div class="stage-node" id="stage-metal">
-                        <div class="node-icon">6</div>
-                        <div class="node-title">Apple Metal</div>
-                        <div class="node-sub">30 FPS GPU Shaders</div>
+                    <div class="flow-arrow">➔</div>
+                    <div class="flow-node" id="flow-video">
+                        <div class="node-icon">🎬</div>
+                        <div class="node-name">Final Video</div>
+                        <div class="node-sub">1080p H.264</div>
                     </div>
-                    <div class="flow-arrow">→</div>
-                    <div class="stage-node" id="stage-avfoundation">
-                        <div class="node-icon">7</div>
-                        <div class="node-title">AVFoundation</div>
-                        <div class="node-sub">Timeline & Audio</div>
+                    <div class="flow-arrow">➔</div>
+                    <div class="flow-node" id="flow-grafana">
+                        <div class="node-icon">📊</div>
+                        <div class="node-name">Grafana</div>
+                        <div class="node-sub">Telemetry</div>
                     </div>
-                    <div class="flow-arrow">→</div>
-                    <div class="stage-node" id="stage-artifact">
-                        <div class="node-icon">8</div>
-                        <div class="node-title">VideoArtifact</div>
-                        <div class="node-sub">Validation & Save</div>
-                    </div>
-                </div>
-
-                <!-- Active Progress Tracker -->
-                <div class="pipeline-active-status">
-                    <div class="status-meta">
-                        <span class="status-label" id="pipeline-status-text">Ready for generation</span>
-                        <span class="status-percent" id="pipeline-percent-text">0%</span>
-                    </div>
-                    <div class="progress-bar-bg">
-                        <div class="progress-bar-fill" id="pipeline-progress-fill" style="width: 0%;"></div>
-                    </div>
-                    <div class="frame-stats" id="pipeline-frame-stats">
-                        <span>Frames: <strong id="pipe-current-frame">0</strong> / <span id="pipe-total-frame">0</span></span>
-                        <span>Stage: <strong id="pipe-current-stage">IDLE</strong></span>
-                        <span>Correlation ID: <code id="pipe-correlation-id">None</code></span>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Recent Generations Queue -->
-            <div class="card glass-panel" style="margin-top: 24px;">
-                <div class="card-header">
-                    <div class="card-title">Recent Generation Jobs</div>
-                    <button class="btn btn-ghost btn-sm" id="btn-refresh-jobs">Refresh</button>
-                </div>
-                <div class="table-responsive">
-                    <table class="data-table" id="jobs-table">
-                        <thead>
-                            <tr>
-                                <th>Generation ID</th>
-                                <th>Project</th>
-                                <th>Status</th>
-                                <th>Progress</th>
-                                <th>Duration</th>
-                                <th>Created</th>
-                            </tr>
-                        </thead>
-                        <tbody id="jobs-tbody">
-                            <tr><td colspan="6" class="text-muted">Loading jobs...</td></tr>
-                        </tbody>
-                    </table>
                 </div>
             </div>
         </section>
 
-        <!-- TAB 3: PROJECTS -->
-        <section class="tab-pane" id="pane-projects">
-            <div class="pane-header">
-                <div>
-                    <h1 class="pane-title">Projects Metadata</h1>
-                    <p class="pane-subtitle">Synchronized project media assets, scenes, and persistent metadata</p>
-                </div>
+        <!-- ======================================================== -->
+        <!-- SECTION 4: OBSERVABILITY & AUDIT TRAIL                   -->
+        <!-- ======================================================== -->
+        <section class="section-container" id="telemetry-audit">
+            <div class="section-header">
+                <span class="section-tag">CONTROL PLANE</span>
+                <h2 class="section-title">Telemetry & Audit Trail</h2>
+                <p class="section-subtitle">Real-time audit log and performance metrics recorded across device and cloud.</p>
             </div>
-            <div class="card glass-panel">
-                <div class="projects-grid" id="projects-grid">
-                    <div class="project-card default-proj">
-                        <div class="project-badge">Active iOS Project</div>
-                        <h3 class="proj-title">Cinematic Reel Project</h3>
-                        <p class="proj-desc">3 Media Assets • 1 Soundtrack • 9:16 Aspect Ratio</p>
-                        <div class="proj-assets-list">
-                            <div class="asset-pill">📷 media_001 (Product Front)</div>
-                            <div class="asset-pill">📷 media_002 (Product Detail)</div>
-                            <div class="asset-pill">📷 media_003 (Product In-Use)</div>
+
+            <div class="audit-grid">
+                <!-- Real-Time Audit Log Table -->
+                <div class="card glass-card audit-table-card">
+                    <div class="audit-header">
+                        <span class="audit-title">System Audit Log</span>
+                        <button class="btn-refresh" id="btn-refresh-audit">Refresh</button>
+                    </div>
+                    <div class="audit-list" id="audit-log-list">
+                        <div class="audit-empty">Loading audit events...</div>
+                    </div>
+                </div>
+
+                <!-- Live Metrics Summary -->
+                <div class="card glass-card metrics-summary-card">
+                    <div class="metrics-header">
+                        <span class="metrics-title">Pipeline Health Metrics</span>
+                    </div>
+                    <div class="metrics-rows">
+                        <div class="metric-row">
+                            <span class="m-label">Connected iOS Devices</span>
+                            <span class="m-val" id="metric-devices">0 (Simulator Active)</span>
+                        </div>
+                        <div class="metric-row">
+                            <span class="m-label">Total Render Jobs</span>
+                            <span class="m-val" id="metric-jobs">0</span>
+                        </div>
+                        <div class="metric-row">
+                            <span class="m-label">Average GPU Render Time</span>
+                            <span class="m-val" id="metric-gpu-avg">14.2 ms / frame</span>
+                        </div>
+                        <div class="metric-row">
+                            <span class="m-label">Video Artifacts Persisted</span>
+                            <span class="m-val" id="metric-artifacts">0</span>
+                        </div>
+                        <div class="metric-row">
+                            <span class="m-label">Render Backend Uptime</span>
+                            <span class="m-val" id="metric-uptime">Healthy</span>
                         </div>
                     </div>
                 </div>
-            </div>
-        </section>
-
-        <!-- TAB 4: ANALYTICS & GRAFANA TELEMETRY -->
-        <section class="tab-pane" id="pane-analytics">
-            <div class="pane-header">
-                <div>
-                    <h1 class="pane-title">Analytics & Grafana Telemetry</h1>
-                    <p class="pane-subtitle">Real-time GPU frame budget, pass counts, and agent latency streams</p>
-                </div>
-            </div>
-            <div class="metrics-grid">
-                <div class="metric-card glass-panel">
-                    <div class="metric-label">Average GPU Frame Time</div>
-                    <div class="metric-value" id="metric-gpu-time">2.85 ms</div>
-                    <div class="metric-sub">Budget: 33.3ms (30 FPS)</div>
-                </div>
-                <div class="metric-card glass-panel">
-                    <div class="metric-label">Rendering Frame Rate</div>
-                    <div class="metric-value" id="metric-fps">30.0 FPS</div>
-                    <div class="metric-sub">Apple Metal Compute</div>
-                </div>
-                <div class="metric-card glass-panel">
-                    <div class="metric-label">Agent Planning Latency</div>
-                    <div class="metric-value" id="metric-agent-latency">140 ms</div>
-                    <div class="metric-sub">Gemini 2.5 Flash</div>
-                </div>
-                <div class="metric-card glass-panel">
-                    <div class="metric-label">Total Telemetry Events</div>
-                    <div class="metric-value" id="metric-events-count">0</div>
-                    <div class="metric-sub">Live Observability Buffer</div>
-                </div>
-            </div>
-
-            <div class="card glass-panel" style="margin-top: 24px;">
-                <div class="card-header">
-                    <div class="card-title">Live Telemetry Event Log</div>
-                    <button class="btn btn-ghost btn-sm" id="btn-clear-telemetry">Clear Stream</button>
-                </div>
-                <div class="telemetry-log-box" id="telemetry-log-box">
-                    <div class="log-entry">Waiting for incoming telemetry stream...</div>
-                </div>
-            </div>
-        </section>
-
-        <!-- TAB 5: AUDIT LOG -->
-        <section class="tab-pane" id="pane-audit">
-            <div class="pane-header">
-                <div>
-                    <h1 class="pane-title">Audit Trail</h1>
-                    <p class="pane-subtitle">Immutable compliance and operation records across Cloud and iOS</p>
-                </div>
-            </div>
-            <div class="card glass-panel">
-                <div class="table-responsive">
-                    <table class="data-table" id="audit-table">
-                        <thead>
-                            <tr>
-                                <th>Timestamp</th>
-                                <th>Category</th>
-                                <th>Action</th>
-                                <th>Status</th>
-                                <th>Correlation ID</th>
-                                <th>Description</th>
-                            </tr>
-                        </thead>
-                        <tbody id="audit-tbody">
-                            <tr><td colspan="6" class="text-muted">Loading audit records...</td></tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </section>
-
-        <!-- TAB 6: DOCUMENTATION -->
-        <section class="tab-pane" id="pane-docs">
-            <div class="pane-header">
-                <div>
-                    <h1 class="pane-title">Platform Architecture Documentation</h1>
-                    <p class="pane-subtitle">Distributed Agentic Media Production Architecture Reference</p>
-                </div>
-            </div>
-            <div class="card glass-panel doc-content">
-                <h2>1. Cloud Control Plane & iOS Division of Responsibilities</h2>
-                <p><strong>Cloud (Render):</strong> Intelligence, Gemini reasoning, Parallel research context, state machine, Grafana telemetry forwarder, and REST/WebSocket API.</p>
-                <p><strong>iOS Engine (iPhone):</strong> Apple Metal GPU compute, AVFoundation multi-scene composition, local photo/video access, Camera Roll export, and persistent <code>VideoArtifact</code> storage.</p>
-                
-                <h2>2. REST API Endpoints (/api/v1)</h2>
-                <ul>
-                    <li><code>GET /api/v1/health</code>: Server and provider diagnostic health check.</li>
-                    <li><code>POST /api/v1/agent/create</code>: Gemini Creative Director plan synthesis.</li>
-                    <li><code>POST /api/v1/generations</code>: Dispatch generation job to iOS device.</li>
-                    <li><code>GET /api/v1/generations</code>: List recent generation jobs.</li>
-                    <li><code>POST /api/v1/ios/register</code>: Register iOS device session with capabilities.</li>
-                    <li><code>GET /api/v1/audit</code>: Retrieve audit logs.</li>
-                    <li><code>GET /api/v1/analytics</code>: Retrieve GPU performance metrics.</li>
-                    <li><code>WS /ws/ios</code> & <code>WS /ws/web</code>: Real-time WebSocket command & progress channels.</li>
-                </ul>
             </div>
         </section>
     </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="footer-left">
+            <span>MetalCraft • Cloud Companion & iOS Apple Metal Pipeline</span>
+        </div>
+        <div class="footer-right">
+            <span>Render Cloud Control Plane</span>
+        </div>
+    </footer>
 
     <script src="/static/js/app.js"></script>
 </body>
