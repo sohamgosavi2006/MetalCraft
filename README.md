@@ -145,7 +145,7 @@ The architecture can be summarized as:
 
 Absolutely. Below is **everything from `Why MetalCraft` onward**, in one Markdown block so you can **copy it directly into your `README.md`**.
 
-````markdown
+````
 # Why MetalCraft?
 
 Traditional AI media tools often perform most of their processing inside cloud infrastructure.
@@ -1685,4 +1685,3 @@ Built with Google Gemini, Parallel AI, Apple Metal, Swift, FastAPI, Grafana, Doc
 <strong>The cloud thinks. The iPhone renders.</strong>
 
 </p>
-```
