@@ -60,18 +60,93 @@ async def receive_heartbeat(request: DeviceHeartbeatRequest):
 @ios_router.get("/devices")
 async def list_devices():
     """Lists all registered iOS devices and their connection status."""
+    import json
     devices = await DatabaseRepository.list_active_devices()
     result = []
     for d in devices:
         is_ws_active = manager.is_ios_connected(d.session_id)
+        capabilities = {}
+        if d.capabilities_json:
+            try:
+                capabilities = json.loads(d.capabilities_json)
+            except Exception:
+                pass
+        
+        # Calculate clean display status
+        if is_ws_active:
+            display_status = "ONLINE"
+        else:
+            display_status = "OFFLINE"
+
+        clean_id = d.session_id.replace("-", "")[:8].upper()
         result.append({
             "sessionId": d.session_id,
+            "deviceId": f"MC-IOS-{clean_id}",
             "name": d.device_name,
             "model": d.model,
             "osVersion": d.os_version,
             "appVersion": d.app_version,
+            "capabilities": capabilities,
             "isLive": is_ws_active,
-            "status": "online" if is_ws_active else d.status,
-            "lastHeartbeat": d.last_heartbeat.isoformat() if d.last_heartbeat else None
+            "status": display_status,
+            "lastHeartbeat": d.last_heartbeat.isoformat() if d.last_heartbeat else None,
+            "createdAt": d.created_at.isoformat() if d.created_at else None
         })
     return {"devices": result, "totalCount": len(result)}
+
+
+@ios_router.get("/devices/{sessionId}")
+async def get_device_details(sessionId: str):
+    """Retrieves full operational diagnostics and job history for a specific device."""
+    import json
+    devices = await DatabaseRepository.list_active_devices()
+    device = next((d for d in devices if d.session_id == sessionId), None)
+    if not device:
+        raise HTTPException(status_code=404, detail=f"Device '{sessionId}' not found.")
+    
+    is_ws_active = manager.is_ios_connected(device.session_id)
+    capabilities = {}
+    if device.capabilities_json:
+        try:
+            capabilities = json.loads(device.capabilities_json)
+        except Exception:
+            pass
+
+    clean_id = device.session_id.replace("-", "")[:8].upper()
+    recent_jobs = await DatabaseRepository.list_generation_jobs(limit=20)
+    audit_events = await DatabaseRepository.list_audit_events(limit=20)
+
+    return {
+        "device": {
+            "sessionId": device.session_id,
+            "deviceId": f"MC-IOS-{clean_id}",
+            "name": device.device_name,
+            "model": device.model,
+            "osVersion": device.os_version,
+            "appVersion": device.app_version,
+            "capabilities": capabilities,
+            "isLive": is_ws_active,
+            "status": "ONLINE" if is_ws_active else "OFFLINE",
+            "lastHeartbeat": device.last_heartbeat.isoformat() if device.last_heartbeat else None,
+            "createdAt": device.created_at.isoformat() if device.created_at else None
+        },
+        "recentJobs": [
+            {
+                "generationId": j.generation_id,
+                "status": j.status,
+                "progress": j.progress,
+                "progressMessage": j.progress_message,
+                "renderDurationSec": j.render_duration_sec,
+                "createdAt": j.created_at.isoformat() if j.created_at else None
+            } for j in recent_jobs
+        ],
+        "recentAudit": [
+            {
+                "action": a.action,
+                "category": a.category,
+                "status": a.status,
+                "description": a.description,
+                "timestamp": a.timestamp.isoformat() if a.timestamp else None
+            } for a in audit_events
+        ]
+    }
