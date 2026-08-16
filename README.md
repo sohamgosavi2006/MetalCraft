@@ -49,10 +49,7 @@
 ## 🌐 Live Project
 
 **Website:**  
-[MetalCraft Cloud Control Plane](https://metalcraft-olso.onrender.com)
-
-**Project Repository:**  
-[GitHub Repository](https://github.com/sohamgosavi2006/MetalCraft)
+[MetalCraft Cloud Control Plane]([https://metalcraft-olso.onrender.com](https://metalcraft-ols0.onrender.com/))
 
 ---
 
