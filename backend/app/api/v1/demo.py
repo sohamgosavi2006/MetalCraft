@@ -50,8 +50,8 @@ async def get_demo_info():
     }
 
 
-@demo_router.get("/stream")
-@demo_router.get("/video")
+@demo_router.api_route("/stream", methods=["GET", "HEAD"])
+@demo_router.api_route("/video", methods=["GET", "HEAD"])
 async def stream_demo_video(request: Request):
     """
     Streams the official MetalCraft demonstration video with full HTTP Byte Range support
