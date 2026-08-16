@@ -53,6 +53,24 @@ async def test_diagnostics_test_all_endpoint():
 
 
 @pytest.mark.asyncio
+async def test_demo_info_and_stream_endpoints():
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        resp = await client.get("/api/v1/demo/info")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "demoVideoUrl" in data
+        assert "10bRFWpuJU9U3TBOJX3nyBucbd00Othp3" in data["demoVideoUrl"]
+        assert data["format"] == "mp4"
+        
+        # Test full or range stream
+        stream_resp = await client.get("/api/v1/demo/stream")
+        assert stream_resp.status_code in [200, 206]
+        assert stream_resp.headers.get("Accept-Ranges") == "bytes"
+        assert "video/mp4" in stream_resp.headers.get("Content-Type", "")
+
+
+@pytest.mark.asyncio
 async def test_ios_device_registration_and_heartbeat():
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:

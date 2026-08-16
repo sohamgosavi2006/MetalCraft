@@ -1034,7 +1034,7 @@
             <div class="section-header-wrap">
                 <span class="section-label">Observability & Compliance</span>
                 <h1 class="section-title">Observability & Audit</h1>
-                <p class="section-subtitle">Real-time GPU frame metrics, live requests stream, connected device health, and immutable audit logs.</p>
+                <p class="section-subtitle">Real-time GPU frame metrics, live requests stream, and immutable audit logs.</p>
             </div>
 
             <!-- Sub-Navigation Tabs for Observability & Audit -->
@@ -1042,7 +1042,6 @@
                 <button class="subtab-btn active" data-obstab="overview">Overview</button>
                 <button class="subtab-btn" data-obstab="metrics">Metrics</button>
                 <button class="subtab-btn" data-obstab="requests">Requests</button>
-                <button class="subtab-btn" data-obstab="devices">Devices</button>
                 <button class="subtab-btn" data-obstab="audit">Audit Log</button>
             </div>
 
@@ -1113,14 +1112,7 @@
                 </div>
             </div>
 
-            <!-- Tab 4: Connected Devices -->
-            <div class="subtab-content" id="obstab-devices">
-                <div class="real-devices-grid" id="obs-devices-grid">
-                    <p style="text-align:center;color:var(--text-secondary);padding:24px;grid-column:1/-1;">Loading fleet devices…</p>
-                </div>
-            </div>
-
-            <!-- Tab 5: Audit Log -->
+            <!-- Tab 4: Audit Log -->
             <div class="subtab-content" id="obstab-audit">
                 <div class="audit-table-wrap">
                     <table class="audit-table">
@@ -1162,10 +1154,40 @@
                 <button class="modal-close-btn" id="btn-close-demo-modal" aria-label="Close demonstration">✕</button>
             </div>
             
-            <div class="demo-video-container">
-                <video id="demo-video-player" src="/static/assets/metalcraft_demo.mp4" playsinline controls preload="metadata" poster="/static/assets/metalcraft_icon.png">
+            <div class="demo-video-container" id="demo-video-container">
+                <div class="demo-video-loader" id="demo-video-loader">
+                    <div class="demo-spinner"></div>
+                    <span>Loading demonstration video…</span>
+                </div>
+                <div class="demo-video-error" id="demo-video-error" style="display:none;">
+                    <div class="demo-error-icon">⚠️</div>
+                    <h4>Demo video unavailable</h4>
+                    <p>The MetalCraft demonstration video could not be loaded. Please try again.</p>
+                    <button class="demo-retry-btn" id="btn-retry-demo-video">↻ Retry Playback</button>
+                </div>
+                <video id="demo-video-player" src="/api/v1/demo/stream" playsinline preload="metadata" poster="/static/assets/metalcraft_icon.png">
                     Your browser does not support HTML5 video playback.
                 </video>
+                <!-- Custom Liquid Glass Overlay Controls -->
+                <div class="demo-player-controls" id="demo-player-controls">
+                    <button class="demo-control-btn play-toggle" id="demo-btn-play" title="Play / Pause">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" id="demo-play-icon"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                    </button>
+                    <div class="demo-scrubber-wrap">
+                        <input type="range" class="demo-scrubber" id="demo-video-scrubber" min="0" max="100" value="0" step="0.1">
+                        <div class="demo-scrubber-fill" id="demo-scrubber-fill"></div>
+                    </div>
+                    <div class="demo-time-display" id="demo-time-display">00:00 / 00:00</div>
+                    <div class="demo-volume-wrap">
+                        <button class="demo-control-btn" id="demo-btn-mute" title="Mute / Unmute">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" id="demo-mute-icon"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+                        </button>
+                        <input type="range" class="demo-volume-slider" id="demo-volume-slider" min="0" max="1" step="0.05" value="1">
+                    </div>
+                    <button class="demo-control-btn" id="demo-btn-fullscreen" title="Fullscreen">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
+                    </button>
+                </div>
             </div>
 
             <div class="demo-video-footer">
@@ -1176,7 +1198,7 @@
                     <span class="demo-badge">AVFoundation</span>
                 </div>
                 <div class="demo-footer-actions">
-                    <a href="https://drive.google.com/file/d/1r_hYIHm8fRUR1uBBlT14M3mfKgmXvQ3e/view?usp=drive_link" target="_blank" rel="noopener noreferrer" class="demo-external-link">
+                    <a href="https://drive.google.com/file/d/10bRFWpuJU9U3TBOJX3nyBucbd00Othp3/view?usp=drive_link" target="_blank" rel="noopener noreferrer" class="demo-external-link">
                         Google Drive Source ↗
                     </a>
                 </div>

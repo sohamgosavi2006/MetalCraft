@@ -27,6 +27,7 @@ from app.api.v1.agent import agent_router
 from app.api.v1.projects import projects_router
 from app.api.v1.audit import audit_router
 from app.api.v1.analytics import analytics_router
+from app.api.v1.demo import demo_router
 from app.websocket.ws_routes import ws_router
 
 logging.basicConfig(
@@ -71,6 +72,7 @@ app.include_router(agent_router, prefix="/api/v1")
 app.include_router(projects_router, prefix="/api/v1")
 app.include_router(audit_router, prefix="/api/v1")
 app.include_router(analytics_router, prefix="/api/v1")
+app.include_router(demo_router, prefix="/api/v1")
 app.include_router(ws_router)
 
 # Mount Web Companion Static Files

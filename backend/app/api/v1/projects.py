@@ -78,7 +78,7 @@ DEFAULT_PROJECTS = [
                 "name": "High Pacing City Drift",
                 "aspect": "9:16",
                 "durationSec": 15.0,
-                "url": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4",
+                "url": "/static/assets/metalcraft_demo.mp4",
                 "thumb": "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=200&q=80"
             }
         ]
@@ -113,7 +113,7 @@ DEFAULT_PROJECTS = [
                 "name": "High Pacing City Drift",
                 "aspect": "9:16",
                 "durationSec": 15.0,
-                "url": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4",
+                "url": "/static/assets/metalcraft_demo.mp4",
                 "thumb": "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=200&q=80"
             }
         ]

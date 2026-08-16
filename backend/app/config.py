@@ -34,6 +34,12 @@ DATABASE_URL = os.getenv("DATABASE_URL", f"sqlite+aiosqlite:///{backend_root}/me
 # iOS Security & Device Authentication
 IOS_AUTH_SECRET = os.getenv("IOS_AUTH_SECRET", "metalcraft-device-auth-secret-key-2026")
 
+# Official Demonstration Video Canonical URL
+DEMO_VIDEO_URL = os.getenv(
+    "DEMO_VIDEO_URL",
+    "https://drive.google.com/file/d/10bRFWpuJU9U3TBOJX3nyBucbd00Othp3/view?usp=drive_link"
+)
+
 # CORS Allowed Origins
 raw_cors = os.getenv("CORS_ALLOWED_ORIGINS", "*")
 if raw_cors == "*":

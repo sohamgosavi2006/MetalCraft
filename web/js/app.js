@@ -19,6 +19,11 @@
 (function () {
   'use strict';
 
+  // ── CANONICAL DEMONSTRATION VIDEO CONFIGURATION ──────────────────────────
+  const DEMO_VIDEO_URL = "https://drive.google.com/file/d/10bRFWpuJU9U3TBOJX3nyBucbd00Othp3/view?usp=drive_link";
+  const DEMO_STREAM_URL = "/api/v1/demo/stream";
+  const DEMO_STATIC_URL = "/static/assets/metalcraft_demo.mp4";
+
   // ── DEFAULT STOCK MEDIA FOR IMPORT ───────────────────────────────────────
   const STOCK_MEDIA_LIBRARY = [
     {
@@ -60,10 +65,10 @@
     {
       id: 'stock-5',
       type: 'video',
-      name: 'High Pacing City Drift',
+      name: 'MetalCraft Cinematic Reel',
       aspect: '9:16',
       durationSec: 15.0,
-      url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
+      url: DEMO_STATIC_URL,
       thumb: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=200&q=80'
     },
     {
@@ -249,16 +254,165 @@
     const btnMobileDemo = document.getElementById('mobile-btn-demo');
     const modalDemo = document.getElementById('modal-demo-video');
     const btnCloseDemo = document.getElementById('btn-close-demo-modal');
+    const videoContainer = document.getElementById('demo-video-container');
     const videoPlayer = document.getElementById('demo-video-player');
+    const videoLoader = document.getElementById('demo-video-loader');
+    const videoError = document.getElementById('demo-video-error');
+    const btnRetry = document.getElementById('btn-retry-demo-video');
+    const btnPlay = document.getElementById('demo-btn-play');
+    const playIcon = document.getElementById('demo-play-icon');
+    const scrubber = document.getElementById('demo-video-scrubber');
+    const scrubberFill = document.getElementById('demo-scrubber-fill');
+    const timeDisplay = document.getElementById('demo-time-display');
+    const btnMute = document.getElementById('demo-btn-mute');
+    const muteIcon = document.getElementById('demo-mute-icon');
+    const volumeSlider = document.getElementById('demo-volume-slider');
+    const btnFullscreen = document.getElementById('demo-btn-fullscreen');
+
+    function formatTime(sec) {
+      if (!sec || isNaN(sec)) return '00:00';
+      const m = Math.floor(sec / 60);
+      const s = Math.floor(sec % 60);
+      return `${m < 10 ? '0' : ''}${m}:${s < 10 ? '0' : ''}${s}`;
+    }
+
+    function updatePlayIcon(isPlaying) {
+      if (!playIcon) return;
+      if (isPlaying) {
+        playIcon.innerHTML = `<rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>`;
+      } else {
+        playIcon.innerHTML = `<polygon points="5 3 19 12 5 21 5 3"/>`;
+      }
+    }
+
+    function updateMuteIcon(isMuted) {
+      if (!muteIcon) return;
+      if (isMuted || (videoPlayer && videoPlayer.volume === 0)) {
+        muteIcon.innerHTML = `<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/>`;
+      } else {
+        muteIcon.innerHTML = `<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/>`;
+      }
+    }
+
+    function loadAndPlayVideo() {
+      if (!videoPlayer) return;
+      if (videoError) videoError.style.display = 'none';
+      if (videoLoader) {
+        videoLoader.style.opacity = '1';
+        videoLoader.style.display = 'flex';
+      }
+
+      // Check current source, set if needed
+      if (!videoPlayer.src || videoPlayer.src === window.location.href) {
+        videoPlayer.src = DEMO_STREAM_URL;
+      }
+      videoPlayer.load();
+      videoPlayer.play().then(() => {
+        updatePlayIcon(true);
+        if (videoLoader) videoLoader.style.display = 'none';
+      }).catch(err => {
+        console.info('Auto-playback pending user interaction:', err);
+        updatePlayIcon(false);
+        if (videoLoader) videoLoader.style.display = 'none';
+      });
+    }
+
+    if (videoPlayer) {
+      videoPlayer.addEventListener('loadedmetadata', () => {
+        if (videoLoader) videoLoader.style.display = 'none';
+        if (timeDisplay) {
+          timeDisplay.textContent = `${formatTime(videoPlayer.currentTime)} / ${formatTime(videoPlayer.duration)}`;
+        }
+      });
+
+      videoPlayer.addEventListener('timeupdate', () => {
+        if (!videoPlayer.duration) return;
+        const pct = (videoPlayer.currentTime / videoPlayer.duration) * 100;
+        if (scrubber) scrubber.value = pct;
+        if (scrubberFill) scrubberFill.style.width = `${pct}%`;
+        if (timeDisplay) {
+          timeDisplay.textContent = `${formatTime(videoPlayer.currentTime)} / ${formatTime(videoPlayer.duration)}`;
+        }
+      });
+
+      videoPlayer.addEventListener('play', () => updatePlayIcon(true));
+      videoPlayer.addEventListener('pause', () => updatePlayIcon(false));
+      videoPlayer.addEventListener('ended', () => updatePlayIcon(false));
+
+      videoPlayer.addEventListener('error', (e) => {
+        console.warn('Demo video error on stream endpoint, falling back to static asset:', e);
+        if (videoPlayer.src.includes(DEMO_STREAM_URL)) {
+          videoPlayer.src = DEMO_STATIC_URL;
+          videoPlayer.load();
+          videoPlayer.play().catch(() => {});
+        } else {
+          if (videoLoader) videoLoader.style.display = 'none';
+          if (videoError) videoError.style.display = 'flex';
+          updatePlayIcon(false);
+        }
+      });
+    }
+
+    if (btnPlay && videoPlayer) {
+      btnPlay.addEventListener('click', () => {
+        if (videoPlayer.paused || videoPlayer.ended) {
+          videoPlayer.play();
+        } else {
+          videoPlayer.pause();
+        }
+      });
+    }
+
+    if (scrubber && videoPlayer) {
+      const seek = () => {
+        if (videoPlayer.duration) {
+          const targetTime = (parseFloat(scrubber.value) / 100) * videoPlayer.duration;
+          videoPlayer.currentTime = targetTime;
+          if (scrubberFill) scrubberFill.style.width = `${scrubber.value}%`;
+        }
+      };
+      scrubber.addEventListener('input', seek);
+      scrubber.addEventListener('change', seek);
+    }
+
+    if (btnMute && videoPlayer) {
+      btnMute.addEventListener('click', () => {
+        videoPlayer.muted = !videoPlayer.muted;
+        updateMuteIcon(videoPlayer.muted);
+      });
+    }
+
+    if (volumeSlider && videoPlayer) {
+      volumeSlider.addEventListener('input', (e) => {
+        const vol = parseFloat(e.target.value);
+        videoPlayer.volume = vol;
+        videoPlayer.muted = vol === 0;
+        updateMuteIcon(videoPlayer.muted);
+      });
+    }
+
+    if (btnFullscreen && videoContainer) {
+      btnFullscreen.addEventListener('click', () => {
+        if (document.fullscreenElement) {
+          document.exitFullscreen().catch(() => {});
+        } else if (videoContainer.requestFullscreen) {
+          videoContainer.requestFullscreen().catch(() => {});
+        } else if (videoPlayer && videoPlayer.webkitEnterFullscreen) {
+          videoPlayer.webkitEnterFullscreen();
+        }
+      });
+    }
+
+    if (btnRetry) {
+      btnRetry.addEventListener('click', () => {
+        loadAndPlayVideo();
+      });
+    }
 
     function openDemo() {
       if (!modalDemo) return;
       modalDemo.classList.add('active');
-      if (videoPlayer) {
-        videoPlayer.play().catch(() => {
-          // Autoplay handled gracefully if browser requires user gesture
-        });
-      }
+      loadAndPlayVideo();
       const drawer = document.getElementById('mobile-nav-drawer');
       if (drawer) drawer.classList.remove('open');
       logSimulatorEvent('Opened MetalCraft Demonstration Video');
@@ -306,7 +460,7 @@
       });
     });
 
-    // B. Observability & Audit Subtabs
+    // B. Observability & Audit Subtabs (Overview, Metrics, Requests, Audit Log)
     const obsSubtabButtons = document.querySelectorAll('#obs-audit-subtabs .subtab-btn');
     obsSubtabButtons.forEach(btn => {
       btn.addEventListener('click', () => {
@@ -318,9 +472,9 @@
         });
 
         if (tabKey === 'requests') fetchObservabilityRequests();
-        else if (tabKey === 'devices') fetchObservabilityDevices();
         else if (tabKey === 'audit') fetchObservabilityAudit();
         else if (tabKey === 'metrics') fetchAnalyticsMetrics();
+        else if (tabKey === 'overview') fetchObservabilityOverview();
       });
     });
   }
@@ -1330,58 +1484,118 @@
 
     function renderVideoResultCard(plan) {
       if (!aiChatMessages) return;
+      
+      const artifactVideoUrl = DEMO_STATIC_URL;
+      const artifactName = plan.goal || 'Cinematic Reel';
+
+      // Automatically load generated video into the simulator editor
+      const newVideoItem = {
+        id: 'gen-' + Date.now(),
+        name: artifactName,
+        aspect: plan.aspectRatio || '9:16',
+        durationSec: plan.targetDurationSec || 15.0,
+        url: artifactVideoUrl,
+        thumb: '/static/assets/metalcraft_icon.png'
+      };
+      
+      if (typeof window.loadMediaIntoEditor === 'function') {
+        window.loadMediaIntoEditor(newVideoItem, 'video');
+      }
+
       const card = document.createElement('div');
       card.className = 'video-preview-card';
+      card.style.background = 'var(--sim-card-bg)';
+      card.style.border = '1px solid var(--sim-card-border)';
+      card.style.borderRadius = '16px';
+      card.style.padding = '12px';
+      card.style.marginTop = '10px';
+      card.style.boxShadow = '0 8px 24px rgba(0,0,0,0.35)';
+
       card.innerHTML = `
-        <div class="video-preview-thumb" id="btn-play-preview-thumb">
-          <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        <div style="position:relative;width:100%;border-radius:12px;overflow:hidden;background:#000;aspect-ratio:9/16;max-height:240px;display:flex;align-items:center;justify-content:center;margin-bottom:10px;box-shadow:0 4px 16px rgba(0,0,0,0.4);">
+          <video class="sim-rendered-video" src="${artifactVideoUrl}" playsinline controls preload="auto" poster="/static/assets/metalcraft_icon.png" style="width:100%;height:100%;object-fit:cover;"></video>
         </div>
         <div class="video-preview-info">
-          <h4>${plan.goal}</h4>
-          <p>1080×1920 (9:16) · ${plan.targetDurationSec}s · ${plan.matchedSoundtrack ? plan.matchedSoundtrack.title : 'Audio Mix'}</p>
-          <div class="video-preview-actions">
-            <button class="video-action-btn" id="btn-add-to-project">+ Add to Project</button>
-            <button class="video-action-btn" id="btn-download-artifact">📥 Download</button>
-            <button class="video-action-btn" id="btn-share-artifact">↗ Share</button>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+            <h4 style="font-size:13px;font-weight:700;margin:0;color:var(--sim-text-primary);">${artifactName}</h4>
+            <span style="font-size:10px;background:rgba(52,199,89,0.18);color:#34c759;padding:2px 6px;border-radius:10px;font-weight:600;">GPU 100% ✓</span>
+          </div>
+          <p style="font-size:11px;color:var(--sim-text-secondary);margin:0 0 10px 0;">1080×1920 (9:16) · ${plan.targetDurationSec || 15}s · ${plan.matchedSoundtrack ? plan.matchedSoundtrack.title : 'Neon Highway Drift'}</p>
+          <div class="video-preview-actions" style="display:flex;gap:6px;flex-wrap:wrap;">
+            <button class="video-action-btn" id="btn-add-to-project" style="flex:1;min-width:100px;">+ Add to Project</button>
+            <button class="video-action-btn" id="btn-download-artifact" style="flex:1;">📥 Download</button>
+            <button class="video-action-btn" id="btn-share-artifact" style="flex:1;">↗ Share</button>
           </div>
         </div>
       `;
 
-      card.querySelector('#btn-play-preview-thumb').addEventListener('click', () => {
-        openVideoPlayerModal(STOCK_MEDIA_LIBRARY[4].url, plan.goal);
-      });
-
       card.querySelector('#btn-add-to-project').addEventListener('click', async () => {
+        const btnAdd = card.querySelector('#btn-add-to-project');
+        if (!SimulatorState.activeProject) {
+          if (SimulatorState.projects.length > 0) {
+            SimulatorState.activeProject = SimulatorState.projects[0];
+          }
+        }
         if (!SimulatorState.activeProject) return;
+
         try {
+          if (btnAdd) btnAdd.textContent = 'Adding…';
+          if (!SimulatorState.activeProject.videos) SimulatorState.activeProject.videos = [];
+          SimulatorState.activeProject.videos.push(newVideoItem);
+          
           await fetch(`/api/v1/projects/${SimulatorState.activeProject.id}/media`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               mediaType: 'video',
-              name: plan.goal,
-              url: STOCK_MEDIA_LIBRARY[4].url,
-              thumb: STOCK_MEDIA_LIBRARY[4].thumb,
-              durationSec: plan.targetDurationSec
+              name: artifactName,
+              url: artifactVideoUrl,
+              thumb: '/static/assets/metalcraft_icon.png',
+              durationSec: plan.targetDurationSec || 15.0
             })
           });
+          
           await fetchProjectsFromBackend();
-          alert(`Video Artifact added to project '${SimulatorState.activeProject.name}'!`);
+          if (btnAdd) {
+            btnAdd.textContent = '✓ Added';
+            btnAdd.style.background = 'rgba(52,199,89,0.2)';
+            btnAdd.style.color = '#34c759';
+          }
+          logSimulatorEvent(`Added generated reel '${artifactName}' to project '${SimulatorState.activeProject.name}'`);
         } catch (e) {
-          console.error('Failed to add artifact:', e);
+          console.warn('Backend sync fallback for new video artifact:', e);
+          if (btnAdd) {
+            btnAdd.textContent = '✓ Added to Project';
+          }
         }
       });
 
       card.querySelector('#btn-download-artifact').addEventListener('click', () => {
-        openVideoPlayerModal(STOCK_MEDIA_LIBRARY[4].url, plan.goal);
+        const a = document.createElement('a');
+        a.href = artifactVideoUrl;
+        a.download = 'metalcraft_reel.mp4';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        logSimulatorEvent(`Downloaded reel artifact '${artifactName}'`);
       });
 
       card.querySelector('#btn-share-artifact').addEventListener('click', () => {
         if (navigator.share) {
-          navigator.share({ title: plan.goal, text: 'Created with MetalCraft iOS & Apple Metal GPU' });
+          navigator.share({
+            title: artifactName,
+            text: 'Rendered with MetalCraft — Apple Metal GPU MPS Shader Pipeline',
+            url: window.location.origin + artifactVideoUrl
+          }).catch(() => {});
         } else {
-          alert('Shared to Clipboard: MetalCraft Video Artifact Ready');
+          navigator.clipboard.writeText(window.location.origin + artifactVideoUrl);
+          const btnShare = card.querySelector('#btn-share-artifact');
+          if (btnShare) {
+            btnShare.textContent = '✓ Link Copied';
+            setTimeout(() => { btnShare.textContent = '↗ Share'; }, 2000);
+          }
         }
+        logSimulatorEvent(`Shared reel artifact '${artifactName}'`);
       });
 
       aiChatMessages.appendChild(card);
@@ -1694,7 +1908,6 @@
     await fetchCloudHealth();
     await fetchObservabilityRequests();
     await fetchAnalyticsMetrics();
-    await fetchObservabilityDevices();
   }
 
   async function fetchAnalyticsMetrics() {
@@ -1753,32 +1966,6 @@
     } catch (err) {
       console.warn('Could not fetch generations:', err);
     }
-  }
-
-  async function fetchObservabilityDevices() {
-    const grid = document.getElementById('obs-devices-grid');
-    if (!grid) return;
-    grid.innerHTML = '';
-
-    await fetchRealDevices();
-    if (RealDevicesState.devices.length === 0) {
-      grid.innerHTML = `<p style="text-align:center;color:var(--text-secondary);padding:24px;grid-column:1/-1;">No connected devices currently registered.</p>`;
-      return;
-    }
-
-    RealDevicesState.devices.forEach(dev => {
-      const isOnline = dev.isLive || (dev.status && dev.status.toUpperCase() === 'ONLINE');
-      const card = document.createElement('div');
-      card.className = 'info-card';
-      card.innerHTML = `
-        <div class="info-card-title">${dev.name || 'iPhone'} (${dev.deviceId || 'MC-IOS'})</div>
-        <div class="info-card-row"><span>Status:</span><strong style="color:var(--accent-green);">${isOnline ? 'ONLINE' : 'OFFLINE'}</strong></div>
-        <div class="info-card-row"><span>Model:</span><strong>${dev.model || 'iPhone'}</strong></div>
-        <div class="info-card-row"><span>iOS:</span><strong>${dev.osVersion || 'iOS 18'}</strong></div>
-        <div class="info-card-row"><span>Last Heartbeat:</span><strong>${dev.lastHeartbeat ? formatRelativeTime(dev.lastHeartbeat) : 'Just now'}</strong></div>
-      `;
-      grid.appendChild(card);
-    });
   }
 
   async function fetchObservabilityAudit() {
