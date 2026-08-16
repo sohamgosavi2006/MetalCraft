@@ -224,6 +224,19 @@ final class AppState {
             self.generatedVideoURL = lastCompleted.resolvedVideoURL
             self.generatedVideoThumbnail = self.projectManager.loadArtifactThumbnail(artifactId: lastCompleted.artifactId)
         }
+        
+        // Register device with Render Cloud Backend & attach WebSocket job listener
+        Task { [weak self] in
+            guard let self = self else { return }
+            await self.agentService.registerDevice()
+        }
+        
+        self.agentService.onRemoteJobReceived = { [weak self] (remoteGenId, remoteArtId, plan, projName) in
+            Task { @MainActor [weak self] in
+                guard let self = self else { return }
+                self.executeRemoteVideoGeneration(generationId: remoteGenId, artifactId: remoteArtId, plan: plan, projectName: projName)
+            }
+        }
     }
     
     // MARK: - Media Import Flows
@@ -1470,6 +1483,15 @@ final class AppState {
                         self.generationJobs[idx].totalFrames = progress.totalFrames
                         self.generationJobs[idx].updatedAt = Date()
                     }
+                    
+                    self.agentService.sendProgressOverWebSocket(
+                        generationId: targetGenId,
+                        stage: "METAL_RENDERING",
+                        progress: progress.progress,
+                        currentFrame: progress.currentFrame,
+                        totalFrames: progress.totalFrames,
+                        message: progress.message
+                    )
                 }
             }
             
@@ -1492,6 +1514,15 @@ final class AppState {
                 self.generationJobs[idx].progressMessage = "Mixing audio and exporting stream..."
                 self.generationJobs[idx].updatedAt = Date()
             }
+            
+            self.agentService.sendProgressOverWebSocket(
+                generationId: targetGenId,
+                stage: "AVFOUNDATION",
+                progress: 0.92,
+                currentFrame: effectivePlan.scenes.count * 90,
+                totalFrames: effectivePlan.scenes.count * 90,
+                message: "Mixing audio and exporting stream..."
+            )
             
             telemetryService.emit(TelemetryEvent(
                 eventType: TelemetryEventType.videoValidationStarted.rawValue,
@@ -1609,6 +1640,14 @@ final class AppState {
             // Persist generation jobs state to disk
             self.projectManager.saveGenerationJobs(self.generationJobs)
             
+            // Send completion to Cloud WebSocket
+            self.agentService.sendCompletionOverWebSocket(
+                generationId: targetGenId,
+                artifactId: targetArtifactId,
+                artifact: artifact,
+                renderDurationSec: elapsedSec
+            )
+            
             telemetryService.emit(TelemetryEvent(
                 eventType: TelemetryEventType.videoPreviewReady.rawValue,
                 sessionId: telemetryService.sessionId,
@@ -1675,6 +1714,28 @@ final class AppState {
                 content: "❌ Video rendering failed: \(error.localizedDescription)"
             )
             self.agentMessages.append(failMsg)
+        }
+    }
+    
+    /// Executes a generation command dispatched from the Render Cloud Web UI.
+    func executeRemoteVideoGeneration(
+        generationId: String,
+        artifactId: String,
+        plan: EditPlan,
+        projectName: String?
+    ) {
+        let matchedProject = self.projects.first(where: { $0.name == projectName }) ?? self.currentProject ?? self.projects.first ?? Project(name: projectName ?? "Cloud Production")
+        
+        let remoteMsg = AgentMessage(
+            role: .assistant,
+            content: "🌐 Cloud Command Received: Executing generation '\(generationId)' on Apple Metal GPU.",
+            reasoning: "Dispatched from Render Web Companion. Plan contains \(plan.scenes.count) scenes."
+        )
+        self.agentMessages.append(remoteMsg)
+        
+        Task { @MainActor [weak self] in
+            guard let self = self else { return }
+            await self.executeVideoGeneration(for: plan, in: matchedProject)
         }
     }
     

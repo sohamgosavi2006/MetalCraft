@@ -180,6 +180,32 @@ struct AICreateMediaSettingsSheet: View {
                         }
                     }
                 }
+                
+                // MARK: - Section 5: Cloud & Backend Endpoint
+                Section("Cloud & Agent Endpoint") {
+                    Picker("Active Endpoint", selection: Binding(
+                        get: { appState.agentService.endpointBaseURLString },
+                        set: { appState.agentService.endpointBaseURLString = $0 }
+                    )) {
+                        Text("☁️ Render Production Cloud").tag("https://metalcraft.onrender.com")
+                        Text("💻 Local Mac Agent (Default)").tag("http://172.20.10.4:8080")
+                        Text("💻 Bonjour mDNS").tag("http://admins-MacBook-Pro-8.local:8080")
+                        Text("📱 Simulator Loopback").tag("http://127.0.0.1:8080")
+                    }
+                    
+                    Button {
+                        Task {
+                            _ = await appState.agentService.autoDiscoverEndpoint()
+                            await appState.agentService.registerDevice()
+                        }
+                    } label: {
+                        HStack {
+                            Image(systemName: "antenna.radiowaves.left.and.right")
+                            Text("Auto-Discover & Reconnect")
+                        }
+                        .font(.subheadline)
+                    }
+                }
             }
             .navigationTitle("AI Create Settings")
             .navigationBarTitleDisplayMode(.inline)

@@ -296,9 +296,10 @@ enum AgentServiceError: LocalizedError, Equatable {
 final class AgentService: Sendable {
     private let session: URLSession
     
-    /// Default candidate endpoints for local development
+    /// Default candidate endpoints for Render Cloud and local development
     static var defaultCandidateURLs: [String] {
         [
+            "https://metalcraft.onrender.com",    // Render Production Cloud Control Plane
             "http://172.20.10.4:8080",            // Active iPhone Hotspot / LAN
             "http://admins-MacBook-Pro-8.local:8080", // Bonjour mDNS local hostname
             "http://10.3.12.210:8080",            // Alternate Wi-Fi LAN
@@ -314,6 +315,21 @@ final class AgentService: Sendable {
             UserDefaults.standard.set(newValue, forKey: "AgentEndpointURL")
         }
     }
+    
+    var deviceSessionId: String {
+        if let existing = UserDefaults.standard.string(forKey: "MetalCraftDeviceSessionId") {
+            return existing
+        }
+        let newId = UUID().uuidString
+        UserDefaults.standard.set(newId, forKey: "MetalCraftDeviceSessionId")
+        return newId
+    }
+    
+    private var webSocketTask: URLSessionWebSocketTask?
+    private var heartbeatTask: Task<Void, Never>?
+    
+    /// Callback when a remote generation command is received from Render Cloud Web UI
+    var onRemoteJobReceived: ((_ generationId: String, _ artifactId: String, _ plan: EditPlan, _ projectName: String?) -> Void)?
     
     init(session: URLSession = .shared) {
         self.session = session
@@ -517,5 +533,195 @@ final class AgentService: Sendable {
         }
         
         return try JSONDecoder().decode(DiagnosticsResponse.self, from: data)
+    }
+    
+    // MARK: - Cloud Device Registration & Heartbeat
+    
+    /// Registers this iPhone with the Render cloud backend, reporting Metal & rendering capabilities.
+    func registerDevice() async {
+        let cleanBase = endpointBaseURLString.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        guard let url = URL(string: "\(cleanBase)/api/v1/ios/register") else { return }
+        
+        let deviceName = UIDevice.current.name
+        let model = UIDevice.current.model
+        let osVersion = UIDevice.current.systemVersion
+        
+        let payload: [String: Any] = [
+            "deviceSessionId": deviceSessionId,
+            "deviceName": deviceName,
+            "model": "\(model) (Apple Silicon / Metal)",
+            "osVersion": "iOS \(osVersion)",
+            "appVersion": "1.0.0",
+            "capabilities": [
+                "metal": true,
+                "videoRendering": true,
+                "audioMixing": true,
+                "photosAccess": true,
+                "maxResolution": "4K"
+            ]
+        ]
+        
+        guard let bodyData = try? JSONSerialization.data(withJSONObject: payload) else { return }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.timeoutInterval = 5.0
+        request.httpBody = bodyData
+        
+        do {
+            let (_, resp) = try await session.data(for: request)
+            if let httpResp = resp as? HTTPURLResponse, (200...299).contains(httpResp.statusCode) {
+                logger.info("[AgentConnection] Registered device session \(self.deviceSessionId) with Render backend.")
+                startHeartbeat()
+                connectWebSocket()
+            }
+        } catch {
+            logger.debug("[AgentConnection] Device registration deferred (offline or unreachable): \(error.localizedDescription)")
+        }
+    }
+    
+    /// Starts periodic background heartbeat to announce presence to the cloud control plane.
+    func startHeartbeat() {
+        heartbeatTask?.cancel()
+        heartbeatTask = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: 15_000_000_000) // 15 seconds
+                guard let self = self else { break }
+                await self.sendHeartbeat()
+            }
+        }
+    }
+    
+    private func sendHeartbeat() async {
+        let cleanBase = endpointBaseURLString.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        guard let url = URL(string: "\(cleanBase)/api/v1/ios/heartbeat") else { return }
+        
+        let payload: [String: Any] = [
+            "deviceSessionId": deviceSessionId,
+            "status": "online"
+        ]
+        guard let bodyData = try? JSONSerialization.data(withJSONObject: payload) else { return }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.timeoutInterval = 3.0
+        request.httpBody = bodyData
+        
+        _ = try? await session.data(for: request)
+    }
+    
+    // MARK: - Real-Time WebSocket Communication
+    
+    /// Connects to the Render cloud WebSocket endpoint to receive remote generation commands and stream Metal progress.
+    func connectWebSocket() {
+        let cleanBase = endpointBaseURLString.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        let wsScheme = cleanBase.hasPrefix("https") ? "wss" : "ws"
+        let hostPart = cleanBase.replacingOccurrences(of: "https://", with: "").replacingOccurrences(of: "http://", with: "")
+        
+        guard let wsURL = URL(string: "\(wsScheme)://\(hostPart)/ws/ios?sessionId=\(deviceSessionId)") else { return }
+        
+        webSocketTask?.cancel(with: .goingAway, reason: nil)
+        webSocketTask = session.webSocketTask(with: wsURL)
+        webSocketTask?.resume()
+        logger.info("[AgentConnection] Connected to WebSocket at \(wsURL.absoluteString)")
+        
+        listenWebSocketMessages()
+    }
+    
+    private func listenWebSocketMessages() {
+        webSocketTask?.receive { [weak self] result in
+            guard let self = self else { return }
+            switch result {
+            case .success(let message):
+                switch message {
+                case .string(let text):
+                    self.handleIncomingWebSocketText(text)
+                case .data(let data):
+                    if let text = String(data: data, encoding: .utf8) {
+                        self.handleIncomingWebSocketText(text)
+                    }
+                @unknown default:
+                    break
+                }
+                self.listenWebSocketMessages()
+            case .failure(let error):
+                logger.debug("[AgentConnection] WebSocket disconnected: \(error.localizedDescription)")
+            }
+        }
+    }
+    
+    private func handleIncomingWebSocketText(_ text: String) {
+        guard let data = text.data(using: .utf8),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let type = json["type"] as? String else { return }
+        
+        if type == "EXECUTE_GENERATION_JOB" {
+            let genId = json["generationId"] as? String ?? UUID().uuidString
+            let artId = json["artifactId"] as? String ?? "artifact_\(genId)"
+            let projName = json["projectName"] as? String
+            
+            if let planDict = json["plan"] as? [String: Any],
+               let planData = try? JSONSerialization.data(withJSONObject: planDict),
+               let plan = try? JSONDecoder().decode(EditPlan.self, from: planData) {
+                logger.info("[AgentConnection] Received remote generation job \(genId) from Cloud Web UI")
+                DispatchQueue.main.async {
+                    self.onRemoteJobReceived?(genId, artId, plan, projName)
+                }
+            }
+        }
+    }
+    
+    /// Streams live Metal GPU frame rendering progress to the Render cloud backend.
+    func sendProgressOverWebSocket(
+        generationId: String,
+        stage: String,
+        progress: Double,
+        currentFrame: Int,
+        totalFrames: Int,
+        message: String
+    ) {
+        let payload: [String: Any] = [
+            "type": "PROGRESS_UPDATE",
+            "generationId": generationId,
+            "stage": stage,
+            "status": "RENDERING",
+            "progress": progress,
+            "currentFrame": currentFrame,
+            "totalFrames": totalFrames,
+            "progressMessage": message
+        ]
+        
+        if let data = try? JSONSerialization.data(withJSONObject: payload),
+           let str = String(data: data, encoding: .utf8) {
+            webSocketTask?.send(.string(str)) { _ in }
+        }
+    }
+    
+    /// Transmits completion event with VideoArtifact to the cloud backend.
+    func sendCompletionOverWebSocket(
+        generationId: String,
+        artifactId: String,
+        artifact: VideoArtifact?,
+        renderDurationSec: Double?
+    ) {
+        var payload: [String: Any] = [
+            "type": "GENERATION_COMPLETED",
+            "generationId": generationId,
+            "artifactId": artifactId,
+            "renderDurationSec": renderDurationSec ?? 0.0
+        ]
+        
+        if let art = artifact,
+           let artData = try? JSONEncoder().encode(art),
+           let artDict = try? JSONSerialization.jsonObject(with: artData) as? [String: Any] {
+            payload["artifact"] = artDict
+        }
+        
+        if let data = try? JSONSerialization.data(withJSONObject: payload),
+           let str = String(data: data, encoding: .utf8) {
+            webSocketTask?.send(.string(str)) { _ in }
+        }
     }
 }

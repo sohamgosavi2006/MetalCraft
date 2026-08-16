@@ -1,0 +1,30 @@
+services:
+  - type: web
+    name: metalcraft-cloud-control-plane
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    plan: starter
+    region: oregon
+    healthCheckPath: /api/v1/health
+    autoDeploy: true
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: HOST
+        value: 0.0.0.0
+      - key: PORT
+        value: 8080
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: PARALLEL_API_KEY
+        sync: false
+      - key: GRAFANA_URL
+        sync: false
+      - key: GRAFANA_TOKEN
+        sync: false
+      - key: DATABASE_URL
+        value: sqlite+aiosqlite:///./metalcraft_state.db
+      - key: IOS_AUTH_SECRET
+        generateValue: true
+      - key: CORS_ALLOWED_ORIGINS
+        value: "*"
