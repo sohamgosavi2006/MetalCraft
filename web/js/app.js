@@ -1,453 +1,721 @@
 /**
- * MetalCraft — Premium Apple/iOS Web Simulator & Control Plane Controller
- * Interacts with FastAPI Cloud Backend, WebSockets, and mirrors the iOS App.
+ * MetalCraft Web Companion — Controller
+ * Handles tab switching, API integration, WebSocket, prompt flow,
+ * Dynamic Island state machine, and appearance toggle.
  */
 
-let activePlan = null;
-let currentGenerationId = null;
-let webSocket = null;
-let isRealDeviceConnected = false;
+(function () {
+  'use strict';
 
-document.addEventListener("DOMContentLoaded", () => {
-    initSimulatorTabBar();
-    initSettingsModal();
-    initPromptComposer();
-    initStyleChips();
-    initProjectSelection();
-    initEditorSubTabs();
-    initWebSocketHub();
-    
-    // Initial fetch
-    fetchBackendHealth();
-    fetchAnalytics();
-    fetchAuditLogs();
+  // ── Configuration ──────────────────────────────────────
+  const API_BASE = window.location.origin;
+  const WS_PROTOCOL = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const WS_URL = `${WS_PROTOCOL}//${window.location.host}/ws/web`;
 
-    // Periodic background sync
-    setInterval(() => {
-        fetchBackendHealth();
-        fetchAnalytics();
-        fetchAuditLogs();
-    }, 7000);
-});
+  // ── State ──────────────────────────────────────────────
+  let ws = null;
+  let wsReconnectTimer = null;
+  let isSubmitting = false;
+  let currentEditPlan = null;
+  let generationProgress = 0;
+  let healthData = null;
 
-// MARK: - Native iOS Bottom TabBar Navigation
-function initSimulatorTabBar() {
-    const tabButtons = document.querySelectorAll(".tab-item");
-    const views = document.querySelectorAll(".ios-tab-view");
-    const titleLabel = document.getElementById("ios-screen-title");
+  // ── DOM References ─────────────────────────────────────
+  const $ = (sel) => document.querySelector(sel);
+  const $$ = (sel) => document.querySelectorAll(sel);
 
-    const titles = {
-        "editor": "Editor",
-        "ai-create": "AI Create Studio",
-        "analytics": "Observability",
-        "projects": "Projects"
-    };
+  // Tab system
+  const tabItems = $$('.tab-item');
+  const tabPanels = $$('.tab-panel');
 
-    tabButtons.forEach(btn => {
-        btn.addEventListener("click", () => {
-            const target = btn.getAttribute("data-tab");
-            tabButtons.forEach(b => b.classList.remove("active"));
-            views.forEach(v => v.classList.remove("active"));
+  // Prompt
+  const promptInput = $('#prompt-input');
+  const promptSend = $('#prompt-send');
+  const chatMessages = $('#chat-messages');
+  const aiHero = $('#ai-hero');
 
-            btn.classList.add("active");
-            const activeView = document.getElementById(`view-${target}`);
-            if (activeView) activeView.classList.add("active");
+  // Dynamic Island
+  const dynamicIsland = $('#dynamic-island');
+  const diContent = $('#di-content');
+  const diIcon = $('#di-icon');
+  const diText = $('#di-text');
+  const diProgressWrap = $('#di-progress-wrap');
+  const diProgressFill = $('#di-progress-fill');
 
-            if (titleLabel && titles[target]) {
-                titleLabel.textContent = titles[target];
-            }
-        });
+  // Settings
+  const settingsBtn = $('#ai-settings-btn');
+  const settingsOverlay = $('#settings-overlay');
+  const settingsSheet = $('#settings-sheet');
+
+  // Analytics sub-sections
+  const analyticsPills = $$('#analytics-pills .section-pill');
+
+  // ── Init ───────────────────────────────────────────────
+  function init() {
+    updateSimulatorTime();
+    setInterval(updateSimulatorTime, 30000);
+
+    initTabSwitching();
+    initAppearance();
+    initPromptFlow();
+    initSettings();
+    initAnalyticsPills();
+    initProjectFilters();
+    initEditorActions();
+    initNavLinks();
+
+    fetchHealth();
+    setInterval(fetchHealth, 30000);
+    fetchAudit();
+    setInterval(fetchAudit, 60000);
+
+    connectWebSocket();
+  }
+
+  // ── Simulator Time ─────────────────────────────────────
+  function updateSimulatorTime() {
+    const now = new Date();
+    let h = now.getHours();
+    const m = now.getMinutes().toString().padStart(2, '0');
+    const timeStr = `${h}:${m}`;
+    const el = $('#sim-time');
+    if (el) el.textContent = timeStr;
+  }
+
+  // ── Tab Switching ──────────────────────────────────────
+  function initTabSwitching() {
+    tabItems.forEach(item => {
+      item.addEventListener('click', () => {
+        const tabId = item.dataset.tab;
+        switchTab(tabId);
+      });
     });
-}
+  }
 
-// MARK: - iOS Settings Sheet (Slide-Over)
-function initSettingsModal() {
-    const sheet = document.getElementById("ios-settings-sheet");
-    const btnOpen = document.getElementById("btn-open-settings");
-    const btnClose = document.getElementById("btn-close-settings");
+  function switchTab(tabId) {
+    // Deactivate all
+    tabItems.forEach(t => t.classList.remove('active'));
+    tabPanels.forEach(p => p.classList.remove('active'));
 
-    if (btnOpen && sheet) {
-        btnOpen.addEventListener("click", () => sheet.classList.add("open"));
+    // Activate clicked
+    const panel = $(`#panel-${tabId}`);
+    const tabBtn = $(`.tab-item[data-tab="${tabId}"]`);
+    if (panel) panel.classList.add('active');
+    if (tabBtn) tabBtn.classList.add('active');
+  }
+
+  // ── Appearance Toggle ──────────────────────────────────
+  function initAppearance() {
+    const stored = localStorage.getItem('mc-theme');
+    if (stored === 'light') {
+      document.documentElement.setAttribute('data-theme', 'light');
+    } else if (stored === 'dark') {
+      document.documentElement.setAttribute('data-theme', 'dark');
     }
-    if (btnClose && sheet) {
-        btnClose.addEventListener("click", () => sheet.classList.remove("open"));
-    }
-}
 
-// MARK: - Quick Style Chips
-function initStyleChips() {
-    document.querySelectorAll(".ios-style-chip").forEach(chip => {
-        chip.addEventListener("click", () => {
-            const prompt = chip.getAttribute("data-prompt");
-            const input = document.getElementById("sim-prompt-input");
-            if (input) {
-                input.value = prompt;
-                input.focus();
-            }
-        });
-    });
-}
+    updateAppearanceButtons();
 
-// MARK: - Projects Browser in Phone
-function initProjectSelection() {
-    document.querySelectorAll(".ios-project-row").forEach(row => {
-        row.addEventListener("click", () => {
-            document.querySelectorAll(".ios-project-row").forEach(r => r.classList.remove("active"));
-            row.classList.add("active");
-            const name = row.getAttribute("data-proj");
-            const headerProj = document.getElementById("active-project-name");
-            if (headerProj && name) headerProj.textContent = name;
-        });
-    });
-}
-
-// MARK: - Editor Sub Tabs
-function initEditorSubTabs() {
-    const subTabs = document.querySelectorAll(".sub-tab");
-    subTabs.forEach(st => {
-        st.addEventListener("click", () => {
-            subTabs.forEach(t => t.classList.remove("active"));
-            st.classList.add("active");
-        });
-    });
-}
-
-// MARK: - AI Prompt Composition & Synthesis
-function initPromptComposer() {
-    const btnSend = document.getElementById("btn-sim-send");
-    const btnHeroSynth = document.getElementById("btn-hero-synthesize");
-    const btnHeroDispatch = document.getElementById("btn-hero-dispatch");
-    const promptInput = document.getElementById("sim-prompt-input");
-
-    async function triggerDirectorSynthesis() {
-        const prompt = promptInput.value.trim();
-        if (!prompt) return;
-
-        setDynamicIsland("Directing...", "✨");
-        highlightPipelineNode("node-gemini");
-        appendAssistantMessage(`Analyzing cinematography parameters for: "${prompt}"...`);
-
-        try {
-            const resp = await fetch("/api/v1/agent/create", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    prompt: prompt,
-                    mediaMetadata: {
-                        type: "video",
-                        aspectRatio: "9:16",
-                        assets: [
-                            { id: "media_001", name: "Product Hero Shot", type: "image", width: 1080, height: 1920 },
-                            { id: "media_002", name: "Macro Detail Shot", type: "image", width: 1080, height: 1920 },
-                            { id: "media_003", name: "Lifestyle In-Use", type: "image", width: 1080, height: 1920 }
-                        ]
-                    }
-                })
-            });
-
-            const data = await resp.json();
-            if (data.editPlan) {
-                activePlan = data.editPlan;
-                highlightPipelineNode("node-parallel");
-
-                setTimeout(() => {
-                    highlightPipelineNode("node-plan");
-                    renderEditPlanCard(activePlan);
-                    appendAssistantMessage(`✓ Formulated ${activePlan.scenes.length}-scene timeline (${activePlan.totalSceneDuration}s) with soundtrack '${activePlan.audioPlan?.trackTitle || 'Cinematic Flow'}'. Synthesized for Apple Metal GPU.`);
-                    setDynamicIsland("Plan Ready", "📋");
-
-                    if (btnHeroDispatch) btnHeroDispatch.disabled = false;
-
-                    // Automatically simulate Metal execution
-                    startMetalRenderingSimulation(activePlan);
-                }, 500);
-            }
-        } catch (err) {
-            appendAssistantMessage(`Error synthesizing plan: ${err.message}`);
-            setDynamicIsland("Error", "⚠️");
+    $$('.appearance-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const val = btn.dataset.themeVal;
+        if (val === 'system') {
+          document.documentElement.removeAttribute('data-theme');
+          localStorage.removeItem('mc-theme');
+        } else {
+          document.documentElement.setAttribute('data-theme', val);
+          localStorage.setItem('mc-theme', val);
         }
+        updateAppearanceButtons();
+      });
+    });
+  }
+
+  function updateAppearanceButtons() {
+    const current = document.documentElement.getAttribute('data-theme');
+    $$('.appearance-btn').forEach(btn => {
+      const val = btn.dataset.themeVal;
+      if (current === val || (!current && val === 'system')) {
+        btn.classList.add('active');
+      } else {
+        btn.classList.remove('active');
+      }
+    });
+  }
+
+  // ── Settings Sheet ─────────────────────────────────────
+  function initSettings() {
+    if (settingsBtn) {
+      settingsBtn.addEventListener('click', () => {
+        settingsOverlay.classList.add('active');
+        settingsSheet.classList.add('active');
+      });
+    }
+    if (settingsOverlay) {
+      settingsOverlay.addEventListener('click', () => {
+        settingsOverlay.classList.remove('active');
+        settingsSheet.classList.remove('active');
+      });
     }
 
-    if (btnSend) btnSend.addEventListener("click", triggerDirectorSynthesis);
-    if (btnHeroSynth) btnHeroSynth.addEventListener("click", triggerDirectorSynthesis);
+    // Set endpoint display
+    const endpointEl = $('#settings-endpoint');
+    if (endpointEl) {
+      endpointEl.textContent = window.location.hostname === 'localhost' ? 'localhost:8080' : 'Render Cloud';
+    }
+  }
 
+  // ── Nav Links (scroll to section) ──────────────────────
+  function initNavLinks() {
+    $$('.nav-link').forEach(link => {
+      link.addEventListener('click', (e) => {
+        $$('.nav-link').forEach(l => l.classList.remove('active'));
+        link.classList.add('active');
+      });
+    });
+  }
+
+  // ── Editor Actions ─────────────────────────────────────
+  function initEditorActions() {
+    const openProjects = $('#editor-open-projects');
+    if (openProjects) {
+      openProjects.addEventListener('click', () => switchTab('projects'));
+    }
+  }
+
+  // ── Analytics Section Pills ────────────────────────────
+  function initAnalyticsPills() {
+    analyticsPills.forEach(pill => {
+      pill.addEventListener('click', () => {
+        analyticsPills.forEach(p => p.classList.remove('active'));
+        pill.classList.add('active');
+
+        const section = pill.dataset.section;
+        const overviewEl = $('#analytics-overview');
+        const pipelineEl = $('#analytics-pipeline');
+
+        if (section === 'overview') {
+          overviewEl.style.display = '';
+          pipelineEl.style.display = 'none';
+        } else {
+          overviewEl.style.display = 'none';
+          pipelineEl.style.display = '';
+        }
+      });
+    });
+  }
+
+  // ── Project Filters ────────────────────────────────────
+  function initProjectFilters() {
+    $$('.filter-pill').forEach(pill => {
+      pill.addEventListener('click', () => {
+        $$('.filter-pill').forEach(p => p.classList.remove('active'));
+        pill.classList.add('active');
+      });
+    });
+  }
+
+  // ── Prompt Flow ────────────────────────────────────────
+  function initPromptFlow() {
+    // Send button
+    if (promptSend) {
+      promptSend.addEventListener('click', submitPrompt);
+    }
+
+    // Enter key
     if (promptInput) {
-        promptInput.addEventListener("keydown", (e) => {
-            if (e.key === "Enter") triggerDirectorSynthesis();
-        });
-    }
-
-    // Dispatch Command to Physical iPhone
-    if (btnHeroDispatch) {
-        btnHeroDispatch.addEventListener("click", async () => {
-            if (!activePlan) return;
-            appendAssistantMessage("📡 Dispatching EditPlan command to connected Apple device over WebSocket...");
-            setDynamicIsland("Dispatching...", "📲");
-
-            try {
-                const resp = await fetch("/api/v1/generations", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                        plan: activePlan,
-                        projectName: "Cyberpunk Reel",
-                        mediaMetadata: { type: "video" }
-                    })
-                });
-                const job = await resp.json();
-                currentGenerationId = job.generationId;
-                appendAssistantMessage(`🚀 Job ${job.generationId} queued. Streaming Apple Metal GPU frames...`);
-            } catch (err) {
-                appendAssistantMessage(`Failed to dispatch job: ${err.message}`);
-            }
-        });
-    }
-
-    // Video Card Actions
-    const btnPhotos = document.getElementById("btn-sim-photos");
-    const btnAddProj = document.getElementById("btn-sim-add-project");
-    const btnShare = document.getElementById("btn-sim-share");
-
-    if (btnPhotos) {
-        btnPhotos.addEventListener("click", () => {
-            alert("✅ Saved to Photos: 1080p H.264 video exported directly to your iOS Photos Library.");
-        });
-    }
-    if (btnAddProj) {
-        btnAddProj.addEventListener("click", () => {
-            alert("✅ Added to Project: Video artifact registered under active project videos.");
-        });
-    }
-    if (btnShare) {
-        btnShare.addEventListener("click", () => {
-            if (navigator.share) {
-                navigator.share({ title: "MetalCraft Reel", text: "Created with MetalCraft on Apple Metal GPU." }).catch(() => {});
-            } else {
-                alert("📤 iOS Share Sheet: Ready to export reel.");
-            }
-        });
-    }
-}
-
-// MARK: - Render EditPlan Card inside Phone
-function renderEditPlanCard(plan) {
-    const card = document.getElementById("ui-plan-card");
-    const goalText = document.getElementById("plan-goal-text");
-    const durMeta = document.getElementById("plan-meta-duration");
-    const aspectMeta = document.getElementById("plan-meta-aspect");
-    const scenesMeta = document.getElementById("plan-meta-scenes");
-    const timeline = document.getElementById("plan-scenes-timeline");
-    const soundText = document.getElementById("plan-soundtrack-name");
-
-    if (!card) return;
-
-    if (goalText) goalText.textContent = plan.goal || "Cinematic Reel";
-    if (durMeta) durMeta.textContent = `${plan.totalSceneDuration}s`;
-    if (aspectMeta) aspectMeta.textContent = plan.aspectRatio || "9:16";
-    if (scenesMeta) scenesMeta.textContent = `${plan.scenes.length} Scenes`;
-    if (soundText && plan.audioPlan) soundText.textContent = `${plan.audioPlan.trackTitle || 'Soundtrack'} (${plan.totalSceneDuration}s)`;
-
-    if (timeline) {
-        timeline.innerHTML = "";
-        plan.scenes.forEach((sc, idx) => {
-            const chip = document.createElement("div");
-            chip.className = "timeline-scene-chip";
-            chip.innerHTML = `
-                <div class="scene-chip-num">Scene ${idx + 1}</div>
-                <div class="scene-chip-time">${sc.duration}s &bull; ${sc.transitionType || 'Cut'}</div>
-            `;
-            timeline.appendChild(chip);
-        });
-    }
-
-    card.style.display = "flex";
-}
-
-// MARK: - Start Metal Rendering Simulation
-function startMetalRenderingSimulation(plan) {
-    const progCard = document.getElementById("ui-progress-card");
-    const bar = document.getElementById("ios-progress-bar");
-    const pct = document.getElementById("progress-pct-label");
-    const sub = document.getElementById("progress-sub-label");
-    const videoCard = document.getElementById("ui-video-card");
-    const player = document.getElementById("sim-video-player");
-
-    if (progCard) progCard.style.display = "flex";
-    highlightPipelineNode("node-metal");
-    setDynamicIsland("GPU Render", "⚡");
-
-    let progress = 0;
-    const interval = setInterval(() => {
-        progress += 0.1;
-        const pctVal = Math.min(Math.round(progress * 100), 100);
-        const frameVal = Math.min(Math.round(progress * 450), 450);
-
-        if (bar) bar.style.width = `${pctVal}%`;
-        if (pct) pct.textContent = `${pctVal}%`;
-        if (sub) sub.textContent = `Frame ${frameVal} / 450 • 29.8 FPS`;
-
-        if (progress >= 1.0) {
-            clearInterval(interval);
-            highlightPipelineNode("node-video");
-            highlightPipelineNode("node-grafana");
-            setDynamicIsland("Production Ready", "✅");
-
-            setTimeout(() => {
-                if (progCard) progCard.style.display = "none";
-                if (videoCard) videoCard.style.display = "flex";
-                if (player) {
-                    player.src = "/static/sample_render.mp4";
-                    player.play().catch(() => {});
-                }
-                appendAssistantMessage("✅ Video production complete! 1080p H.264 stream validated. Ready for playback, photo library export, and project sharing.");
-                fetchAuditLogs();
-                fetchAnalytics();
-            }, 400);
+      promptInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+          e.preventDefault();
+          submitPrompt();
         }
-    }, 200);
-}
+      });
+    }
 
-// MARK: - Assistant Message Stream Helper
-function appendAssistantMessage(text) {
-    const container = document.getElementById("dynamic-chat-messages");
-    if (!container) return;
+    // Suggestion pills
+    $$('.suggestion-pill').forEach(pill => {
+      pill.addEventListener('click', () => {
+        const prompt = pill.dataset.prompt;
+        if (promptInput) promptInput.value = prompt;
+        submitPrompt();
+      });
+    });
+  }
 
-    const row = document.createElement("div");
-    row.className = "chat-message-row assistant";
-    row.innerHTML = `
-        <div class="agent-avatar">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
-        </div>
-        <div class="bubble-body"><p class="bubble-text">${text}</p></div>
-    `;
-    container.appendChild(row);
+  async function submitPrompt() {
+    if (isSubmitting) return;
+    const text = promptInput ? promptInput.value.trim() : '';
+    if (!text) return;
 
-    const scrollBox = document.getElementById("chat-scroll-container");
-    if (scrollBox) scrollBox.scrollTop = scrollBox.scrollHeight;
-}
+    isSubmitting = true;
+    promptInput.value = '';
+    updateSendButton(true);
 
-function setDynamicIsland(label, icon) {
-    const labelEl = document.getElementById("island-label");
-    const iconEl = document.getElementById("island-icon");
-    if (labelEl) labelEl.textContent = label;
-    if (iconEl) iconEl.textContent = icon;
-}
+    // Hide hero, show chat
+    if (aiHero) aiHero.style.display = 'none';
 
-function highlightPipelineNode(nodeId) {
-    document.querySelectorAll(".flow-step-node").forEach(n => n.classList.remove("active"));
-    const el = document.getElementById(nodeId);
-    if (el) el.classList.add("active");
-}
+    // Add user message
+    appendMessage('user', text);
 
-// MARK: - Real-Time WebSocket
-function initWebSocketHub() {
-    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const wsURL = `${protocol}//${window.location.host}/ws/web`;
+    // Expand Dynamic Island — thinking
+    setDynamicIsland('thinking', 'Gemini Thinking…');
+
+    // Highlight pipeline flow
+    highlightFlowNode('flow-user');
 
     try {
-        webSocket = new WebSocket(wsURL);
-        webSocket.onopen = () => console.log("[WebSocket] Connected to Cloud Hub");
-        webSocket.onmessage = (event) => {
-            try {
-                const msg = JSON.parse(event.data);
-                handleWebSocketEvent(msg);
-            } catch (e) {}
-        };
-    } catch (e) {}
-}
+      const res = await fetch(`${API_BASE}/api/v1/agent/create`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompt: text,
+          mediaMetadata: {
+            type: 'video',
+            assets: [
+              { id: 'img_1', type: 'image', name: 'Image 1' },
+              { id: 'img_2', type: 'image', name: 'Image 2' },
+              { id: 'img_3', type: 'image', name: 'Image 3' },
+              { id: 'img_4', type: 'image', name: 'Image 4' },
+              { id: 'img_5', type: 'image', name: 'Image 5' },
+              { id: 'img_6', type: 'image', name: 'Image 6' },
+              { id: 'img_7', type: 'image', name: 'Image 7' },
+              { id: 'img_8', type: 'image', name: 'Image 8' },
+              { id: 'vid_1', type: 'video', name: 'Video 1' }
+            ],
+            aspectRatio: '9:16'
+          }
+        })
+      });
 
-function handleWebSocketEvent(msg) {
-    if (msg.type === "DEVICE_ONLINE") {
-        updateDeviceConnectionUI(true, msg.deviceName || "iPhone 11");
-    } else if (msg.type === "DEVICE_OFFLINE") {
-        updateDeviceConnectionUI(false, null);
-    } else if (msg.type === "PROGRESS_UPDATE") {
-        updateHardwareProgress(msg);
-    } else if (msg.type === "GENERATION_COMPLETED") {
-        fetchAuditLogs();
-        fetchAnalytics();
+      const data = await res.json();
+      highlightFlowNode('flow-gemini');
+
+      // Agent response message
+      appendMessage('agent', data.reasoning || 'Creative plan formulated.');
+
+      // Show EditPlan card
+      if (data.editPlan) {
+        currentEditPlan = data.editPlan;
+        renderEditPlanCard(data);
+        highlightFlowNode('flow-editplan');
+      }
+
+      setDynamicIsland('idle');
+      updateGenStatus('Plan Ready', data.editPlan?.goal || text);
+
+    } catch (err) {
+      appendMessage('agent', `Error: ${err.message}. Please check that the backend is running.`);
+      setDynamicIsland('idle');
     }
-}
 
-function updateDeviceConnectionUI(connected, name) {
-    const dot = document.getElementById("device-dot");
-    const label = document.getElementById("device-status-text");
-    const heroDot = document.getElementById("real-iphone-dot");
-    const heroLabel = document.getElementById("real-iphone-label");
-    const metricDev = document.getElementById("metric-devices");
+    isSubmitting = false;
+    updateSendButton(false);
+  }
 
-    if (connected) {
-        if (dot) dot.className = "status-dot dot-online";
-        if (label) label.textContent = `${name || 'iPhone'} Connected`;
-        if (heroDot) heroDot.className = "m-dot dot-online";
-        if (heroLabel) heroLabel.textContent = `Online: ${name || 'iPhone'} (Apple Silicon)`;
-        if (metricDev) metricDev.textContent = `1 (${name})`;
+  function updateSendButton(loading) {
+    if (!promptSend) return;
+    if (loading) {
+      promptSend.disabled = true;
+      promptSend.innerHTML = '<div class="spinner"></div>';
     } else {
-        if (dot) dot.className = "status-dot dot-waiting";
-        if (label) label.textContent = "Waiting for iPhone...";
-        if (heroDot) heroDot.className = "m-dot dot-waiting";
-        if (heroLabel) heroLabel.textContent = "Waiting for iPhone...";
-        if (metricDev) metricDev.textContent = "0 (Simulator Active)";
+      promptSend.disabled = false;
+      promptSend.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l0 20M12 2l-7 7M12 2l7 7"/></svg>';
     }
-}
+  }
 
-function updateHardwareProgress(msg) {
-    const progCard = document.getElementById("ui-progress-card");
-    const bar = document.getElementById("ios-progress-bar");
-    const pct = document.getElementById("progress-pct-label");
-    const sub = document.getElementById("progress-sub-label");
+  // ── Chat Messages ──────────────────────────────────────
+  function appendMessage(type, text) {
+    const el = document.createElement('div');
+    el.className = `msg-bubble msg-${type}`;
+    if (type === 'agent') {
+      el.innerHTML = `<div class="msg-label">Gemini Creative Director</div><p>${text}</p>`;
+    } else {
+      el.textContent = text;
+    }
+    chatMessages.appendChild(el);
+    el.scrollIntoView({ behavior: 'smooth', block: 'end' });
+  }
 
-    if (progCard) progCard.style.display = "flex";
-    if (bar && msg.progress !== undefined) bar.style.width = `${Math.min(msg.progress * 100, 100)}%`;
-    if (pct && msg.progress !== undefined) pct.textContent = `${Math.round(msg.progress * 100)}%`;
-    if (sub && msg.progressMessage) sub.textContent = msg.progressMessage;
-}
+  // ── EditPlan Card ──────────────────────────────────────
+  function renderEditPlanCard(data) {
+    const plan = data.editPlan;
+    const card = document.createElement('div');
+    card.className = 'edit-plan-card';
 
-// MARK: - Backend Telemetry & Audit Sync
-async function fetchBackendHealth() {
+    const scenes = plan.scenes || [];
+    const totalDuration = scenes.reduce((s, sc) => s + (sc.duration || 0), 0);
+
+    card.innerHTML = `
+      <div class="plan-header">
+        <span class="plan-title">EditPlan — ${plan.planId || 'draft'}</span>
+        <span class="plan-confidence">${((data.confidence || 0.92) * 100).toFixed(0)}%</span>
+      </div>
+      <div class="plan-body">
+        <div class="plan-detail"><span>Goal</span><strong>${plan.goal || '—'}</strong></div>
+        <div class="plan-detail"><span>Scenes</span><strong>${scenes.length}</strong></div>
+        <div class="plan-detail"><span>Duration</span><strong>${totalDuration.toFixed(1)}s</strong></div>
+        <div class="plan-detail"><span>Aspect</span><strong>${plan.aspectRatio || '9:16'}</strong></div>
+        <div class="plan-detail"><span>Audio</span><strong>${plan.audioPlan?.trackTitle || 'Auto'}</strong></div>
+      </div>
+      <div class="plan-actions">
+        <button class="plan-btn reject" id="plan-reject-btn">Modify</button>
+        <button class="plan-btn approve" id="plan-approve-btn">Approve & Render</button>
+      </div>
+    `;
+
+    chatMessages.appendChild(card);
+    card.scrollIntoView({ behavior: 'smooth', block: 'end' });
+
+    // Approve button
+    card.querySelector('#plan-approve-btn').addEventListener('click', () => startGeneration(plan));
+    card.querySelector('#plan-reject-btn').addEventListener('click', () => {
+      appendMessage('agent', 'Plan modification requested. Please provide updated instructions.');
+    });
+  }
+
+  // ── Start Generation ───────────────────────────────────
+  async function startGeneration(plan) {
+    setDynamicIsland('rendering', 'Rendering…', 0);
+    highlightFlowNode('flow-metal');
+    updateGenStatus('Rendering', 'Dispatching to Metal GPU…');
+
     try {
-        const resp = await fetch("/api/v1/health");
-        const data = await resp.json();
-        const bText = document.getElementById("backend-status-text");
-        if (bText) bText.textContent = data.environment === "production" ? "Render Live" : "FastAPI Live";
-        if (data.devices) updateDeviceConnectionUI(data.devices.connectedCount > 0, "iPhone");
-    } catch (e) {}
-}
+      const res = await fetch(`${API_BASE}/api/v1/generations`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          plan: plan,
+          projectName: 'MetalCraft Soham'
+        })
+      });
 
-async function fetchAnalytics() {
+      const data = await res.json();
+
+      if (data.dispatchedToDevice) {
+        appendMessage('agent', `Generation ${data.generationId} dispatched to connected iPhone. Metal GPU rendering in progress.`);
+        updateGenStatus('On Device', data.generationId);
+      } else {
+        // Simulate rendering progress in browser
+        appendMessage('agent', `No iPhone connected. Simulating render progress for ${data.generationId}.`);
+        simulateRenderProgress(data.generationId);
+      }
+    } catch (err) {
+      appendMessage('agent', `Generation dispatch error: ${err.message}`);
+      setDynamicIsland('idle');
+    }
+  }
+
+  function simulateRenderProgress(genId) {
+    generationProgress = 0;
+
+    // Add progress card
+    const card = document.createElement('div');
+    card.className = 'gen-progress-card';
+    card.id = `gen-card-${genId}`;
+    card.innerHTML = `
+      <div class="gen-progress-header">
+        <span class="gen-progress-title">Rendering — Simulator</span>
+        <span class="gen-progress-pct" id="gen-pct-${genId}">0%</span>
+      </div>
+      <div class="gen-progress-bar">
+        <div class="gen-progress-fill" id="gen-fill-${genId}" style="width:0%"></div>
+      </div>
+      <div class="gen-progress-msg" id="gen-msg-${genId}">Initializing Metal shaders…</div>
+    `;
+    chatMessages.appendChild(card);
+    card.scrollIntoView({ behavior: 'smooth', block: 'end' });
+
+    const messages = [
+      'Initializing Metal shaders…',
+      'Processing Scene 1/4 — zoomIn…',
+      'Processing Scene 2/4 — crossfade…',
+      'Processing Scene 3/4 — panLeft…',
+      'Processing Scene 4/4 — zoomOut…',
+      'Compositing audio track…',
+      'AVFoundation export…',
+      'Finalizing MP4 container…'
+    ];
+
+    const interval = setInterval(() => {
+      generationProgress += Math.random() * 8 + 4;
+      if (generationProgress >= 100) generationProgress = 100;
+
+      const pctEl = $(`#gen-pct-${genId}`);
+      const fillEl = $(`#gen-fill-${genId}`);
+      const msgEl = $(`#gen-msg-${genId}`);
+
+      if (pctEl) pctEl.textContent = `${Math.round(generationProgress)}%`;
+      if (fillEl) fillEl.style.width = `${generationProgress}%`;
+
+      const msgIdx = Math.min(Math.floor((generationProgress / 100) * messages.length), messages.length - 1);
+      if (msgEl) msgEl.textContent = messages[msgIdx];
+
+      setDynamicIsland('rendering', `${Math.round(generationProgress)}%`, generationProgress);
+
+      if (generationProgress >= 100) {
+        clearInterval(interval);
+        setTimeout(() => completeGeneration(genId), 600);
+      }
+    }, 800);
+  }
+
+  function completeGeneration(genId) {
+    setDynamicIsland('done', 'Complete ✓');
+    highlightFlowNode('flow-video');
+    updateGenStatus('Complete', genId);
+
+    // Add video preview card
+    const card = document.createElement('div');
+    card.className = 'video-preview-card';
+    card.innerHTML = `
+      <div class="video-preview-thumb">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+      </div>
+      <div class="video-preview-info">
+        <h4>Video Generated — ${genId}</h4>
+        <p>9:16 · MP4 · Simulated render complete. Connect an iPhone for real Metal GPU output.</p>
+      </div>
+    `;
+    chatMessages.appendChild(card);
+    card.scrollIntoView({ behavior: 'smooth', block: 'end' });
+
+    // Reset Dynamic Island after 3 seconds
+    setTimeout(() => setDynamicIsland('idle'), 3000);
+  }
+
+  // ── Dynamic Island State Machine ───────────────────────
+  function setDynamicIsland(state, text, progress) {
+    if (state === 'idle') {
+      dynamicIsland.classList.remove('expanded');
+      return;
+    }
+
+    dynamicIsland.classList.add('expanded');
+
+    if (state === 'thinking') {
+      diIcon.className = 'di-icon thinking';
+      diIcon.textContent = '✦';
+      diText.textContent = text || 'Thinking…';
+      diProgressWrap.style.display = 'none';
+    } else if (state === 'rendering') {
+      diIcon.className = 'di-icon rendering';
+      diIcon.textContent = '◉';
+      diText.textContent = text || 'Rendering…';
+      diProgressWrap.style.display = '';
+      diProgressFill.style.width = `${progress || 0}%`;
+    } else if (state === 'done') {
+      diIcon.className = 'di-icon done';
+      diIcon.textContent = '✓';
+      diText.textContent = text || 'Done';
+      diProgressWrap.style.display = 'none';
+    }
+  }
+
+  // ── Pipeline Flow Highlighting ─────────────────────────
+  function highlightFlowNode(nodeId) {
+    $$('.flow-node-icon').forEach(n => n.classList.remove('active'));
+    const node = $(`#${nodeId}`);
+    if (node) node.classList.add('active');
+  }
+
+  // ── Generation Status (side panel) ─────────────────────
+  function updateGenStatus(status, detail) {
+    const statusEl = $('#gen-status-display');
+    const detailEl = $('#gen-detail-text');
+    if (statusEl) statusEl.textContent = status;
+    if (detailEl) detailEl.textContent = detail || '';
+  }
+
+  // ── Health Check ───────────────────────────────────────
+  async function fetchHealth() {
     try {
-        const resp = await fetch("/api/v1/analytics");
-        const data = await resp.json();
-        const jCount = document.getElementById("metric-jobs");
-        const aCount = document.getElementById("metric-artifacts");
-        if (jCount) jCount.textContent = data.totalGenerations || 0;
-        if (aCount) aCount.textContent = data.totalArtifacts || 0;
-    } catch (e) {}
-}
+      const res = await fetch(`${API_BASE}/api/v1/health`);
+      const data = await res.json();
+      healthData = data;
 
-async function fetchAuditLogs() {
+      // Update header status
+      const backendText = $('#backend-status-text');
+      if (backendText) backendText.textContent = data.status === 'healthy' ? 'Cloud Live' : 'Degraded';
+
+      // Device status
+      const deviceDot = $('#device-dot');
+      const deviceText = $('#device-status-text');
+      const deviceDisplay = $('#device-state-display');
+
+      if (data.devices?.connectedCount > 0) {
+        if (deviceDot) { deviceDot.className = 'status-dot dot-online'; }
+        if (deviceText) deviceText.textContent = `${data.devices.connectedCount} iPhone`;
+        if (deviceDisplay) deviceDisplay.textContent = 'Connected';
+      } else {
+        if (deviceDot) { deviceDot.className = 'status-dot dot-waiting'; }
+        if (deviceText) deviceText.textContent = 'No Device';
+        if (deviceDisplay) deviceDisplay.textContent = 'Waiting…';
+      }
+
+      // Provider statuses (side panel)
+      updateProviderStatus('health-gemini', data.providers?.gemini);
+      updateProviderStatus('health-parallel', data.providers?.parallel);
+      updateProviderStatus('health-grafana', data.providers?.grafana);
+
+      // Provider statuses (cloud section)
+      updateProviderCard('provider-gemini-status', data.providers?.gemini);
+      updateProviderCard('provider-parallel-status', data.providers?.parallel);
+      updateProviderCard('provider-grafana-status', data.providers?.grafana);
+
+    } catch (err) {
+      const backendText = $('#backend-status-text');
+      if (backendText) backendText.textContent = 'Offline';
+    }
+  }
+
+  function updateProviderStatus(elId, provider) {
+    const el = $(`#${elId}`);
+    if (!el || !provider) return;
+    const status = provider.status || 'UNKNOWN';
+    el.textContent = status;
+    el.className = 'side-card-value';
+    if (status === 'PASS') el.classList.add('pass');
+    else if (status === 'WARN') el.classList.add('warn');
+    else el.classList.add('fail');
+  }
+
+  function updateProviderCard(elId, provider) {
+    const el = $(`#${elId}`);
+    if (!el || !provider) return;
+    const status = provider.status || 'UNKNOWN';
+    const latency = provider.latencyMs ? `${provider.latencyMs.toFixed(0)}ms` : '';
+    el.className = 'provider-status';
+    if (status === 'PASS') {
+      el.classList.add('pass');
+      el.innerHTML = `<span class="dot"></span><span>Connected${latency ? ` · ${latency}` : ''}</span>`;
+    } else if (status === 'WARN') {
+      el.classList.add('warn');
+      el.innerHTML = `<span class="dot"></span><span>Warning${latency ? ` · ${latency}` : ''}</span>`;
+    } else {
+      el.classList.add('fail');
+      el.innerHTML = `<span class="dot"></span><span>Unavailable</span>`;
+    }
+  }
+
+  // ── Audit Trail ────────────────────────────────────────
+  async function fetchAudit() {
     try {
-        const resp = await fetch("/api/v1/audit");
-        const data = await resp.json();
-        const list = document.getElementById("audit-log-list");
-        if (!list || !data.events) return;
+      const res = await fetch(`${API_BASE}/api/v1/audit`);
+      const data = await res.json();
+      const events = data.events || data.auditEvents || [];
 
-        list.innerHTML = "";
-        if (data.events.length === 0) {
-            list.innerHTML = '<div class="empty-state">No audit events recorded yet.</div>';
-            return;
-        }
+      // Populate table
+      const tbody = $('#audit-tbody');
+      if (tbody && events.length > 0) {
+        tbody.innerHTML = events.slice(0, 20).map(ev => {
+          const time = ev.createdAt ? new Date(ev.createdAt).toLocaleTimeString() : '—';
+          const statusClass = ev.status === 'SUCCESS' ? 'success' : 'info';
+          return `<tr>
+            <td>${time}</td>
+            <td>${ev.category || '—'}</td>
+            <td>${ev.action || '—'}</td>
+            <td><span class="audit-status ${statusClass}">${ev.status || '—'}</span></td>
+            <td style="max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${ev.description || '—'}</td>
+          </tr>`;
+        }).join('');
+      } else if (tbody && events.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text-tertiary);padding:24px;">No audit events recorded yet.</td></tr>';
+      }
 
-        data.events.slice(0, 10).forEach(ev => {
-            const row = document.createElement("div");
-            row.className = "audit-row-item";
-            const time = new Date(ev.timestamp).toLocaleTimeString();
-            row.innerHTML = `
-                <span class="ar-time">${time}</span>
-                <span class="ar-action">${ev.action}</span>
-                <span class="ar-desc">${ev.description || ''}</span>
-            `;
-            list.appendChild(row);
-        });
-    } catch (e) {}
-}
+      // Mini audit (side panel)
+      const miniList = $('#audit-mini-list');
+      if (miniList && events.length > 0) {
+        miniList.innerHTML = events.slice(0, 5).map(ev =>
+          `<div style="padding:4px 0;border-bottom:0.5px solid var(--separator);">
+            <div style="font-weight:600;font-size:12px;">${ev.action || '—'}</div>
+            <div style="font-size:11px;color:var(--text-tertiary);">${ev.category || ''} · ${ev.status || ''}</div>
+          </div>`
+        ).join('');
+      } else if (miniList) {
+        miniList.innerHTML = '<p>No events yet.</p>';
+      }
+
+    } catch (err) {
+      // Audit endpoint may not exist yet
+    }
+  }
+
+  // ── WebSocket ──────────────────────────────────────────
+  function connectWebSocket() {
+    const wsDot = $('#ws-dot');
+    const wsLabel = $('#ws-label');
+
+    try {
+      ws = new WebSocket(WS_URL);
+
+      ws.onopen = () => {
+        if (wsDot) { wsDot.className = 'ws-dot connected'; }
+        if (wsLabel) wsLabel.textContent = 'WebSocket Connected';
+        if (wsReconnectTimer) { clearTimeout(wsReconnectTimer); wsReconnectTimer = null; }
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const msg = JSON.parse(event.data);
+          handleWSMessage(msg);
+        } catch (e) { /* ignore non-JSON */ }
+      };
+
+      ws.onclose = () => {
+        if (wsDot) { wsDot.className = 'ws-dot disconnected'; }
+        if (wsLabel) wsLabel.textContent = 'Disconnected';
+        scheduleReconnect();
+      };
+
+      ws.onerror = () => {
+        if (wsDot) { wsDot.className = 'ws-dot disconnected'; }
+        if (wsLabel) wsLabel.textContent = 'Connection Error';
+      };
+    } catch (err) {
+      if (wsDot) { wsDot.className = 'ws-dot disconnected'; }
+      if (wsLabel) wsLabel.textContent = 'Unavailable';
+      scheduleReconnect();
+    }
+  }
+
+  function scheduleReconnect() {
+    if (wsReconnectTimer) return;
+    wsReconnectTimer = setTimeout(() => {
+      wsReconnectTimer = null;
+      connectWebSocket();
+    }, 5000);
+  }
+
+  function handleWSMessage(msg) {
+    switch (msg.type) {
+      case 'DEVICE_STATUS_CHANGED':
+        fetchHealth();
+        break;
+
+      case 'GENERATION_DISPATCHED':
+        appendMessage('agent', `Generation ${msg.generationId} dispatched. Status: ${msg.status}`);
+        break;
+
+      case 'GENERATION_PROGRESS':
+        // Update progress card if visible
+        const pctEl = $(`#gen-pct-${msg.generationId}`);
+        const fillEl = $(`#gen-fill-${msg.generationId}`);
+        const msgEl = $(`#gen-msg-${msg.generationId}`);
+        if (pctEl) pctEl.textContent = `${Math.round(msg.progress || 0)}%`;
+        if (fillEl) fillEl.style.width = `${msg.progress || 0}%`;
+        if (msgEl) msgEl.textContent = msg.progressMessage || '';
+        setDynamicIsland('rendering', `${Math.round(msg.progress || 0)}%`, msg.progress || 0);
+        break;
+
+      case 'GENERATION_COMPLETE':
+        completeGeneration(msg.generationId);
+        break;
+    }
+  }
+
+  // ── Boot ───────────────────────────────────────────────
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+})();
