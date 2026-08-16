@@ -14,7 +14,7 @@
     <div class="app-background"></div>
 
     <!-- ============================================================
-         HEADER — Liquid Glass Navigation Bar
+         HEADER — Liquid Glass Navigation Bar (4 Core Sections)
          ============================================================ -->
     <header class="header">
         <div class="header-left">
@@ -33,29 +33,28 @@
             </div>
         </div>
 
-        <!-- High-Level View Switcher Tabs -->
+        <!-- High-Level View Switcher Tabs (4 Combined Sections) -->
         <nav class="nav-links" id="main-nav-switcher">
-            <a href="#simulator" class="nav-link active" data-view="simulator">
-                <span>📱 Simulator</span>
+            <a href="#simulator" class="nav-link active" data-view="simulator" id="nav-item-simulator">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="3"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
+                <span>Simulator</span>
             </a>
-            <a href="#real-devices" class="nav-link" data-view="real-devices">
-                <span>📲 Real iPhones</span>
+            <a href="#real-devices" class="nav-link" data-view="real-devices" id="nav-item-real-devices">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+                <span>Real iPhones</span>
                 <span class="nav-badge-pill" id="nav-device-count-badge">0</span>
             </a>
-            <a href="#cloud" class="nav-link" data-view="cloud">
-                <span>☁️ Cloud Intelligence</span>
+            <a href="#ai-pipeline" class="nav-link" data-view="ai-pipeline" id="nav-item-ai-pipeline">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 4V2M15 16v-2M8 9h2M20 9h2M17.8 11.8 19 13M15 9h0M17.8 6.2 19 5M3 21l9-9M12.2 6.2 11 5"/></svg>
+                <span>AI & Pipeline</span>
             </a>
-            <a href="#pipeline" class="nav-link" data-view="pipeline">
-                <span>⚡ Agentic Pipeline</span>
-            </a>
-            <a href="#observability" class="nav-link" data-view="observability">
-                <span>📊 Observability</span>
-            </a>
-            <a href="#audit" class="nav-link" data-view="audit">
-                <span>📋 Audit</span>
+            <a href="#observability-audit" class="nav-link" data-view="observability-audit" id="nav-item-observability-audit">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                <span>Observability & Audit</span>
             </a>
         </nav>
 
+        <!-- Header Right: Status Indicators & Light/Dark Theme Switcher -->
         <div class="header-right">
             <div class="status-indicator-pill" id="header-device-pill" title="Click to view Real iPhones">
                 <span class="status-dot dot-waiting" id="header-device-dot"></span>
@@ -65,32 +64,32 @@
                 <span class="status-dot dot-online" id="header-cloud-dot"></span>
                 <span class="status-text" id="header-cloud-text">Cloud Live</span>
             </div>
+            <!-- ONLY Light and Dark mode toggles (NO LAPTOP ICON) -->
             <div class="appearance-toggle" id="theme-toggle-wrap">
-                <button class="appearance-btn" data-theme-val="light" title="Light Mode">☀️</button>
-                <button class="appearance-btn active" data-theme-val="dark" title="Dark Mode">🌙</button>
-                <button class="appearance-btn" data-theme-val="system" title="System Preference">🖥️</button>
+                <button class="appearance-btn" data-theme-val="light" title="Light Mode" id="theme-btn-light">☀️</button>
+                <button class="appearance-btn active" data-theme-val="dark" title="Dark Mode" id="theme-btn-dark">🌙</button>
             </div>
         </div>
     </header>
 
     <!-- ============================================================
-         MAIN CONTENT AREA (SEPARATED VIEWS)
+         MAIN CONTENT AREA (4 CONSOLIDATED SECTIONS)
          ============================================================ -->
     <main class="main-content">
 
         <!-- ========================================================
-             VIEW 1: INTERACTIVE BROWSER SIMULATOR
+             SECTION 1: BROWSER SIMULATOR (Dominant Hero Experience)
              ======================================================== -->
         <section class="view-section active" id="view-simulator">
             <div class="section-header-wrap">
                 <span class="section-label">Interactive Prototype</span>
                 <h1 class="section-title">MetalCraft iOS Simulator</h1>
-                <p class="section-subtitle">Experience the full MetalCraft iOS media-production workflow directly in your browser. All tabs, media pickers, adjustments, and AI tools are fully interactive.</p>
+                <p class="section-subtitle">Experience the authentic MetalCraft iOS media-production app in your browser. All tabs, media pickers, image adjustments, and AI tools are fully interactive.</p>
             </div>
 
             <div class="simulator-layout">
 
-                <!-- Left Side: Simulator Context & Quick Telemetry -->
+                <!-- Left Side: Simulator Context -->
                 <div class="simulator-side-info">
                     <div class="info-card">
                         <div class="info-card-title">Execution Mode</div>
@@ -140,8 +139,8 @@
                 </div>
 
                 <!-- Center: iPhone 17 Pro Hardware Frame -->
-                <div class="iphone-device">
-                    <div class="iphone-screen">
+                <div class="iphone-device" id="sim-iphone-hardware">
+                    <div class="iphone-screen" id="sim-iphone-screen">
 
                         <!-- Dynamic Island (State-Driven) -->
                         <div class="dynamic-island" id="dynamic-island" title="Dynamic Island Status">
@@ -176,7 +175,7 @@
                                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
                                         </button>
                                     </div>
-                                    <span class="ios-nav-title" id="editor-title">MetalCraft Editor</span>
+                                    <span class="ios-nav-title" id="editor-title">MetalCraft</span>
                                     <div class="ios-nav-right">
                                         <button class="ios-nav-btn" id="editor-btn-reset" title="Reset Adjustments" style="display:none;">
                                             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
@@ -308,11 +307,11 @@
                                 </div>
                             </div>
 
-                            <!-- TAB 3: ANALYTICS (OBSERVABILITY CENTER) -->
+                            <!-- TAB 3: ANALYTICS -->
                             <div class="tab-panel" id="panel-analytics">
                                 <div class="ios-nav-bar">
                                     <div class="ios-nav-left">
-                                        <span class="ios-nav-title">Observability Center</span>
+                                        <span class="ios-nav-title">Observability</span>
                                     </div>
                                     <div class="ios-nav-right">
                                         <div class="pipeline-stage-status done" style="font-size:9px;">● LIVE</div>
@@ -362,7 +361,7 @@
 
                                     <div class="pipeline-stage" data-stage="3">
                                         <div class="pipeline-stage-icon" style="background:rgba(191,90,242,0.15);">
-                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#bf5af2" stroke-width="2"><path d="M15 4V2M15 16v-2M8 9h2M20 9h2M17.8 11.8 19 13M15 9h0M17.8 6.2 19 5M3 21l9-9"/></svg>
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#bf5af2" stroke-width="2"><path d="M15 4V2M15 16v-2M8 9h2M20 9h2M17.8 11.8 19 13M15 9h0M17.8 6.2 19 5M3 21l9-9M12.2 6.2 11 5"/></svg>
                                         </div>
                                         <div class="pipeline-stage-info">
                                             <div class="pipeline-stage-name">3. Gemini 2.5 Creative Director</div>
@@ -572,7 +571,7 @@
                     </div><!-- /iphone-screen -->
                 </div><!-- /iphone-device -->
 
-                <!-- Right Side: Pipeline Stages & Live Telemetry -->
+                <!-- Right Side: Hardware & Live Logs -->
                 <div class="simulator-side-info">
                     <div class="info-card">
                         <div class="info-card-title">Simulated Hardware</div>
@@ -580,7 +579,6 @@
                             <span class="info-card-label">Device</span>
                             <span class="info-card-value">iPhone 17 Pro Max</span>
                         </div>
-                        <div class="info-card-label">Apple Silicon</div>
                         <div class="info-card-row">
                             <span class="info-card-label">Architecture</span>
                             <span class="info-card-value">A19 Pro 6-Core GPU</span>
@@ -605,7 +603,7 @@
         </section>
 
         <!-- ========================================================
-             VIEW 2: REAL CONNECTED IPHONES DASHBOARD
+             SECTION 2: REAL CONNECTED IPHONES DASHBOARD
              ======================================================== -->
         <section class="view-section" id="view-real-devices">
             <div class="section-header-wrap">
@@ -664,178 +662,294 @@
         </section>
 
         <!-- ========================================================
-             VIEW 3: CLOUD INTELLIGENCE
+             SECTION 3: AI & PIPELINE (Combined Cloud + Flow)
              ======================================================== -->
-        <section class="view-section" id="view-cloud">
+        <section class="view-section" id="view-ai-pipeline">
             <div class="section-header-wrap">
-                <span class="section-label">Backend Infrastructure</span>
-                <h1 class="section-title">Cloud Intelligence</h1>
-                <p class="section-subtitle">Three specialized cloud services power the MetalCraft agentic pipeline. All API credentials and keys remain strictly server-side.</p>
+                <span class="section-label">Intelligence & Orchestration</span>
+                <h1 class="section-title">AI & Pipeline</h1>
+                <p class="section-subtitle">Multi-model cloud intelligence combined with the complete MetalCraft agentic video generation pipeline.</p>
             </div>
 
-            <div class="provider-grid">
-                <!-- Gemini Card -->
-                <div class="provider-card">
-                    <div class="provider-header">
-                        <div class="provider-icon gemini">✦</div>
-                        <div>
-                            <div class="provider-name">Google Gemini 2.5 Flash</div>
-                            <span style="font-size:11px;color:var(--text-tertiary);">Creative Director & Lead Cinematographer</span>
+            <!-- Sub-Navigation Tabs for AI & Pipeline -->
+            <div class="section-subtabs" id="ai-pipeline-subtabs">
+                <button class="subtab-btn active" data-aitab="overview">AI Overview</button>
+                <button class="subtab-btn" data-aitab="gemini">Gemini 2.5 Flash</button>
+                <button class="subtab-btn" data-aitab="parallel">Parallel AI</button>
+                <button class="subtab-btn" data-aitab="pipeline">Agentic Pipeline</button>
+                <button class="subtab-btn" data-aitab="execution">Execution Inspector</button>
+            </div>
+
+            <!-- Tab 1: AI Overview -->
+            <div class="subtab-content active" id="aitab-overview">
+                <div class="provider-grid">
+                    <div class="provider-card">
+                        <div class="provider-header">
+                            <div class="provider-icon gemini">✦</div>
+                            <div>
+                                <div class="provider-name">Google Gemini 2.5 Flash</div>
+                                <span style="font-size:11px;color:var(--text-tertiary);">Creative Director</span>
+                            </div>
+                        </div>
+                        <p class="provider-desc">Parses creative prompts into structured EditPlans with scene cuts, pacing, transitions, and audio sync.</p>
+                        <div class="provider-status pass" id="ai-overview-gemini-status">
+                            <span>● Status: PASS (Server-Side)</span>
                         </div>
                     </div>
-                    <p class="provider-desc">Analyzes natural language creative intent, calculates scene timing, selects optimal transitions, and formulates structured EditPlan execution graphs.</p>
-                    <div class="provider-status pass" id="cloud-gemini-status">
-                        <span>● Status: PASS (Server-Side)</span>
+
+                    <div class="provider-card">
+                        <div class="provider-header">
+                            <div class="provider-icon parallel">⇌</div>
+                            <div>
+                                <div class="provider-name">Parallel Search API</div>
+                                <span style="font-size:11px;color:var(--text-tertiary);">Cinematography Knowledge</span>
+                            </div>
+                        </div>
+                        <p class="provider-desc">Queries cinematography trends, color palettes, and pacing references in parallel with reasoning.</p>
+                        <div class="provider-status warn" id="ai-overview-parallel-status">
+                            <span>● Status: Configured (Endpoint Available)</span>
+                        </div>
+                    </div>
+
+                    <div class="provider-card">
+                        <div class="provider-header">
+                            <div class="provider-icon grafana">◎</div>
+                            <div>
+                                <div class="provider-name">Grafana Observability</div>
+                                <span style="font-size:11px;color:var(--text-tertiary);">Telemetry Ingestion</span>
+                            </div>
+                        </div>
+                        <p class="provider-desc">Captures live shader dispatch times, GPU frame latency, memory allocation, and agent durations.</p>
+                        <div class="provider-status pass" id="ai-overview-grafana-status">
+                            <span>● Status: Connected (HTTP 200)</span>
+                        </div>
                     </div>
                 </div>
 
-                <!-- Parallel Card -->
-                <div class="provider-card">
-                    <div class="provider-header">
-                        <div class="provider-icon parallel">⇌</div>
-                        <div>
-                            <div class="provider-name">Parallel Search API</div>
-                            <span style="font-size:11px;color:var(--text-tertiary);">Real-Time Cinematography Research</span>
-                        </div>
-                    </div>
-                    <p class="provider-desc">Queries live cinematography trends, visual rhythm patterns, color grade harmonies, and pacing references in parallel with intent reasoning.</p>
-                    <div class="provider-status warn" id="cloud-parallel-status">
-                        <span>● Status: Configured (Endpoint Available)</span>
-                    </div>
+                <div style="text-align:center;margin-top:2rem;">
+                    <button class="sim-btn primary" id="btn-run-ai-diagnostics" style="display:inline-flex;padding:0.75rem 1.5rem;">
+                        <span>⟳ Run Live Cloud Diagnostics</span>
+                    </button>
                 </div>
+            </div>
 
-                <!-- Grafana Card -->
-                <div class="provider-card">
-                    <div class="provider-header">
-                        <div class="provider-icon grafana">◎</div>
-                        <div>
-                            <div class="provider-name">Grafana Cloud Observability</div>
-                            <span style="font-size:11px;color:var(--text-tertiary);">Telemetry & Pipeline Ingestion</span>
-                        </div>
+            <!-- Tab 2: Gemini Deep Dive -->
+            <div class="subtab-content" id="aitab-gemini">
+                <div class="info-card" style="max-width:800px;margin:0 auto;">
+                    <div class="info-card-title">Gemini 2.5 Flash — Creative Director Architecture</div>
+                    <p style="font-size:0.9rem;color:var(--text-secondary);line-height:1.6;margin-bottom:1rem;">
+                        Gemini acts as the Lead Cinematographer and Creative Director. It ingests user intent, available project assets (photos, videos, music), and outputs a rigorously validated JSON EditPlan conforming to the schema.
+                    </p>
+                    <div class="info-card-row">
+                        <span class="info-card-label">Model Endpoint</span>
+                        <span class="info-card-value">gemini-2.5-flash</span>
                     </div>
-                    <p class="provider-desc">Ingests live Apple Metal GPU frame times, shader dispatch latency, memory allocation, and agent orchestration durations in real time.</p>
-                    <div class="provider-status pass" id="cloud-grafana-status">
-                        <span>● Status: Connected (HTTP 200)</span>
+                    <div class="info-card-row">
+                        <span class="info-card-label">Structured Output</span>
+                        <span class="info-card-value">Pydantic EditPlan Schema</span>
+                    </div>
+                    <div class="info-card-row">
+                        <span class="info-card-label">Credential Isolation</span>
+                        <span class="info-card-value pass">100% Server-Side (Zero Client Leak)</span>
+                    </div>
+                    <div class="info-card-row">
+                        <span class="info-card-label">Typical Latency</span>
+                        <span class="info-card-value">620 ms</span>
                     </div>
                 </div>
             </div>
 
-            <div style="text-align:center;margin-top:2rem;">
-                <button class="sim-btn primary" id="btn-run-diagnostics" style="display:inline-flex;padding:0.75rem 1.5rem;">
-                    <span>⟳ Run Live Cloud Diagnostics</span>
-                </button>
+            <!-- Tab 3: Parallel AI -->
+            <div class="subtab-content" id="aitab-parallel">
+                <div class="info-card" style="max-width:800px;margin:0 auto;">
+                    <div class="info-card-title">Parallel Search & Style Harmonies</div>
+                    <p style="font-size:0.9rem;color:var(--text-secondary);line-height:1.6;margin-bottom:1rem;">
+                        Parallel runs concurrent search requests to fetch visual rhythm references, color grade LUT definitions, and scene transition timing for commercial and cinematic video reels.
+                    </p>
+                    <div class="info-card-row">
+                        <span class="info-card-label">Integration State</span>
+                        <span class="info-card-value warn">Configured on Render</span>
+                    </div>
+                    <div class="info-card-row">
+                        <span class="info-card-label">Payload Type</span>
+                        <span class="info-card-value">Cinematography Context JSON</span>
+                    </div>
+                </div>
             </div>
+
+            <!-- Tab 4: Agentic Pipeline Flowchart -->
+            <div class="subtab-content" id="aitab-pipeline">
+                <div class="pipeline-flow">
+                    <div class="flow-node">
+                        <div class="flow-node-icon" id="node-flow-user">👤</div>
+                        <span class="flow-node-label">1. User Prompt</span>
+                    </div>
+                    <div class="flow-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></div>
+                    <div class="flow-node">
+                        <div class="flow-node-icon" id="node-flow-gemini">✦</div>
+                        <span class="flow-node-label">2. Gemini Director</span>
+                    </div>
+                    <div class="flow-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></div>
+                    <div class="flow-node">
+                        <div class="flow-node-icon" id="node-flow-parallel">⇌</div>
+                        <span class="flow-node-label">3. Parallel Research</span>
+                    </div>
+                    <div class="flow-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></div>
+                    <div class="flow-node">
+                        <div class="flow-node-icon" id="node-flow-editplan">📋</div>
+                        <span class="flow-node-label">4. EditPlan Synthesis</span>
+                    </div>
+                    <div class="flow-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></div>
+                    <div class="flow-node">
+                        <div class="flow-node-icon" id="node-flow-metal">⚡</div>
+                        <span class="flow-node-label">5. Apple Metal GPU</span>
+                    </div>
+                    <div class="flow-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></div>
+                    <div class="flow-node">
+                        <div class="flow-node-icon" id="node-flow-av">🎬</div>
+                        <span class="flow-node-label">6. AVFoundation</span>
+                    </div>
+                    <div class="flow-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></div>
+                    <div class="flow-node">
+                        <div class="flow-node-icon" id="node-flow-grafana">◎</div>
+                        <span class="flow-node-label">7. Grafana Telemetry</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab 5: Execution Inspector -->
+            <div class="subtab-content" id="aitab-execution">
+                <div class="info-card" style="max-width:800px;margin:0 auto;">
+                    <div class="info-card-title">Live Execution Inspector</div>
+                    <p style="font-size:0.9rem;color:var(--text-secondary);margin-bottom:1rem;">
+                        Real-time status of the active job dispatch queue and target physical device routing.
+                    </p>
+                    <div class="info-card-row">
+                        <span class="info-card-label">Dispatch Queue</span>
+                        <span class="info-card-value">0 Pending Jobs</span>
+                    </div>
+                    <div class="info-card-row">
+                        <span class="info-card-label">Active Dispatched Target</span>
+                        <span class="info-card-value">Auto-select connected iPhone</span>
+                    </div>
+                </div>
+            </div>
+
         </section>
 
         <!-- ========================================================
-             VIEW 4: AGENTIC PIPELINE FLOW
+             SECTION 4: OBSERVABILITY & AUDIT (Combined Monitoring)
              ======================================================== -->
-        <section class="view-section" id="view-pipeline">
+        <section class="view-section" id="view-observability-audit">
             <div class="section-header-wrap">
-                <span class="section-label">Runtime Architecture</span>
-                <h1 class="section-title">Agentic Execution Pipeline</h1>
-                <p class="section-subtitle">Trace creative intent as it flows from user input, through multi-model cloud reasoning, to on-device Apple Metal GPU shader rendering.</p>
+                <span class="section-label">Observability & Compliance</span>
+                <h1 class="section-title">Observability & Audit</h1>
+                <p class="section-subtitle">Real-time GPU frame metrics, live requests stream, connected device health, and immutable audit logs.</p>
             </div>
 
-            <div class="pipeline-flow">
-                <div class="flow-node">
-                    <div class="flow-node-icon" id="node-flow-user">👤</div>
-                    <span class="flow-node-label">1. User Intent</span>
-                </div>
-                <div class="flow-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></div>
-                <div class="flow-node">
-                    <div class="flow-node-icon" id="node-flow-gemini">✦</div>
-                    <span class="flow-node-label">2. Gemini Director</span>
-                </div>
-                <div class="flow-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></div>
-                <div class="flow-node">
-                    <div class="flow-node-icon" id="node-flow-parallel">⇌</div>
-                    <span class="flow-node-label">3. Parallel Research</span>
-                </div>
-                <div class="flow-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></div>
-                <div class="flow-node">
-                    <div class="flow-node-icon" id="node-flow-editplan">📋</div>
-                    <span class="flow-node-label">4. EditPlan Synthesis</span>
-                </div>
-                <div class="flow-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></div>
-                <div class="flow-node">
-                    <div class="flow-node-icon" id="node-flow-metal">⚡</div>
-                    <span class="flow-node-label">5. Apple Metal GPU</span>
-                </div>
-                <div class="flow-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></div>
-                <div class="flow-node">
-                    <div class="flow-node-icon" id="node-flow-av">🎬</div>
-                    <span class="flow-node-label">6. AVFoundation</span>
-                </div>
-                <div class="flow-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></div>
-                <div class="flow-node">
-                    <div class="flow-node-icon" id="node-flow-grafana">◎</div>
-                    <span class="flow-node-label">7. Grafana Telemetry</span>
-                </div>
-            </div>
-        </section>
-
-        <!-- ========================================================
-             VIEW 5: OBSERVABILITY
-             ======================================================== -->
-        <section class="view-section" id="view-observability">
-            <div class="section-header-wrap">
-                <span class="section-label">Live Telemetry</span>
-                <h1 class="section-title">Observability & Performance</h1>
-                <p class="section-subtitle">Real-time telemetry streams from Render backend, Gemini 2.5 Flash, and Apple Metal GPU engines.</p>
+            <!-- Sub-Navigation Tabs for Observability & Audit -->
+            <div class="section-subtabs" id="obs-audit-subtabs">
+                <button class="subtab-btn active" data-obstab="overview">Overview</button>
+                <button class="subtab-btn" data-obstab="metrics">Metrics</button>
+                <button class="subtab-btn" data-obstab="requests">Requests</button>
+                <button class="subtab-btn" data-obstab="devices">Devices</button>
+                <button class="subtab-btn" data-obstab="audit">Audit Log</button>
             </div>
 
-            <div class="device-stats-grid" style="margin-bottom:1.5rem;">
-                <div class="device-stat-card">
-                    <div class="stat-icon-wrap purple">⚡</div>
-                    <div class="stat-info">
-                        <span class="stat-label">GPU Render Time</span>
-                        <span class="stat-value" id="obs-gpu-time">2.85 ms</span>
+            <!-- Tab 1: Overview -->
+            <div class="subtab-content active" id="obstab-overview">
+                <div class="device-stats-grid">
+                    <div class="device-stat-card">
+                        <div class="stat-icon-wrap purple">⚡</div>
+                        <div class="stat-info">
+                            <span class="stat-label">GPU Render Time</span>
+                            <span class="stat-value">2.85 ms</span>
+                        </div>
                     </div>
-                </div>
-                <div class="device-stat-card">
-                    <div class="stat-icon-wrap green">⏱️</div>
-                    <div class="stat-info">
-                        <span class="stat-label">Render Frame Rate</span>
-                        <span class="stat-value" id="obs-fps">30.0 FPS</span>
+                    <div class="device-stat-card">
+                        <div class="stat-icon-wrap green">⏱️</div>
+                        <div class="stat-info">
+                            <span class="stat-label">Target Frame Rate</span>
+                            <span class="stat-value">30.0 FPS</span>
+                        </div>
                     </div>
-                </div>
-                <div class="device-stat-card">
-                    <div class="stat-icon-wrap cyan">🌐</div>
-                    <div class="stat-info">
-                        <span class="stat-label">Cloud Latency</span>
-                        <span class="stat-value" id="obs-cloud-lat">38 ms</span>
+                    <div class="device-stat-card">
+                        <div class="stat-icon-wrap cyan">🌐</div>
+                        <div class="stat-info">
+                            <span class="stat-label">Cloud Latency</span>
+                            <span class="stat-value">38 ms</span>
+                        </div>
                     </div>
                 </div>
             </div>
-        </section>
 
-        <!-- ========================================================
-             VIEW 6: AUDIT TRAIL
-             ======================================================== -->
-        <section class="view-section" id="view-audit">
-            <div class="section-header-wrap">
-                <span class="section-label">Compliance & Logs</span>
-                <h1 class="section-title">Audit Trail</h1>
-                <p class="section-subtitle">Every agent reasoning step, device registration, and video render operation is immutably recorded.</p>
+            <!-- Tab 2: Metrics -->
+            <div class="subtab-content" id="obstab-metrics">
+                <div class="provider-grid">
+                    <div class="provider-card">
+                        <div class="provider-name">Apple Metal GPU Frame Budget</div>
+                        <p class="provider-desc">Average frame render pass latency on Apple Silicon hardware.</p>
+                        <div class="info-card-row"><span class="info-card-label">Avg GPU Time:</span><strong>2.85 ms</strong></div>
+                        <div class="info-card-row"><span class="info-card-label">FPS Target:</span><strong>30.0 FPS</strong></div>
+                        <div class="info-card-row"><span class="info-card-label">Active Shaders:</span><strong>6 MPS Kernels</strong></div>
+                    </div>
+                    <div class="provider-card">
+                        <div class="provider-name">API Orchestration Latency</div>
+                        <p class="provider-desc">Round-trip latency across Render cloud services.</p>
+                        <div class="info-card-row"><span class="info-card-label">Gemini 2.5 Flash:</span><strong>~620 ms</strong></div>
+                        <div class="info-card-row"><span class="info-card-label">Parallel Search:</span><strong>~270 ms</strong></div>
+                        <div class="info-card-row"><span class="info-card-label">Grafana Ingest:</span><strong>~220 ms</strong></div>
+                    </div>
+                </div>
             </div>
 
-            <div class="audit-table-wrap">
-                <table class="audit-table">
-                    <thead>
-                        <tr>
-                            <th>Timestamp</th>
-                            <th>Category</th>
-                            <th>Action</th>
-                            <th>Status</th>
-                            <th>Description</th>
-                        </tr>
-                    </thead>
-                    <tbody id="audit-table-body">
-                        <tr><td colspan="5" style="text-align:center;color:var(--text-tertiary);padding:24px;">Loading audit logs…</td></tr>
-                    </tbody>
-                </table>
+            <!-- Tab 3: Requests Stream -->
+            <div class="subtab-content" id="obstab-requests">
+                <div class="audit-table-wrap">
+                    <table class="audit-table">
+                        <thead>
+                            <tr>
+                                <th>Generation ID</th>
+                                <th>Goal / Action</th>
+                                <th>Status</th>
+                                <th>Progress</th>
+                                <th>Created</th>
+                            </tr>
+                        </thead>
+                        <tbody id="obs-requests-tbody">
+                            <tr><td colspan="5" style="text-align:center;color:var(--text-tertiary);padding:24px;">Loading generation requests…</td></tr>
+                        </tbody>
+                    </table>
+                </div>
             </div>
+
+            <!-- Tab 4: Connected Devices -->
+            <div class="subtab-content" id="obstab-devices">
+                <div class="real-devices-grid" id="obs-devices-grid">
+                    <!-- Populated dynamically -->
+                </div>
+            </div>
+
+            <!-- Tab 5: Audit Log -->
+            <div class="subtab-content" id="obstab-audit">
+                <div class="audit-table-wrap">
+                    <table class="audit-table">
+                        <thead>
+                            <tr>
+                                <th>Timestamp</th>
+                                <th>Category</th>
+                                <th>Action</th>
+                                <th>Status</th>
+                                <th>Description</th>
+                            </tr>
+                        </thead>
+                        <tbody id="audit-table-body">
+                            <tr><td colspan="5" style="text-align:center;color:var(--text-tertiary);padding:24px;">Loading audit logs…</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
         </section>
 
     </main>
@@ -872,7 +986,7 @@
         </div>
     </div>
 
-    <!-- Footer -->
+    <!-- Site Footer -->
     <footer class="site-footer">
         <p>MetalCraft — Agentic Media Production Platform · iOS + Apple Metal GPU · Cloud Control Plane</p>
     </footer>

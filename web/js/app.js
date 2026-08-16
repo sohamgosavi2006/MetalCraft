@@ -1,15 +1,15 @@
 /**
  * MetalCraft — Web Companion & iPhone 17 Pro Simulator
- * Version 2.0.0
+ * Version 2.1.0
  * 
  * Features:
- * - High-level View Switcher (Simulator, Real iPhones, Cloud, Pipeline, Observability, Audit)
- * - Isolated, fully interactive SimulatorState engine
- * - Real connected iPhone device discovery & management via REST & WebSockets
- * - Non-destructive Metal GPU Canvas image adjustment simulation
- * - Gemini 2.5 Flash EditPlan synthesis and simulated render state machine
- * - State-driven Dynamic Island
- * - Global Theme engine (Light, Dark, System)
+ * - 4 Consolidated Navigation Routes (Simulator, Real iPhones, AI & Pipeline, Observability & Audit)
+ * - Subtab Switching for AI & Pipeline (AI Overview, Gemini, Parallel, Pipeline, Execution)
+ * - Subtab Switching for Observability & Audit (Overview, Metrics, Requests, Devices, Audit Log)
+ * - Light/Dark Theme Engine synchronized across Web Companion & Simulated iPhone Interior
+ * - Complete SimulatorState Engine with Canvas Adjustments, Gemini EditPlan, and Dynamic Island
+ * - Real iPhone Fleet Management with Search, Filters, and Device Console Modal
+ * - Live WebSocket Dispatcher for real-time fleet events
  */
 
 (function () {
@@ -150,11 +150,10 @@
     devices: [],
     selectedDevice: null,
     searchQuery: '',
-    statusFilter: 'all',
-    activeRequests: []
+    statusFilter: 'all'
   };
 
-  // ── 1. GLOBAL NAVIGATION & VIEW SWITCHER ───────────────────────────────────
+  // ── 1. GLOBAL NAVIGATION (4 CONSOLIDATED ROUTES) ──────────────────────────
   function initNavigation() {
     const navLinks = document.querySelectorAll('#main-nav-switcher .nav-link');
     const sections = document.querySelectorAll('.view-section');
@@ -170,13 +169,13 @@
         sec.classList.toggle('active', isMatch);
       });
 
-      // Refresh data if entering Real Devices or Observability
+      // Data fetching for active section
       if (targetView === 'real-devices') {
         fetchRealDevices();
-      } else if (targetView === 'observability' || targetView === 'cloud') {
+      } else if (targetView === 'ai-pipeline') {
         fetchCloudHealth();
-      } else if (targetView === 'audit') {
-        fetchAuditLogs();
+      } else if (targetView === 'observability-audit') {
+        fetchObservabilityOverview();
       }
     }
 
@@ -192,24 +191,36 @@
     // Brand logo returns to Simulator
     const brandLogo = document.getElementById('brand-logo-btn');
     if (brandLogo) {
-      brandLogo.addEventListener('click', () => switchView('simulator'));
+      brandLogo.addEventListener('click', () => {
+        switchView('simulator');
+        window.location.hash = 'simulator';
+      });
     }
 
-    // Header pills switch to respective views
+    // Header pills route to respective views
     const headerDevPill = document.getElementById('header-device-pill');
     if (headerDevPill) {
-      headerDevPill.addEventListener('click', () => switchView('real-devices'));
+      headerDevPill.addEventListener('click', () => {
+        switchView('real-devices');
+        window.location.hash = 'real-devices';
+      });
     }
 
     const headerCloudPill = document.getElementById('header-cloud-pill');
     if (headerCloudPill) {
-      headerCloudPill.addEventListener('click', () => switchView('cloud'));
+      headerCloudPill.addEventListener('click', () => {
+        switchView('ai-pipeline');
+        window.location.hash = 'ai-pipeline';
+      });
     }
 
     // Simulator quick action button
     const btnQuickSwitch = document.getElementById('btn-quick-switch-real');
     if (btnQuickSwitch) {
-      btnQuickSwitch.addEventListener('click', () => switchView('real-devices'));
+      btnQuickSwitch.addEventListener('click', () => {
+        switchView('real-devices');
+        window.location.hash = 'real-devices';
+      });
     }
 
     // Check URL Hash on Load
@@ -219,42 +230,61 @@
     }
   }
 
-  // ── 2. THEME ENGINE ──────────────────────────────────────────────────────
-  function initTheme() {
-    const themeButtons = document.querySelectorAll('#theme-toggle-wrap .appearance-btn');
-    const savedTheme = localStorage.getItem('mc-theme') || 'dark';
-
-    function applyTheme(theme) {
-      let resolvedTheme = theme;
-      if (theme === 'system') {
-        resolvedTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-      }
-      document.documentElement.setAttribute('data-theme', resolvedTheme);
-      localStorage.setItem('mc-theme', theme);
-
-      themeButtons.forEach(btn => {
-        btn.classList.toggle('active', btn.getAttribute('data-theme-val') === theme);
-      });
-    }
-
-    themeButtons.forEach(btn => {
+  // ── 2. SUBTABS CONTROLLER (AI & PIPELINE + OBSERVABILITY & AUDIT) ─────────
+  function initSubtabs() {
+    // A. AI & Pipeline Subtabs
+    const aiSubtabButtons = document.querySelectorAll('#ai-pipeline-subtabs .subtab-btn');
+    aiSubtabButtons.forEach(btn => {
       btn.addEventListener('click', () => {
-        const val = btn.getAttribute('data-theme-val');
-        applyTheme(val);
+        aiSubtabButtons.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        const tabKey = btn.getAttribute('data-aitab');
+        document.querySelectorAll('#view-ai-pipeline .subtab-content').forEach(content => {
+          content.classList.toggle('active', content.id === `aitab-${tabKey}`);
+        });
       });
     });
 
-    applyTheme(savedTheme);
+    // B. Observability & Audit Subtabs
+    const obsSubtabButtons = document.querySelectorAll('#obs-audit-subtabs .subtab-btn');
+    obsSubtabButtons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        obsSubtabButtons.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        const tabKey = btn.getAttribute('data-obstab');
+        document.querySelectorAll('#view-observability-audit .subtab-content').forEach(content => {
+          content.classList.toggle('active', content.id === `obstab-${tabKey}`);
+        });
 
-    // Watch system changes
-    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
-      if (localStorage.getItem('mc-theme') === 'system') {
-        applyTheme('system');
-      }
+        // Trigger on-demand data loads
+        if (tabKey === 'requests') fetchObservabilityRequests();
+        else if (tabKey === 'devices') fetchObservabilityDevices();
+        else if (tabKey === 'audit') fetchObservabilityAudit();
+      });
     });
   }
 
-  // ── 3. DYNAMIC ISLAND ENGINE ─────────────────────────────────────────────
+  // ── 3. THEME ENGINE (ONLY LIGHT & DARK) ──────────────────────────────────
+  function initTheme() {
+    const btnLight = document.getElementById('theme-btn-light');
+    const btnDark = document.getElementById('theme-btn-dark');
+    const savedTheme = localStorage.getItem('mc-theme') || 'dark';
+
+    function applyTheme(theme) {
+      document.documentElement.setAttribute('data-theme', theme);
+      localStorage.setItem('mc-theme', theme);
+
+      if (btnLight) btnLight.classList.toggle('active', theme === 'light');
+      if (btnDark) btnDark.classList.toggle('active', theme === 'dark');
+    }
+
+    if (btnLight) btnLight.addEventListener('click', () => applyTheme('light'));
+    if (btnDark) btnDark.addEventListener('click', () => applyTheme('dark'));
+
+    applyTheme(savedTheme);
+  }
+
+  // ── 4. DYNAMIC ISLAND ENGINE ─────────────────────────────────────────────
   function updateDynamicIsland(state, text, progress = 0) {
     const di = document.getElementById('dynamic-island');
     const diIcon = document.getElementById('di-icon');
@@ -305,7 +335,7 @@
     }
   }
 
-  // ── 4. SIMULATOR TABS & CONTROLS ENGINE ──────────────────────────────────
+  // ── 5. SIMULATOR ENGINE (TABS, CANVASES, GENERATIONS, PROJECTS) ───────────
   function initSimulator() {
     const tabButtons = document.querySelectorAll('.ios-tab-bar .tab-item');
     const tabPanels = document.querySelectorAll('.ios-tab-content .tab-panel');
@@ -372,7 +402,6 @@
       const exp = SimulatorState.editor.adjustments.exposure;
       const con = SimulatorState.editor.adjustments.contrast;
       const sat = SimulatorState.editor.adjustments.saturation;
-      const vig = SimulatorState.editor.adjustments.vignette;
 
       const brightness = 100 + exp;
       editorCanvas.style.filter = `brightness(${brightness}%) contrast(${con}%) saturate(${sat}%)`;
@@ -872,7 +901,7 @@
     updateProjectBadges();
   }
 
-  // ── 5. REAL IPHONE FLEET MANAGEMENT ENGINE ─────────────────────────────────
+  // ── 6. REAL IPHONE FLEET MANAGEMENT ENGINE ─────────────────────────────────
   async function fetchRealDevices() {
     try {
       const resp = await fetch('/api/v1/ios/devices');
@@ -1075,15 +1104,15 @@
     });
   }
 
-  // ── 6. CLOUD INTELLIGENCE, HEALTH & AUDIT TRAIL ───────────────────────────
+  // ── 7. CLOUD & OBSERVABILITY DATA FETCHERS ────────────────────────────────
   async function fetchCloudHealth() {
     try {
       const resp = await fetch('/api/v1/health');
       if (resp.ok) {
         const data = await resp.json();
-        const geminiStatus = document.getElementById('cloud-gemini-status');
-        const parallelStatus = document.getElementById('cloud-parallel-status');
-        const grafanaStatus = document.getElementById('cloud-grafana-status');
+        const geminiStatus = document.getElementById('ai-overview-gemini-status');
+        const parallelStatus = document.getElementById('ai-overview-parallel-status');
+        const grafanaStatus = document.getElementById('ai-overview-grafana-status');
 
         if (geminiStatus && data.providers && data.providers.gemini) {
           geminiStatus.textContent = `● Status: ${data.providers.gemini.status} (Server-Side Configured)`;
@@ -1100,21 +1129,84 @@
     }
   }
 
-  const btnDiagnostics = document.getElementById('btn-run-diagnostics');
-  if (btnDiagnostics) {
-    btnDiagnostics.addEventListener('click', async () => {
-      btnDiagnostics.innerHTML = `<div class="spinner"></div><span>Running Diagnostics…</span>`;
+  const btnAiDiagnostics = document.getElementById('btn-run-ai-diagnostics');
+  if (btnAiDiagnostics) {
+    btnAiDiagnostics.addEventListener('click', async () => {
+      btnAiDiagnostics.innerHTML = `<div class="spinner"></div><span>Running Diagnostics…</span>`;
       await fetchCloudHealth();
       setTimeout(() => {
-        btnDiagnostics.innerHTML = `<span>✓ Diagnostics Complete</span>`;
+        btnAiDiagnostics.innerHTML = `<span>✓ Diagnostics Complete</span>`;
         setTimeout(() => {
-          btnDiagnostics.innerHTML = `<span>⟳ Run Live Cloud Diagnostics</span>`;
+          btnAiDiagnostics.innerHTML = `<span>⟳ Run Live Cloud Diagnostics</span>`;
         }, 2000);
       }, 800);
     });
   }
 
-  async function fetchAuditLogs() {
+  async function fetchObservabilityOverview() {
+    fetchCloudHealth();
+    fetchObservabilityRequests();
+  }
+
+  async function fetchObservabilityRequests() {
+    const tbody = document.getElementById('obs-requests-tbody');
+    if (!tbody) return;
+
+    try {
+      const resp = await fetch('/api/v1/generations');
+      if (resp.ok) {
+        const data = await resp.json();
+        const gens = data.generations || [];
+        if (gens.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--text-tertiary);padding:24px;">No generation jobs found.</td></tr>`;
+          return;
+        }
+
+        tbody.innerHTML = '';
+        gens.forEach(g => {
+          const tr = document.createElement('tr');
+          const goal = g.plan && g.plan.goal ? g.plan.goal : 'Video Generation';
+          tr.innerHTML = `
+            <td style="font-family:var(--font-mono);font-size:11px;color:var(--accent-purple);">${g.generationId}</td>
+            <td><strong>${goal}</strong></td>
+            <td><span class="audit-status ${g.status === 'COMPLETED' ? 'success' : g.status === 'FAILED' ? 'error' : 'info'}">${g.status}</span></td>
+            <td>${Math.round(g.progress * 100)}%</td>
+            <td style="font-size:11px;color:var(--text-secondary);">${g.createdAt ? new Date(g.createdAt).toLocaleTimeString() : '—'}</td>
+          `;
+          tbody.appendChild(tr);
+        });
+      }
+    } catch (err) {
+      console.warn('Could not fetch generations:', err);
+    }
+  }
+
+  async function fetchObservabilityDevices() {
+    const grid = document.getElementById('obs-devices-grid');
+    if (!grid) return;
+    grid.innerHTML = '';
+
+    await fetchRealDevices();
+    if (RealDevicesState.devices.length === 0) {
+      grid.innerHTML = `<p style="text-align:center;color:var(--text-secondary);padding:24px;grid-column:1/-1;">No connected devices currently registered.</p>`;
+      return;
+    }
+
+    RealDevicesState.devices.forEach(dev => {
+      const card = document.createElement('div');
+      card.className = 'info-card';
+      card.innerHTML = `
+        <div class="info-card-title">${dev.name || 'iPhone'} (${dev.deviceId})</div>
+        <div class="info-card-row"><span>Status:</span><strong style="color:var(--accent-green);">${dev.status}</strong></div>
+        <div class="info-card-row"><span>Model:</span><strong>${dev.model}</strong></div>
+        <div class="info-card-row"><span>iOS:</span><strong>${dev.osVersion}</strong></div>
+        <div class="info-card-row"><span>Last Heartbeat:</span><strong>${dev.lastHeartbeat ? formatRelativeTime(dev.lastHeartbeat) : 'Just now'}</strong></div>
+      `;
+      grid.appendChild(card);
+    });
+  }
+
+  async function fetchObservabilityAudit() {
     const tbody = document.getElementById('audit-table-body');
     if (!tbody) return;
 
@@ -1146,7 +1238,7 @@
     }
   }
 
-  // ── 7. VIDEO PLAYER MODAL ────────────────────────────────────────────────
+  // ── 8. VIDEO PLAYER MODAL ────────────────────────────────────────────────
   function openVideoPlayerModal(videoUrl, titleText = 'Rendered Video Reel') {
     const modal = document.getElementById('modal-video-player');
     const videoElem = document.getElementById('global-video-player-elem');
@@ -1168,7 +1260,7 @@
     });
   }
 
-  // ── 8. WEBSOCKET REAL-TIME DISPATCHER ─────────────────────────────────────
+  // ── 9. WEBSOCKET REAL-TIME DISPATCHER ─────────────────────────────────────
   function initWebSocket() {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const wsUrl = `${protocol}//${window.location.host}/ws/web`;
@@ -1215,7 +1307,6 @@
     if (msg.type === 'DEVICE_REGISTERED' || msg.type === 'DEVICE_STATUS_CHANGED') {
       fetchRealDevices();
     } else if (msg.type === 'GENERATION_PROGRESS') {
-      // Progress event from physical device
       logSimulatorEvent(`Real iPhone Render: ${msg.progress || 0}% - ${msg.progressMessage || ''}`);
     }
   }
@@ -1238,7 +1329,6 @@
     return `${Math.round(diffSec / 60)}m ago`;
   }
 
-  // Live status bar clock
   function startClock() {
     const clock = document.getElementById('sim-clock');
     if (!clock) return;
@@ -1257,6 +1347,7 @@
   document.addEventListener('DOMContentLoaded', () => {
     initTheme();
     initNavigation();
+    initSubtabs();
     initSimulator();
     initRealDevicesControls();
     startClock();
