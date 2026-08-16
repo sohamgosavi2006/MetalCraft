@@ -1,7 +1,7 @@
 # MetalCraft
 
 <p align="center">
-  <img width="1254" height="1254" alt="MetalCraft App Icon" src="https://github.com/user-attachments/assets/bdd586e4-1b2f-4fc2-9d29-c8afd54c7591" />
+  <img width="500" height="500" alt="MetalCraft App Icon" src="https://github.com/user-attachments/assets/bdd586e4-1b2f-4fc2-9d29-c8afd54c7591" />
 </p>
 
 <h1 align="center">MetalCraft</h1>
@@ -60,27 +60,11 @@
 
 ## Web Cloud Control Plane
 
-<p align="center">
-  <img
-    src="docs/images/website-preview.png"
-    alt="MetalCraft Web Cloud Control Plane"
-    width="100%"
-  >
-</p>
-
 > <img width="1440" height="864" alt="Website iPhone Simulator" src="https://github.com/user-attachments/assets/5f7eb8c6-1f3a-44a6-b4c4-2eca96c7a6ff" />
 
 ---
 
 ## 📱 MetalCraft iOS Application
-
-<p align="center">
-  <img
-    src="docs/images/iphone-app-preview.png"
-    alt="MetalCraft iOS Application"
-    width="320"
-  >
-</p>
 
 > <img width="414" height="896" alt="Video Generated " src="https://github.com/user-attachments/assets/9fdf4b5d-1b53-413d-8016-436248497241" />
 
