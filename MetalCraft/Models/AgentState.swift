@@ -26,6 +26,34 @@ enum AgentState: String, Codable, Sendable, CaseIterable {
     case cancelled = "Cancelled"
     case timeout = "Timeout"
     
+    init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        let raw = (try? container.decode(String.self)) ?? "Waiting for User Approval"
+        let lower = raw.lowercased()
+        
+        if lower.contains("idle") { self = .idle }
+        else if lower.contains("analyz") { self = .analyzing }
+        else if lower.contains("research") { self = .researching }
+        else if lower.contains("plan") { self = .planning }
+        else if lower.contains("validat") { self = .validating }
+        else if lower.contains("approval") || lower.contains("waiting") { self = .waitingForApproval }
+        else if lower.contains("execut") || lower.contains("render") { self = .executing }
+        else if lower.contains("observ") { self = .observing }
+        else if lower.contains("evaluat") { self = .evaluating }
+        else if lower.contains("revis") { self = .revising }
+        else if lower.contains("complet") || lower.contains("success") || lower.contains("ready") { self = .completed }
+        else if lower.contains("fail") || lower.contains("error") { self = .failed }
+        else if lower.contains("cancel") { self = .cancelled }
+        else if lower.contains("timeout") { self = .timeout }
+        else if let direct = AgentState(rawValue: raw) { self = direct }
+        else { self = .waitingForApproval }
+    }
+    
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
+    
     var isBusy: Bool {
         switch self {
         case .analyzing, .researching, .planning, .validating, .executing, .observing, .evaluating, .revising:

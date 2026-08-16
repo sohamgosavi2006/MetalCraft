@@ -15,6 +15,24 @@ enum MediaType: String, Codable, Sendable, CaseIterable {
     case image = "Image"
     case video = "Video"
     case audio = "Audio"
+    
+    init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        let raw = (try? container.decode(String.self))?.lowercased() ?? "image"
+        switch raw {
+        case "video", "clip", "movie", "mp4":
+            self = .video
+        case "audio", "music", "soundtrack", "sound", "mp3":
+            self = .audio
+        default:
+            self = .image
+        }
+    }
+    
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 }
 
 // MARK: - Video Metadata Model

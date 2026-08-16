@@ -126,17 +126,36 @@ struct EditPlanAdjustments: Codable, Sendable, Equatable {
     
     enum CodingKeys: String, CodingKey {
         case brightness, contrast, exposure, saturation, temperature, tint, gamma
+        case highlights, shadows, sharpness
     }
     
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        self.brightness = try container.decodeIfPresent(Float.self, forKey: .brightness) ?? 0.0
-        self.contrast = try container.decodeIfPresent(Float.self, forKey: .contrast) ?? 1.0
-        self.exposure = try container.decodeIfPresent(Float.self, forKey: .exposure) ?? 0.0
-        self.saturation = try container.decodeIfPresent(Float.self, forKey: .saturation) ?? 1.0
-        self.temperature = try container.decodeIfPresent(Float.self, forKey: .temperature) ?? 0.0
-        self.tint = try container.decodeIfPresent(Float.self, forKey: .tint) ?? 0.0
-        self.gamma = try container.decodeIfPresent(Float.self, forKey: .gamma) ?? 1.0
+        self.brightness = Self.decodeFloat(container, key: .brightness, default: 0.0)
+        self.contrast = Self.decodeFloat(container, key: .contrast, default: 1.0)
+        self.exposure = Self.decodeFloat(container, key: .exposure, default: 0.0)
+        self.saturation = Self.decodeFloat(container, key: .saturation, default: 1.0)
+        self.temperature = Self.decodeFloat(container, key: .temperature, default: 0.0)
+        self.tint = Self.decodeFloat(container, key: .tint, default: 0.0)
+        self.gamma = Self.decodeFloat(container, key: .gamma, default: 1.0)
+    }
+    
+    private static func decodeFloat(_ container: KeyedDecodingContainer<CodingKeys>, key: CodingKeys, default def: Float) -> Float {
+        if let val = try? container.decodeIfPresent(Float.self, forKey: key) { return val }
+        if let val = try? container.decodeIfPresent(Double.self, forKey: key) { return Float(val) }
+        if let str = try? container.decodeIfPresent(String.self, forKey: key), let parsed = Float(str) { return parsed }
+        return def
+    }
+    
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(brightness, forKey: .brightness)
+        try container.encode(contrast, forKey: .contrast)
+        try container.encode(exposure, forKey: .exposure)
+        try container.encode(saturation, forKey: .saturation)
+        try container.encode(temperature, forKey: .temperature)
+        try container.encode(tint, forKey: .tint)
+        try container.encode(gamma, forKey: .gamma)
     }
     
     static let `default` = EditPlanAdjustments()
@@ -163,18 +182,48 @@ struct EditPlanOperation: Identifiable, Codable, Sendable, Equatable {
     }
     
     enum CodingKeys: String, CodingKey {
-        case id
-        case type
-        case enabled
-        case parameters
+        case id, type, enabled, parameters
+        case intensity, radius, sigma, scale, frequency, angle, center_x, center_y
     }
     
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        self.id = try container.decodeIfPresent(UUID.self, forKey: .id) ?? UUID()
-        self.type = try container.decode(String.self, forKey: .type)
-        self.enabled = try container.decodeIfPresent(Bool.self, forKey: .enabled) ?? true
-        self.parameters = try container.decodeIfPresent([String: AnyCodableValue].self, forKey: .parameters) ?? [:]
+        
+        if let uuidVal = try? container.decodeIfPresent(UUID.self, forKey: .id) {
+            self.id = uuidVal
+        } else if let strVal = try? container.decodeIfPresent(String.self, forKey: .id), let parsed = UUID(uuidString: strVal) {
+            self.id = parsed
+        } else {
+            self.id = UUID()
+        }
+        
+        self.type = (try? container.decodeIfPresent(String.self, forKey: .type)) ?? "adjustments"
+        self.enabled = (try? container.decodeIfPresent(Bool.self, forKey: .enabled)) ?? true
+        
+        var params = (try? container.decodeIfPresent([String: AnyCodableValue].self, forKey: .parameters)) ?? [:]
+        
+        if let intensity = try? container.decodeIfPresent(Double.self, forKey: .intensity) {
+            params["intensity"] = .double(intensity)
+        }
+        if let radius = try? container.decodeIfPresent(Double.self, forKey: .radius) {
+            params["radius"] = .double(radius)
+        }
+        if let sigma = try? container.decodeIfPresent(Double.self, forKey: .sigma) {
+            params["sigma"] = .double(sigma)
+        }
+        if let scale = try? container.decodeIfPresent(Double.self, forKey: .scale) {
+            params["scale"] = .double(scale)
+        }
+        
+        self.parameters = params
+    }
+    
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encode(type, forKey: .type)
+        try container.encode(enabled, forKey: .enabled)
+        try container.encode(parameters, forKey: .parameters)
     }
 }
 
@@ -201,9 +250,16 @@ struct EditPlanOutput: Codable, Sendable, Equatable {
     
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        self.format = try container.decodeIfPresent(String.self, forKey: .format) ?? "jpeg"
-        self.quality = try container.decodeIfPresent(Float.self, forKey: .quality) ?? 0.95
-        self.aspectRatio = try container.decodeIfPresent(String.self, forKey: .aspectRatio)
+        self.format = (try? container.decodeIfPresent(String.self, forKey: .format)) ?? "jpeg"
+        self.quality = (try? container.decodeIfPresent(Float.self, forKey: .quality)) ?? 0.95
+        self.aspectRatio = try? container.decodeIfPresent(String.self, forKey: .aspectRatio)
+    }
+    
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(format, forKey: .format)
+        try container.encode(quality, forKey: .quality)
+        try container.encodeIfPresent(aspectRatio, forKey: .aspectRatio)
     }
     
     var width: Int {
@@ -264,21 +320,62 @@ struct EditPlanScene: Identifiable, Codable, Sendable, Equatable {
     
     enum CodingKeys: String, CodingKey {
         case id, assetId, assetType, assetName, duration, startTime, transition, transitionDuration, adjustments, operations, zoomEffect
+        case effectName, transitionType, index
     }
     
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        self.id = try container.decodeIfPresent(UUID.self, forKey: .id) ?? UUID()
-        self.assetId = try container.decodeIfPresent(String.self, forKey: .assetId)
-        self.assetType = try container.decodeIfPresent(String.self, forKey: .assetType) ?? "image"
-        self.assetName = try container.decodeIfPresent(String.self, forKey: .assetName) ?? "Scene Asset"
-        self.duration = try container.decodeIfPresent(Double.self, forKey: .duration) ?? 3.0
-        self.startTime = try container.decodeIfPresent(Double.self, forKey: .startTime) ?? 0.0
-        self.transition = try container.decodeIfPresent(String.self, forKey: .transition)
-        self.transitionDuration = try container.decodeIfPresent(Double.self, forKey: .transitionDuration)
-        self.adjustments = try container.decodeIfPresent(EditPlanAdjustments.self, forKey: .adjustments)
-        self.operations = try container.decodeIfPresent([EditPlanOperation].self, forKey: .operations)
-        self.zoomEffect = try container.decodeIfPresent(String.self, forKey: .zoomEffect)
+        
+        if let uuidVal = try? container.decodeIfPresent(UUID.self, forKey: .id) {
+            self.id = uuidVal
+        } else if let strVal = try? container.decodeIfPresent(String.self, forKey: .id), let parsed = UUID(uuidString: strVal) {
+            self.id = parsed
+        } else {
+            self.id = UUID()
+        }
+        
+        self.assetId = try? container.decodeIfPresent(String.self, forKey: .assetId)
+        self.assetType = (try? container.decodeIfPresent(String.self, forKey: .assetType)) ?? "image"
+        self.assetName = (try? container.decodeIfPresent(String.self, forKey: .assetName)) ?? "Scene Asset"
+        
+        if let d = try? container.decodeIfPresent(Double.self, forKey: .duration) {
+            self.duration = d
+        } else if let i = try? container.decodeIfPresent(Int.self, forKey: .duration) {
+            self.duration = Double(i)
+        } else if let s = try? container.decodeIfPresent(String.self, forKey: .duration), let parsed = Double(s) {
+            self.duration = parsed
+        } else {
+            self.duration = 3.0
+        }
+        
+        if let st = try? container.decodeIfPresent(Double.self, forKey: .startTime) {
+            self.startTime = st
+        } else if let i = try? container.decodeIfPresent(Int.self, forKey: .startTime) {
+            self.startTime = Double(i)
+        } else {
+            self.startTime = 0.0
+        }
+        
+        self.transition = (try? container.decodeIfPresent(String.self, forKey: .transition)) ?? (try? container.decodeIfPresent(String.self, forKey: .transitionType)) ?? "crossfade"
+        self.transitionDuration = (try? container.decodeIfPresent(Double.self, forKey: .transitionDuration)) ?? 0.5
+        self.adjustments = try? container.decodeIfPresent(EditPlanAdjustments.self, forKey: .adjustments)
+        self.operations = try? container.decodeIfPresent([EditPlanOperation].self, forKey: .operations)
+        self.zoomEffect = (try? container.decodeIfPresent(String.self, forKey: .zoomEffect)) ?? (try? container.decodeIfPresent(String.self, forKey: .effectName)) ?? "zoomIn"
+    }
+    
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encodeIfPresent(assetId, forKey: .assetId)
+        try container.encode(assetType, forKey: .assetType)
+        try container.encode(assetName, forKey: .assetName)
+        try container.encode(duration, forKey: .duration)
+        try container.encode(startTime, forKey: .startTime)
+        try container.encodeIfPresent(transition, forKey: .transition)
+        try container.encodeIfPresent(transitionDuration, forKey: .transitionDuration)
+        try container.encodeIfPresent(adjustments, forKey: .adjustments)
+        try container.encodeIfPresent(operations, forKey: .operations)
+        try container.encodeIfPresent(zoomEffect, forKey: .zoomEffect)
     }
 }
 
@@ -332,18 +429,57 @@ struct AudioPlan: Codable, Sendable, Equatable {
     
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        self.requested = try container.decodeIfPresent(Bool.self, forKey: .requested) ?? false
-        self.mood = try container.decodeIfPresent(String.self, forKey: .mood)
-        self.style = try container.decodeIfPresent(String.self, forKey: .style)
-        self.energy = try container.decodeIfPresent(String.self, forKey: .energy)
-        self.duration = try container.decodeIfPresent(Double.self, forKey: .duration)
-        self.source = try container.decodeIfPresent(String.self, forKey: .source) ?? "metalcraft_library"
-        self.trackId = try container.decodeIfPresent(String.self, forKey: .trackId)
-        self.trackTitle = try container.decodeIfPresent(String.self, forKey: .trackTitle)
-        self.volume = try container.decodeIfPresent(Float.self, forKey: .volume) ?? 0.7
-        self.fadeInDuration = try container.decodeIfPresent(Double.self, forKey: .fadeInDuration) ?? 0.5
-        self.fadeOutDuration = try container.decodeIfPresent(Double.self, forKey: .fadeOutDuration) ?? 1.0
-        self.duckingFactor = try container.decodeIfPresent(Float.self, forKey: .duckingFactor) ?? 0.3
+        self.requested = (try? container.decodeIfPresent(Bool.self, forKey: .requested)) ?? false
+        self.mood = try? container.decodeIfPresent(String.self, forKey: .mood)
+        self.style = try? container.decodeIfPresent(String.self, forKey: .style)
+        self.energy = try? container.decodeIfPresent(String.self, forKey: .energy)
+        
+        if let d = try? container.decodeIfPresent(Double.self, forKey: .duration) {
+            self.duration = d
+        } else if let i = try? container.decodeIfPresent(Int.self, forKey: .duration) {
+            self.duration = Double(i)
+        } else {
+            self.duration = nil
+        }
+        
+        self.source = (try? container.decodeIfPresent(String.self, forKey: .source)) ?? "metalcraft_library"
+        self.trackId = try? container.decodeIfPresent(String.self, forKey: .trackId)
+        self.trackTitle = try? container.decodeIfPresent(String.self, forKey: .trackTitle)
+        
+        if let v = try? container.decodeIfPresent(Float.self, forKey: .volume) {
+            self.volume = v
+        } else if let d = try? container.decodeIfPresent(Double.self, forKey: .volume) {
+            self.volume = Float(d)
+        } else {
+            self.volume = 0.7
+        }
+        
+        self.fadeInDuration = (try? container.decodeIfPresent(Double.self, forKey: .fadeInDuration)) ?? 0.5
+        self.fadeOutDuration = (try? container.decodeIfPresent(Double.self, forKey: .fadeOutDuration)) ?? 1.0
+        
+        if let df = try? container.decodeIfPresent(Float.self, forKey: .duckingFactor) {
+            self.duckingFactor = df
+        } else if let d = try? container.decodeIfPresent(Double.self, forKey: .duckingFactor) {
+            self.duckingFactor = Float(d)
+        } else {
+            self.duckingFactor = 0.3
+        }
+    }
+    
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(requested, forKey: .requested)
+        try container.encodeIfPresent(mood, forKey: .mood)
+        try container.encodeIfPresent(style, forKey: .style)
+        try container.encodeIfPresent(energy, forKey: .energy)
+        try container.encodeIfPresent(duration, forKey: .duration)
+        try container.encode(source, forKey: .source)
+        try container.encodeIfPresent(trackId, forKey: .trackId)
+        try container.encodeIfPresent(trackTitle, forKey: .trackTitle)
+        try container.encode(volume, forKey: .volume)
+        try container.encode(fadeInDuration, forKey: .fadeInDuration)
+        try container.encode(fadeOutDuration, forKey: .fadeOutDuration)
+        try container.encode(duckingFactor, forKey: .duckingFactor)
     }
 }
 
@@ -400,24 +536,90 @@ struct EditPlan: Identifiable, Codable, Sendable, Equatable {
     
     enum CodingKeys: String, CodingKey {
         case schemaVersion, planId, createdAt, mediaType, goal, reasoning, researchContext, adjustments, operations, scenes, audioPlan, targetDuration, aspectRatio, output
+        case id, matchedSoundtrack
     }
     
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        self.schemaVersion = try container.decodeIfPresent(String.self, forKey: .schemaVersion) ?? "1.0"
-        self.planId = try container.decodeIfPresent(String.self, forKey: .planId) ?? UUID().uuidString
-        self.createdAt = try container.decodeIfPresent(Date.self, forKey: .createdAt) ?? Date()
-        self.mediaType = try container.decodeIfPresent(MediaType.self, forKey: .mediaType) ?? .image
-        self.goal = try container.decodeIfPresent(String.self, forKey: .goal) ?? "Creative Enhancement"
-        self.reasoning = try container.decodeIfPresent(String.self, forKey: .reasoning) ?? ""
-        self.researchContext = try container.decodeIfPresent(String.self, forKey: .researchContext)
-        self.adjustments = try container.decodeIfPresent(EditPlanAdjustments.self, forKey: .adjustments) ?? .default
-        self.operations = try container.decodeIfPresent([EditPlanOperation].self, forKey: .operations) ?? []
-        self.scenes = try container.decodeIfPresent([EditPlanScene].self, forKey: .scenes) ?? []
-        self.audioPlan = try container.decodeIfPresent(AudioPlan.self, forKey: .audioPlan)
-        self.targetDuration = try container.decodeIfPresent(Double.self, forKey: .targetDuration)
-        self.aspectRatio = try container.decodeIfPresent(String.self, forKey: .aspectRatio)
-        self.output = try container.decodeIfPresent(EditPlanOutput.self, forKey: .output) ?? .default
+        self.schemaVersion = (try? container.decodeIfPresent(String.self, forKey: .schemaVersion)) ?? "1.0"
+        self.planId = (try? container.decodeIfPresent(String.self, forKey: .planId)) ?? (try? container.decodeIfPresent(String.self, forKey: .id)) ?? UUID().uuidString
+        
+        if let d = try? container.decodeIfPresent(Date.self, forKey: .createdAt) {
+            self.createdAt = d
+        } else if let s = try? container.decodeIfPresent(String.self, forKey: .createdAt) {
+            self.createdAt = Self.parseFlexibleDate(s)
+        } else {
+            self.createdAt = Date()
+        }
+        
+        if let m = try? container.decodeIfPresent(MediaType.self, forKey: .mediaType) {
+            self.mediaType = m
+        } else if let s = try? container.decodeIfPresent(String.self, forKey: .mediaType) {
+            self.mediaType = s.lowercased().contains("video") ? .video : .image
+        } else {
+            self.mediaType = .video
+        }
+        
+        self.goal = (try? container.decodeIfPresent(String.self, forKey: .goal)) ?? "Creative Media Production"
+        self.reasoning = (try? container.decodeIfPresent(String.self, forKey: .reasoning)) ?? ""
+        self.researchContext = try? container.decodeIfPresent(String.self, forKey: .researchContext)
+        self.adjustments = (try? container.decodeIfPresent(EditPlanAdjustments.self, forKey: .adjustments)) ?? .default
+        self.operations = (try? container.decodeIfPresent([EditPlanOperation].self, forKey: .operations)) ?? []
+        self.scenes = (try? container.decodeIfPresent([EditPlanScene].self, forKey: .scenes)) ?? []
+        self.audioPlan = try? container.decodeIfPresent(AudioPlan.self, forKey: .audioPlan)
+        
+        if let td = try? container.decodeIfPresent(Double.self, forKey: .targetDuration) {
+            self.targetDuration = td
+        } else if let ti = try? container.decodeIfPresent(Int.self, forKey: .targetDuration) {
+            self.targetDuration = Double(ti)
+        } else {
+            self.targetDuration = nil
+        }
+        
+        self.aspectRatio = (try? container.decodeIfPresent(String.self, forKey: .aspectRatio)) ?? "9:16"
+        self.output = (try? container.decodeIfPresent(EditPlanOutput.self, forKey: .output)) ?? .default
+    }
+    
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(schemaVersion, forKey: .schemaVersion)
+        try container.encode(planId, forKey: .planId)
+        try container.encode(createdAt, forKey: .createdAt)
+        try container.encode(mediaType, forKey: .mediaType)
+        try container.encode(goal, forKey: .goal)
+        try container.encode(reasoning, forKey: .reasoning)
+        try container.encodeIfPresent(researchContext, forKey: .researchContext)
+        try container.encode(adjustments, forKey: .adjustments)
+        try container.encode(operations, forKey: .operations)
+        try container.encode(scenes, forKey: .scenes)
+        try container.encodeIfPresent(audioPlan, forKey: .audioPlan)
+        try container.encodeIfPresent(targetDuration, forKey: .targetDuration)
+        try container.encodeIfPresent(aspectRatio, forKey: .aspectRatio)
+        try container.encode(output, forKey: .output)
+    }
+    
+    static func parseFlexibleDate(_ dateStr: String) -> Date {
+        let isoFrac = ISO8601DateFormatter()
+        isoFrac.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        if let d = isoFrac.date(from: dateStr) { return d }
+        
+        let iso = ISO8601DateFormatter()
+        iso.formatOptions = [.withInternetDateTime]
+        if let d = iso.date(from: dateStr) { return d }
+        
+        let df = DateFormatter()
+        df.locale = Locale(identifier: "en_US_POSIX")
+        for fmt in [
+            "yyyy-MM-dd'T'HH:mm:ss.SSSSSS",
+            "yyyy-MM-dd'T'HH:mm:ss.SSS",
+            "yyyy-MM-dd'T'HH:mm:ss",
+            "yyyy-MM-dd HH:mm:ss",
+            "yyyy-MM-dd"
+        ] {
+            df.dateFormat = fmt
+            if let d = df.date(from: dateStr) { return d }
+        }
+        return Date()
     }
     
     var totalSceneDuration: Double {

@@ -52,9 +52,11 @@ class CreativeDirector:
                 if gemini_plan_dict:
                     # Validate and parse into typed EditPlan
                     edit_plan = EditPlan(**gemini_plan_dict)
+                    dumped_plan = edit_plan.model_dump(mode="json") if hasattr(edit_plan, "model_dump") else edit_plan.dict()
                     return {
+                        "requestId": str(uuid.uuid4()),
                         "agentState": "Waiting for User Approval",
-                        "editPlan": edit_plan.model_dump(),
+                        "editPlan": dumped_plan,
                         "reasoning": edit_plan.reasoning or f"Formulated by Gemini Creative Director for '{prompt}'.",
                         "researchContext": research.get("summary") if research else None,
                         "confidence": 0.95,
@@ -220,9 +222,11 @@ Generate a valid EditPlan JSON adhering to schemaVersion "1.0"."""
             )
         )
 
+        dumped_plan = plan.model_dump(mode="json") if hasattr(plan, "model_dump") else plan.dict()
         return {
+            "requestId": str(uuid.uuid4()),
             "agentState": "Waiting for User Approval",
-            "editPlan": plan.model_dump(),
+            "editPlan": dumped_plan,
             "reasoning": reasoning,
             "researchContext": research.get("summary") if research else None,
             "confidence": 0.92,

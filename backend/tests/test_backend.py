@@ -37,6 +37,22 @@ async def test_health_endpoint():
 
 
 @pytest.mark.asyncio
+async def test_diagnostics_test_all_endpoint():
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        resp = await client.get("/api/v1/diagnostics/test_all")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["overallStatus"] == "healthy"
+        assert "agent" in data
+        assert "gemini" in data
+        assert "parallel" in data
+        assert "grafana" in data
+        assert "grafanaMCP" in data
+        assert "telemetry" in data
+
+
+@pytest.mark.asyncio
 async def test_ios_device_registration_and_heartbeat():
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:

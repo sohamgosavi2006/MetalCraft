@@ -12,13 +12,15 @@ from pydantic import BaseModel, Field
 # MARK: - Adjustments Contract
 
 class EditPlanAdjustments(BaseModel):
-    exposure: float = 0.0
+    brightness: float = 0.0
     contrast: float = 1.0
+    exposure: float = 0.0
     saturation: float = 1.0
-    highlights: float = 0.0
-    shadows: float = 0.0
     temperature: float = 0.0
     tint: float = 0.0
+    gamma: float = 1.0
+    highlights: float = 0.0
+    shadows: float = 0.0
     sharpness: float = 0.0
 
 
@@ -35,6 +37,7 @@ class EditPlanOperation(BaseModel):
     angle: Optional[float] = None
     center_x: Optional[float] = 0.5
     center_y: Optional[float] = 0.5
+    parameters: Optional[Dict[str, Any]] = None
 
 
 # MARK: - Scene Contract (Multi-Scene Timeline)
@@ -47,10 +50,13 @@ class EditPlanScene(BaseModel):
     duration: float = 3.0
     startTime: float = 0.0
     transition: Optional[str] = "crossfade"  # "crossfade", "fadeBlack", "wipe", "dissolve", "none"
+    transitionType: Optional[str] = None
     transitionDuration: Optional[float] = 0.5
     adjustments: Optional[EditPlanAdjustments] = None
     operations: Optional[List[EditPlanOperation]] = None
     zoomEffect: Optional[str] = "zoomIn"  # "zoomIn", "zoomOut", "panLeft", "panRight", "none"
+    effectName: Optional[str] = None
+    index: Optional[int] = 0
 
 
 # MARK: - AudioPlan Contract
