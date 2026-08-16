@@ -240,6 +240,40 @@ struct AgentHealthInfo: Codable, Sendable {
     }
 }
 
+// MARK: - Connection Mode Model
+
+enum ConnectionMode: String, Codable, CaseIterable, Identifiable, Sendable {
+    case renderCloud = "renderCloud"
+    case localMac = "localMac"
+    
+    var id: String { rawValue }
+    
+    var title: String {
+        switch self {
+        case .renderCloud: return "MetalCraft Cloud"
+        case .localMac: return "Local MacBook Agent"
+        }
+    }
+    
+    var subtitle: String {
+        switch self {
+        case .renderCloud: return "Recommended • Production"
+        case .localMac: return "Development • LAN Fallback"
+        }
+    }
+    
+    var iconName: String {
+        switch self {
+        case .renderCloud: return "cloud.fill"
+        case .localMac: return "laptopcomputer"
+        }
+    }
+    
+    var isCloud: Bool {
+        self == .renderCloud
+    }
+}
+
 // MARK: - Connection Status Enum
 
 enum AgentConnectionStatus: Equatable, Sendable {
@@ -247,6 +281,7 @@ enum AgentConnectionStatus: Equatable, Sendable {
     case connecting
     case connected(endpoint: String, latencyMs: Double)
     case failed(reason: String)
+    case unavailable(mode: ConnectionMode, reason: String)
     
     var isConnected: Bool {
         if case .connected = self { return true }
@@ -255,10 +290,11 @@ enum AgentConnectionStatus: Equatable, Sendable {
     
     var displayText: String {
         switch self {
-        case .disconnected: return "Agent Disconnected"
-        case .connecting: return "Discovering Agent..."
+        case .disconnected: return "Disconnected"
+        case .connecting: return "Connecting to Cloud..."
         case .connected(let ep, let lat): return "Connected to \(ep) (\(Int(lat))ms)"
         case .failed(let reason): return "Connection Failed: \(reason)"
+        case .unavailable(let mode, let reason): return "\(mode.title) Unavailable: \(reason)"
         }
     }
 }
@@ -270,7 +306,7 @@ enum AgentServiceError: LocalizedError, Equatable {
     case requestEncodingFailed
     case responseDecodingFailed(String)
     case serverError(statusCode: Int, message: String)
-    case networkUnavailable
+    case networkUnavailable(mode: ConnectionMode)
     case timeout
     
     var errorDescription: String? {
@@ -283,8 +319,12 @@ enum AgentServiceError: LocalizedError, Equatable {
             return "Failed to decode agent response: \(details)"
         case .serverError(let code, let msg):
             return "Agent server error (HTTP \(code)): \(msg)"
-        case .networkUnavailable:
-            return "Unable to connect to local Agent backend on your Mac. Tap the gear icon in AI Create to auto-discover or test connection."
+        case .networkUnavailable(let mode):
+            if mode == .renderCloud {
+                return "MetalCraft Cloud is temporarily unreachable. Check your internet connection or switch to Local Mac Agent."
+            } else {
+                return "Unable to connect to Local Mac Agent. Tap Settings to configure LAN IP or switch to MetalCraft Cloud."
+            }
         case .timeout:
             return "Agent request timed out after 30 seconds."
         }
@@ -293,13 +333,16 @@ enum AgentServiceError: LocalizedError, Equatable {
 
 // MARK: - Agent Service Client
 
-final class AgentService: Sendable {
+final class AgentService: @unchecked Sendable {
     private let session: URLSession
     
-    /// Default candidate endpoints for Render Cloud and local development
-    static var defaultCandidateURLs: [String] {
+    /// Primary Production Render Cloud Endpoint
+    static let renderCloudBaseURL = "https://metalcraft-ols0.onrender.com"
+    static let renderCloudWebSocketURL = "wss://metalcraft-ols0.onrender.com/ws/ios"
+    
+    /// Default candidate endpoints for local MacBook development
+    static var defaultLocalCandidateURLs: [String] {
         [
-            "https://metalcraft.onrender.com",    // Render Production Cloud Control Plane
             "http://172.20.10.4:8080",            // Active iPhone Hotspot / LAN
             "http://admins-MacBook-Pro-8.local:8080", // Bonjour mDNS local hostname
             "http://10.3.12.210:8080",            // Alternate Wi-Fi LAN
@@ -307,15 +350,52 @@ final class AgentService: Sendable {
         ]
     }
     
-    var endpointBaseURLString: String {
+    /// Active Connection Mode: Defaults to .renderCloud (PRIMARY)
+    var connectionMode: ConnectionMode {
         get {
-            UserDefaults.standard.string(forKey: "AgentEndpointURL") ?? Self.defaultCandidateURLs[0]
+            guard let raw = UserDefaults.standard.string(forKey: "MetalCraftConnectionMode"),
+                  let mode = ConnectionMode(rawValue: raw) else {
+                return .renderCloud // Render Cloud is default
+            }
+            return mode
         }
         set {
-            UserDefaults.standard.set(newValue, forKey: "AgentEndpointURL")
+            UserDefaults.standard.set(newValue.rawValue, forKey: "MetalCraftConnectionMode")
+            logger.info("[AgentConnection] Connection mode updated to \(newValue.rawValue)")
         }
     }
     
+    /// Stored Local MacBook Agent URL
+    var localMacBaseURLString: String {
+        get {
+            UserDefaults.standard.string(forKey: "LocalMacEndpointURL") ?? Self.defaultLocalCandidateURLs[0]
+        }
+        set {
+            UserDefaults.standard.set(newValue, forKey: "LocalMacEndpointURL")
+        }
+    }
+    
+    /// The currently active REST Base URL based on connection mode
+    var activeBaseURLString: String {
+        switch connectionMode {
+        case .renderCloud:
+            return Self.renderCloudBaseURL
+        case .localMac:
+            return localMacBaseURLString
+        }
+    }
+    
+    /// Compatibility alias for existing codebase
+    var endpointBaseURLString: String {
+        get { activeBaseURLString }
+        set {
+            if connectionMode == .localMac {
+                localMacBaseURLString = newValue
+            }
+        }
+    }
+    
+    /// Unique persistent device session identifier for device registration & WebSockets
     var deviceSessionId: String {
         if let existing = UserDefaults.standard.string(forKey: "MetalCraftDeviceSessionId") {
             return existing
@@ -325,24 +405,71 @@ final class AgentService: Sendable {
         return newId
     }
     
+    // MARK: - Live Observables & State
+    private(set) var connectionStatus: AgentConnectionStatus = .disconnected
+    private(set) var lastHeartbeatDate: Date? = nil
+    private(set) var currentLatencyMs: Double = 0.0
+    
     private var webSocketTask: URLSessionWebSocketTask?
     private var heartbeatTask: Task<Void, Never>?
+    private var reconnectAttemptCount: Int = 0
     
     /// Callback when a remote generation command is received from Render Cloud Web UI
     var onRemoteJobReceived: ((_ generationId: String, _ artifactId: String, _ plan: EditPlan, _ projectName: String?) -> Void)?
+    
+    /// Callback when connection status changes
+    var onStatusChanged: ((AgentConnectionStatus) -> Void)?
     
     init(session: URLSession = .shared) {
         self.session = session
     }
     
+    // MARK: - Connection Mode Management
+    
+    /// Switches connection mode (Render Cloud vs Local Mac) and initializes connection
+    func switchConnectionMode(_ newMode: ConnectionMode) async {
+        guard connectionMode != newMode || !connectionStatus.isConnected else { return }
+        logger.info("[AgentConnection] Switching connection mode to: \(newMode.title)")
+        connectionMode = newMode
+        await reconnect()
+    }
+    
+    /// Reconnects to the currently active backend mode
+    func reconnect() async {
+        disconnectWebSocket()
+        connectionStatus = .connecting
+        onStatusChanged?(.connecting)
+        
+        let health = await checkHealth(for: connectionMode)
+        if let health = health, health.status == "healthy" {
+            currentLatencyMs = health.latencyMs
+            connectionStatus = .connected(endpoint: health.endpointURL, latencyMs: health.latencyMs)
+            onStatusChanged?(connectionStatus)
+            await registerDevice()
+        } else {
+            let reason = connectionMode == .renderCloud ? "Render Cloud endpoint unreachable" : "Local Mac Agent offline"
+            connectionStatus = .unavailable(mode: connectionMode, reason: reason)
+            onStatusChanged?(connectionStatus)
+        }
+    }
+    
     // MARK: - Auto-Discovery & Health Probing
     
-    /// Probes a list of candidate URLs in parallel and returns the first healthy endpoint.
-    func autoDiscoverEndpoint() async -> AgentHealthInfo? {
-        logger.info("[AgentConnection] Starting auto-discovery across candidates...")
-        
-        var candidates = [endpointBaseURLString]
-        for url in Self.defaultCandidateURLs where !candidates.contains(url) {
+    /// Checks health of the currently active connection mode
+    func checkHealth(for mode: ConnectionMode) async -> AgentHealthInfo? {
+        switch mode {
+        case .renderCloud:
+            return await checkHealth(at: Self.renderCloudBaseURL)
+        case .localMac:
+            return await checkHealth(at: localMacBaseURLString)
+        }
+    }
+    
+    /// Auto-discovers a reachable local MacBook Agent on the LAN
+    func autoDiscoverLocalMac() async -> AgentHealthInfo? {
+        logger.info("[AgentConnection] Starting Local Mac auto-discovery across candidates...")
+        var candidates = [localMacBaseURLString]
+        for url in Self.defaultLocalCandidateURLs where !candidates.contains(url) {
             candidates.append(url)
         }
         
@@ -352,11 +479,10 @@ final class AgentService: Sendable {
                     return await self.checkHealth(at: candidate)
                 }
             }
-            
             for await result in group {
                 if let health = result, health.status == "healthy" {
-                    logger.info("[AgentConnection] Auto-discovered reachable backend at \(health.endpointURL) (latency: \(health.latencyMs)ms)")
-                    self.endpointBaseURLString = health.endpointURL
+                    logger.info("[AgentConnection] Auto-discovered local Mac at \(health.endpointURL)")
+                    self.localMacBaseURLString = health.endpointURL
                     return health
                 }
             }
@@ -364,17 +490,16 @@ final class AgentService: Sendable {
         }
     }
     
-    /// Checks health of a specific endpoint URL with latency measurement.
+    /// Probes a specific endpoint URL with latency measurement.
     func checkHealth(at baseURL: String) async -> AgentHealthInfo? {
         let cleanBase = baseURL.trimmingCharacters(in: .whitespacesAndNewlines).trimmingCharacters(in: CharacterSet(charactersIn: "/"))
-        guard !cleanBase.isEmpty, let url = URL(string: "\(cleanBase)/health") else { return nil }
+        guard !cleanBase.isEmpty, let url = URL(string: "\(cleanBase)/api/v1/health") ?? URL(string: "\(cleanBase)/health") else { return nil }
         
         var request = URLRequest(url: url)
-        request.timeoutInterval = 3.0
+        request.timeoutInterval = 4.0
         
         let start = CFAbsoluteTimeGetCurrent()
         do {
-            logger.info("[AgentConnection] Probing \(cleanBase)/health")
             let (data, response) = try await session.data(for: request)
             let elapsedMs = (CFAbsoluteTimeGetCurrent() - start) * 1000.0
             
@@ -385,12 +510,18 @@ final class AgentService: Sendable {
             var info = try JSONDecoder().decode(AgentHealthInfo.self, from: data)
             info.latencyMs = elapsedMs
             info.endpointURL = cleanBase
-            logger.info("[AgentConnection] Verified reachable endpoint \(cleanBase) (\(Int(elapsedMs))ms)")
             return info
         } catch {
-            logger.error("[AgentConnection] Health check error for \(cleanBase): \(error.localizedDescription)")
             return nil
         }
+    }
+    
+    /// Disconnects the active WebSocket task and cancels heartbeat
+    func disconnectWebSocket() {
+        heartbeatTask?.cancel()
+        heartbeatTask = nil
+        webSocketTask?.cancel(with: .goingAway, reason: nil)
+        webSocketTask = nil
     }
     
     // MARK: - Creative Request Dispatch
@@ -402,14 +533,12 @@ final class AgentService: Sendable {
         thumbnail: UIImage? = nil,
         preferences: [String: AnyCodableValue]? = nil
     ) async throws -> AgentResponse {
-        var activeBaseURL = endpointBaseURLString
+        let activeBaseURL = activeBaseURLString
         
-        // Attempt fast health probe; if current is down, attempt auto-discovery
-        if await checkHealth(at: activeBaseURL) == nil {
-            logger.warning("[AgentConnection] Current endpoint \(activeBaseURL) unreachable. Attempting fallback discovery...")
-            if let discovered = await autoDiscoverEndpoint() {
-                activeBaseURL = discovered.endpointURL
-            }
+        // Fast health check for active endpoint
+        if await checkHealth(for: connectionMode) == nil {
+            logger.warning("[AgentConnection] Active endpoint \(activeBaseURL) unreachable for mode \(self.connectionMode.rawValue)")
+            throw AgentServiceError.networkUnavailable(mode: connectionMode)
         }
         
         guard let url = URL(string: "\(activeBaseURL)/api/v1/agent/create") else {
@@ -451,7 +580,7 @@ final class AgentService: Sendable {
             let (data, response) = try await session.data(for: request)
             
             guard let httpResponse = response as? HTTPURLResponse else {
-                throw AgentServiceError.networkUnavailable
+                throw AgentServiceError.networkUnavailable(mode: connectionMode)
             }
             
             guard (200...299).contains(httpResponse.statusCode) else {
@@ -474,7 +603,7 @@ final class AgentService: Sendable {
             if urlError.code == .timedOut {
                 throw AgentServiceError.timeout
             } else {
-                throw AgentServiceError.networkUnavailable
+                throw AgentServiceError.networkUnavailable(mode: connectionMode)
             }
         } catch {
             logger.error("[AgentConnection] Decoding error: \(error.localizedDescription)")
@@ -488,7 +617,7 @@ final class AgentService: Sendable {
     func flushTelemetryEvents(_ events: [TelemetryEvent]) async {
         guard !events.isEmpty else { return }
         
-        guard let url = URL(string: "\(endpointBaseURLString)/api/v1/telemetry") else { return }
+        guard let url = URL(string: "\(activeBaseURLString)/api/v1/telemetry") else { return }
         
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
@@ -515,8 +644,8 @@ final class AgentService: Sendable {
     
     /// Runs a full integration diagnostic on Mac Agent, Gemini, Parallel, Grafana, and Grafana MCP.
     func runIntegrationDiagnostics() async throws -> DiagnosticsResponse {
-        let cleanBase = endpointBaseURLString.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
-        guard let url = URL(string: "\(cleanBase)/api/v1/diagnostics/test_all") else {
+        let cleanBase = activeBaseURLString.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        guard let url = URL(string: "\(cleanBase)/api/v1/diagnostics/test_all") ?? URL(string: "\(cleanBase)/api/v1/health") else {
             throw AgentServiceError.invalidEndpointURL("\(cleanBase)/api/v1/diagnostics/test_all")
         }
         
@@ -537,9 +666,9 @@ final class AgentService: Sendable {
     
     // MARK: - Cloud Device Registration & Heartbeat
     
-    /// Registers this iPhone with the Render cloud backend, reporting Metal & rendering capabilities.
+    /// Registers this iPhone with the backend, reporting Metal & rendering capabilities.
     func registerDevice() async {
-        let cleanBase = endpointBaseURLString.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        let cleanBase = activeBaseURLString.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
         guard let url = URL(string: "\(cleanBase)/api/v1/ios/register") else { return }
         
         let deviceName = UIDevice.current.name
@@ -566,18 +695,20 @@ final class AgentService: Sendable {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.timeoutInterval = 5.0
+        request.timeoutInterval = 6.0
         request.httpBody = bodyData
         
         do {
             let (_, resp) = try await session.data(for: request)
             if let httpResp = resp as? HTTPURLResponse, (200...299).contains(httpResp.statusCode) {
-                logger.info("[AgentConnection] Registered device session \(self.deviceSessionId) with Render backend.")
+                logger.info("[AgentConnection] Registered device session \(self.deviceSessionId) with backend (\(self.connectionMode.title)).")
+                reconnectAttemptCount = 0
+                lastHeartbeatDate = Date()
                 startHeartbeat()
                 connectWebSocket()
             }
         } catch {
-            logger.debug("[AgentConnection] Device registration deferred (offline or unreachable): \(error.localizedDescription)")
+            logger.debug("[AgentConnection] Device registration deferred: \(error.localizedDescription)")
         }
     }
     
@@ -594,7 +725,7 @@ final class AgentService: Sendable {
     }
     
     private func sendHeartbeat() async {
-        let cleanBase = endpointBaseURLString.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        let cleanBase = activeBaseURLString.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
         guard let url = URL(string: "\(cleanBase)/api/v1/ios/heartbeat") else { return }
         
         let payload: [String: Any] = [
@@ -606,17 +737,27 @@ final class AgentService: Sendable {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.timeoutInterval = 3.0
+        request.timeoutInterval = 4.0
         request.httpBody = bodyData
         
-        _ = try? await session.data(for: request)
+        let start = CFAbsoluteTimeGetCurrent()
+        if let (_, response) = try? await session.data(for: request),
+           let httpResp = response as? HTTPURLResponse, (200...299).contains(httpResp.statusCode) {
+            let elapsed = (CFAbsoluteTimeGetCurrent() - start) * 1000.0
+            lastHeartbeatDate = Date()
+            currentLatencyMs = elapsed
+            if !connectionStatus.isConnected {
+                connectionStatus = .connected(endpoint: activeBaseURLString, latencyMs: elapsed)
+                onStatusChanged?(connectionStatus)
+            }
+        }
     }
     
     // MARK: - Real-Time WebSocket Communication
     
-    /// Connects to the Render cloud WebSocket endpoint to receive remote generation commands and stream Metal progress.
+    /// Connects to the cloud or local WebSocket endpoint to receive remote generation commands and stream Metal progress.
     func connectWebSocket() {
-        let cleanBase = endpointBaseURLString.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        let cleanBase = activeBaseURLString.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
         let wsScheme = cleanBase.hasPrefix("https") ? "wss" : "ws"
         let hostPart = cleanBase.replacingOccurrences(of: "https://", with: "").replacingOccurrences(of: "http://", with: "")
         
@@ -635,6 +776,7 @@ final class AgentService: Sendable {
             guard let self = self else { return }
             switch result {
             case .success(let message):
+                self.reconnectAttemptCount = 0
                 switch message {
                 case .string(let text):
                     self.handleIncomingWebSocketText(text)
@@ -648,7 +790,21 @@ final class AgentService: Sendable {
                 self.listenWebSocketMessages()
             case .failure(let error):
                 logger.debug("[AgentConnection] WebSocket disconnected: \(error.localizedDescription)")
+                self.scheduleWebSocketReconnect()
             }
+        }
+    }
+    
+    private func scheduleWebSocketReconnect() {
+        guard !Task.isCancelled else { return }
+        reconnectAttemptCount += 1
+        let delaySec = min(Double(1 << min(reconnectAttemptCount, 5)), 30.0) // Exponential backoff: 2s, 4s, 8s, 16s, max 30s
+        logger.info("[AgentConnection] Scheduling WebSocket reconnect attempt #\(self.reconnectAttemptCount) in \(delaySec)s")
+        
+        Task { [weak self] in
+            try? await Task.sleep(nanoseconds: UInt64(delaySec * 1_000_000_000))
+            guard let self = self else { return }
+            self.connectWebSocket()
         }
     }
     

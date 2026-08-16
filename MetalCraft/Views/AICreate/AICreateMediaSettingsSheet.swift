@@ -181,27 +181,47 @@ struct AICreateMediaSettingsSheet: View {
                     }
                 }
                 
-                // MARK: - Section 5: Cloud & Backend Endpoint
-                Section("Cloud & Agent Endpoint") {
-                    Picker("Active Endpoint", selection: Binding(
-                        get: { appState.agentService.endpointBaseURLString },
-                        set: { appState.agentService.endpointBaseURLString = $0 }
+                // MARK: - Section 5: Cloud & Backend Connection Mode
+                Section("Cloud & Agent Connection") {
+                    Picker("Connection Mode", selection: Binding(
+                        get: { appState.connectionMode },
+                        set: { newMode in
+                            Task {
+                                await appState.setConnectionMode(newMode)
+                            }
+                        }
                     )) {
-                        Text("☁️ Render Production Cloud").tag("https://metalcraft.onrender.com")
-                        Text("💻 Local Mac Agent (Default)").tag("http://172.20.10.4:8080")
-                        Text("💻 Bonjour mDNS").tag("http://admins-MacBook-Pro-8.local:8080")
-                        Text("📱 Simulator Loopback").tag("http://127.0.0.1:8080")
+                        Text("☁️ MetalCraft Cloud (Recommended)").tag(ConnectionMode.renderCloud)
+                        Text("💻 Local MacBook Agent (Development)").tag(ConnectionMode.localMac)
+                    }
+                    .pickerStyle(.menu)
+                    
+                    HStack {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Active Server")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                            Text(appState.connectionMode == .renderCloud ? "metalcraft-ols0.onrender.com" : appState.agentService.localMacBaseURLString)
+                                .font(.caption.weight(.semibold))
+                                .lineLimit(1)
+                        }
+                        Spacer()
+                        Circle()
+                            .fill(appState.connectionStatus.isConnected ? Color.green : Color.orange)
+                            .frame(width: 8, height: 8)
+                        Text(appState.connectionStatus.isConnected ? "Online" : "Connecting")
+                            .font(.caption2.weight(.medium))
+                            .foregroundStyle(.secondary)
                     }
                     
                     Button {
                         Task {
-                            _ = await appState.agentService.autoDiscoverEndpoint()
-                            await appState.agentService.registerDevice()
+                            await appState.reconnectBackend()
                         }
                     } label: {
                         HStack {
-                            Image(systemName: "antenna.radiowaves.left.and.right")
-                            Text("Auto-Discover & Reconnect")
+                            Image(systemName: "arrow.clockwise")
+                            Text("Reconnect Active Backend")
                         }
                         .font(.subheadline)
                     }

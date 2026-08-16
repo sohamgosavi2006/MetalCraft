@@ -1027,31 +1027,98 @@ struct AnalyticsView: View {
         }
     }
     
-    // MARK: - 8. AI SETTINGS SECTION
+    // MARK: - 8. AI SETTINGS & CLOUD CONNECTION SECTION
     
     private var aiSettingsSection: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Text("AGENT & INTEGRATION SETTINGS")
+        VStack(alignment: .leading, spacing: 16) {
+            Text("AI CONNECTION & CLOUD CONTROL PLANE")
                 .font(.system(size: 11, weight: .bold))
                 .foregroundStyle(.secondary)
             
-            VStack(alignment: .leading, spacing: 6) {
-                Text("Mac Agent Base URL")
-                    .font(.caption.weight(.semibold))
-                TextField("http://192.168.x.x:8080", text: $endpointURLInput)
-                    .textFieldStyle(.roundedBorder)
-                    .font(.caption)
-                    .autocorrectionDisabled()
-                    .textInputAutocapitalization(.never)
+            // ── 1. Cloud vs Local Mode Selection Cards ──
+            VStack(spacing: 10) {
+                // Card 1: ☁️ Render Cloud (PRIMARY)
+                connectionOptionCard(
+                    mode: .renderCloud,
+                    title: "MetalCraft Cloud",
+                    badge: "PRIMARY • RECOMMENDED",
+                    badgeColor: .purple,
+                    icon: "cloud.fill",
+                    serverAddress: "metalcraft-ols0.onrender.com",
+                    protocolText: "Secure WSS + HTTPS",
+                    isSelected: appState.connectionMode == .renderCloud
+                )
+                
+                // Card 2: 💻 Local MacBook Agent (FALLBACK)
+                connectionOptionCard(
+                    mode: .localMac,
+                    title: "Local MacBook Agent",
+                    badge: "DEVELOPMENT • FALLBACK",
+                    badgeColor: .secondary,
+                    icon: "laptopcomputer",
+                    serverAddress: appState.agentService.localMacBaseURLString,
+                    protocolText: "Local LAN / Port 8080",
+                    isSelected: appState.connectionMode == .localMac
+                )
             }
             
-            HStack {
+            // ── 2. Active Connection Telemetry & Health Panel ──
+            VStack(alignment: .leading, spacing: 10) {
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Active Backend")
+                            .font(.caption2.weight(.bold))
+                            .foregroundStyle(.secondary)
+                        Text(appState.connectionMode.title)
+                            .font(.headline)
+                            .foregroundStyle(.primary)
+                    }
+                    Spacer()
+                    connectionStatusPill
+                }
+                
+                Divider()
+                
+                HStack(spacing: 16) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("LATENCY")
+                            .font(.system(size: 9, weight: .bold))
+                            .foregroundStyle(.secondary)
+                        Text(appState.currentLatencyMs > 0 ? "\(Int(appState.currentLatencyMs)) ms" : "—")
+                            .font(.subheadline.weight(.semibold))
+                    }
+                    
+                    Divider().frame(height: 24)
+                    
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("LAST HEARTBEAT")
+                            .font(.system(size: 9, weight: .bold))
+                            .foregroundStyle(.secondary)
+                        Text(formattedHeartbeat(appState.lastHeartbeatDate))
+                            .font(.subheadline.weight(.semibold))
+                    }
+                    
+                    Divider().frame(height: 24)
+                    
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("SESSION ID")
+                            .font(.system(size: 9, weight: .bold))
+                            .foregroundStyle(.secondary)
+                        Text(String(appState.agentService.deviceSessionId.prefix(8)))
+                            .font(.subheadline.weight(.semibold).monospaced())
+                    }
+                }
+            }
+            .padding(14)
+            .background(Color(uiColor: .secondarySystemBackground))
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            
+            // ── 3. Quick Action Buttons ──
+            HStack(spacing: 10) {
                 Button {
-                    appState.agentService.endpointBaseURLString = endpointURLInput
                     isPinging = true
                     Task {
-                        let healthInfo = await appState.agentService.checkHealth(at: endpointURLInput)
-                        pingResultText = healthInfo != nil ? "✅ Connected to Agent Backend (\(healthInfo?.latencyMs ?? 0)ms)" : "❌ Connection Failed"
+                        await appState.reconnectBackend()
                         isPinging = false
                     }
                 } label: {
@@ -1059,26 +1126,201 @@ struct AnalyticsView: View {
                         if isPinging {
                             ProgressView()
                                 .scaleEffect(0.7)
+                        } else {
+                            Image(systemName: "arrow.clockwise")
                         }
-                        Text("Test Connection")
+                        Text("Reconnect")
                     }
-                    .font(.caption.weight(.semibold))
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 8)
+                    .font(.subheadline.weight(.semibold))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 10)
                     .background(Color.purple)
                     .foregroundStyle(.white)
-                    .clipShape(Capsule())
+                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
                 }
+                .disabled(isPinging)
                 
-                if let res = pingResultText {
-                    Text(res)
-                        .font(.caption2.weight(.medium))
+                Button {
+                    Task {
+                        let nextMode: ConnectionMode = appState.connectionMode == .renderCloud ? .localMac : .renderCloud
+                        await appState.setConnectionMode(nextMode)
+                    }
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "arrow.left.arrow.right")
+                        Text("Switch Mode")
+                    }
+                    .font(.subheadline.weight(.semibold))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 10)
+                    .background(Color(uiColor: .tertiarySystemBackground))
+                    .foregroundStyle(.primary)
+                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
                 }
             }
+            
+            // ── 4. Advanced: Local Mac Configuration ──
+            DisclosureGroup("Advanced: Local Mac Configuration") {
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("Mac Agent Base URL")
+                        .font(.caption.weight(.semibold))
+                    
+                    TextField("http://192.168.x.x:8080", text: Binding(
+                        get: { appState.agentService.localMacBaseURLString },
+                        set: { appState.agentService.localMacBaseURLString = $0 }
+                    ))
+                    .textFieldStyle(.roundedBorder)
+                    .font(.caption)
+                    .autocorrectionDisabled()
+                    .textInputAutocapitalization(.never)
+                    
+                    HStack {
+                        Button {
+                            Task {
+                                isPinging = true
+                                _ = await appState.agentService.autoDiscoverLocalMac()
+                                isPinging = false
+                            }
+                        } label: {
+                            Label("Auto-Discover on LAN", systemImage: "antenna.radiowaves.left.and.right")
+                                .font(.caption.weight(.semibold))
+                        }
+                        .buttonStyle(.bordered)
+                        
+                        Spacer()
+                    }
+                }
+                .padding(.top, 8)
+            }
+            .font(.subheadline.weight(.medium))
+            .padding(14)
+            .background(Color(uiColor: .secondarySystemBackground))
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         }
-        .padding(14)
-        .background(Color(uiColor: .secondarySystemBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 12))
+    }
+    
+    // MARK: - Connection Helper Components
+    
+    @ViewBuilder
+    private func connectionOptionCard(
+        mode: ConnectionMode,
+        title: String,
+        badge: String,
+        badgeColor: Color,
+        icon: String,
+        serverAddress: String,
+        protocolText: String,
+        isSelected: Bool
+    ) -> some View {
+        Button {
+            Task {
+                await appState.setConnectionMode(mode)
+            }
+        } label: {
+            HStack(spacing: 14) {
+                // Icon with gradient circle
+                ZStack {
+                    Circle()
+                        .fill(isSelected ? badgeColor.opacity(0.18) : Color(uiColor: .tertiarySystemBackground))
+                        .frame(width: 44, height: 44)
+                    Image(systemName: icon)
+                        .font(.title3)
+                        .foregroundStyle(isSelected ? badgeColor : .secondary)
+                }
+                
+                // Info
+                VStack(alignment: .leading, spacing: 3) {
+                    HStack(spacing: 6) {
+                        Text(title)
+                            .font(.headline)
+                            .foregroundStyle(.primary)
+                        
+                        Text(badge)
+                            .font(.system(size: 8, weight: .bold))
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(badgeColor.opacity(0.15))
+                            .foregroundStyle(badgeColor)
+                            .clipShape(Capsule())
+                    }
+                    
+                    Text(serverAddress)
+                        .font(.caption.weight(.medium))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                    
+                    Text(protocolText)
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                }
+                
+                Spacer()
+                
+                // Checkmark radio indicator
+                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                    .font(.title2)
+                    .foregroundStyle(isSelected ? Color.purple : Color.secondary.opacity(0.6))
+            }
+            .padding(14)
+            .background(isSelected ? Color.purple.opacity(0.08) : Color(uiColor: .secondarySystemBackground))
+            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .stroke(isSelected ? Color.purple.opacity(0.3) : Color.clear, lineWidth: 1.5)
+            )
+        }
+        .buttonStyle(.plain)
+    }
+    
+    private var connectionStatusPill: some View {
+        HStack(spacing: 6) {
+            Circle()
+                .fill(statusDotColor)
+                .frame(width: 8, height: 8)
+            Text(statusDisplayText)
+                .font(.caption.weight(.bold))
+                .foregroundStyle(statusDotColor)
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 4)
+        .background(statusDotColor.opacity(0.12))
+        .clipShape(Capsule())
+    }
+    
+    private var statusDotColor: Color {
+        switch appState.connectionStatus {
+        case .connected:
+            return .green
+        case .connecting:
+            return .yellow
+        case .failed, .unavailable:
+            return .orange
+        case .disconnected:
+            return .secondary
+        }
+    }
+    
+    private var statusDisplayText: String {
+        switch appState.connectionStatus {
+        case .connected:
+            return "Connected"
+        case .connecting:
+            return "Connecting..."
+        case .failed:
+            return "Offline"
+        case .unavailable:
+            return "Unavailable"
+        case .disconnected:
+            return "Disconnected"
+        }
+    }
+    
+    private func formattedHeartbeat(_ date: Date?) -> String {
+        guard let date = date else { return "None" }
+        let sec = Int(Date().timeIntervalSince(date))
+        if sec < 5 { return "Just now" }
+        if sec < 60 { return "\(sec)s ago" }
+        return "\(sec / 60)m ago"
     }
     
     // MARK: - 9. SYSTEM DIAGNOSTICS SECTION

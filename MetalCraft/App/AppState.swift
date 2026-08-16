@@ -169,10 +169,23 @@ final class AppState {
     var isPlayingAudioPreview: Bool = false
     var currentlyPlayingTrackURL: URL? = nil
     
-    // MARK: - Diagnostics
+    // MARK: - Diagnostics & Backend Connection
     var lastDiagnosticsResult: DiagnosticsResponse? = nil
     var isRunningDiagnostics: Bool = false
     var diagnosticsError: String? = nil
+    var connectionStatus: AgentConnectionStatus = .disconnected
+    
+    var connectionMode: ConnectionMode {
+        agentService.connectionMode
+    }
+    
+    var lastHeartbeatDate: Date? {
+        agentService.lastHeartbeatDate
+    }
+    
+    var currentLatencyMs: Double {
+        agentService.currentLatencyMs
+    }
     
     // MARK: - Services
     let metalContext: MetalContext
@@ -225,10 +238,17 @@ final class AppState {
             self.generatedVideoThumbnail = self.projectManager.loadArtifactThumbnail(artifactId: lastCompleted.artifactId)
         }
         
-        // Register device with Render Cloud Backend & attach WebSocket job listener
+        // Listen to backend connection status updates
+        self.agentService.onStatusChanged = { [weak self] status in
+            Task { @MainActor [weak self] in
+                self?.connectionStatus = status
+            }
+        }
+        
+        // Connect to active backend (Render Cloud default) & attach WebSocket listener
         Task { [weak self] in
             guard let self = self else { return }
-            await self.agentService.registerDevice()
+            await self.agentService.reconnect()
         }
         
         self.agentService.onRemoteJobReceived = { [weak self] (remoteGenId, remoteArtId, plan, projName) in
@@ -237,6 +257,18 @@ final class AppState {
                 self.executeRemoteVideoGeneration(generationId: remoteGenId, artifactId: remoteArtId, plan: plan, projectName: projName)
             }
         }
+    }
+    
+    // MARK: - Backend Mode Switching & Connection Actions
+    
+    func setConnectionMode(_ mode: ConnectionMode) async {
+        await agentService.switchConnectionMode(mode)
+        self.connectionStatus = agentService.connectionStatus
+    }
+    
+    func reconnectBackend() async {
+        await agentService.reconnect()
+        self.connectionStatus = agentService.connectionStatus
     }
     
     // MARK: - Media Import Flows
