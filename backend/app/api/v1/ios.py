@@ -29,7 +29,9 @@ async def register_device(request: DeviceRegistrationRequest):
         "deviceSessionId": request.deviceSessionId,
         "deviceName": request.deviceName,
         "model": request.model,
-        "capabilities": request.capabilities.model_dump()
+        "capabilities": request.capabilities.model_dump(),
+        "isIosConnected": True,
+        "connectedCount": max(1, len(manager.active_ios_connections))
     })
 
     return {
@@ -48,7 +50,24 @@ async def receive_heartbeat(request: DeviceHeartbeatRequest):
         status=request.status
     )
     if not session:
-        raise HTTPException(status_code=404, detail="Device session not found. Please register first.")
+        # Auto-upsert device if not yet in database
+        session = await DatabaseRepository.upsert_device_session(
+            session_id=request.deviceSessionId,
+            device_name="MetalCraft iPhone",
+            model="iPhone (Apple Silicon)",
+            os_version="iOS 18",
+            app_version="1.0.0",
+            capabilities={"metal": True, "videoRendering": True, "photosAccess": True}
+        )
+    
+    # Broadcast heartbeat update to Web UI
+    await manager.broadcast_to_web({
+        "type": "DEVICE_HEARTBEAT",
+        "deviceSessionId": request.deviceSessionId,
+        "status": request.status,
+        "isIosConnected": True,
+        "connectedCount": max(1, len(manager.active_ios_connections))
+    })
     
     return {
         "status": "acknowledged",
@@ -61,10 +80,19 @@ async def receive_heartbeat(request: DeviceHeartbeatRequest):
 async def list_devices():
     """Lists all registered iOS devices and their connection status."""
     import json
+    from datetime import datetime, timedelta
     devices = await DatabaseRepository.list_active_devices()
     result = []
+    now = datetime.utcnow()
     for d in devices:
         is_ws_active = manager.is_ios_connected(d.session_id)
+        is_recent_heartbeat = False
+        if d.last_heartbeat:
+            diff = (now - d.last_heartbeat).total_seconds()
+            if diff <= 45:
+                is_recent_heartbeat = True
+        
+        is_online = is_ws_active or is_recent_heartbeat
         capabilities = {}
         if d.capabilities_json:
             try:
@@ -72,22 +100,18 @@ async def list_devices():
             except Exception:
                 pass
         
-        # Calculate clean display status
-        if is_ws_active:
-            display_status = "ONLINE"
-        else:
-            display_status = "OFFLINE"
-
-        clean_id = d.session_id.replace("-", "")[:8].upper()
+        display_status = "ONLINE" if is_online else "OFFLINE"
+        clean_id = d.session_id.replace("MC-IOS-", "").replace("-", "")[:8].upper()
+        
         result.append({
             "sessionId": d.session_id,
-            "deviceId": f"MC-IOS-{clean_id}",
+            "deviceId": d.session_id if d.session_id.startswith("MC-IOS-") else f"MC-IOS-{clean_id}",
             "name": d.device_name,
             "model": d.model,
             "osVersion": d.os_version,
             "appVersion": d.app_version,
             "capabilities": capabilities,
-            "isLive": is_ws_active,
+            "isLive": is_online,
             "status": display_status,
             "lastHeartbeat": d.last_heartbeat.isoformat() if d.last_heartbeat else None,
             "createdAt": d.created_at.isoformat() if d.created_at else None

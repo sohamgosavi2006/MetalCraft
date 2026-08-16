@@ -397,12 +397,14 @@ final class AgentService: @unchecked Sendable {
     
     /// Unique persistent device session identifier for device registration & WebSockets
     var deviceSessionId: String {
-        if let existing = UserDefaults.standard.string(forKey: "MetalCraftDeviceSessionId") {
+        if let existing = UserDefaults.standard.string(forKey: "MetalCraftDeviceSessionId"), !existing.isEmpty {
             return existing
         }
-        let newId = UUID().uuidString
-        UserDefaults.standard.set(newId, forKey: "MetalCraftDeviceSessionId")
-        return newId
+        let vendorId = UIDevice.current.identifierForVendor?.uuidString.replacingOccurrences(of: "-", with: "") ?? UUID().uuidString.replacingOccurrences(of: "-", with: "")
+        let cleanId = String(vendorId.prefix(8)).uppercased()
+        let stableId = "MC-IOS-\(cleanId)"
+        UserDefaults.standard.set(stableId, forKey: "MetalCraftDeviceSessionId")
+        return stableId
     }
     
     // MARK: - Live Observables & State
@@ -413,6 +415,7 @@ final class AgentService: @unchecked Sendable {
     private var webSocketTask: URLSessionWebSocketTask?
     private var heartbeatTask: Task<Void, Never>?
     private var reconnectAttemptCount: Int = 0
+    private var foregroundObserver: NSObjectProtocol?
     
     /// Callback when a remote generation command is received from Render Cloud Web UI
     var onRemoteJobReceived: ((_ generationId: String, _ artifactId: String, _ plan: EditPlan, _ projectName: String?) -> Void)?
@@ -422,6 +425,27 @@ final class AgentService: @unchecked Sendable {
     
     init(session: URLSession = .shared) {
         self.session = session
+        setupLifecycleObservers()
+    }
+    
+    deinit {
+        if let obs = foregroundObserver {
+            NotificationCenter.default.removeObserver(obs)
+        }
+    }
+    
+    private func setupLifecycleObservers() {
+        foregroundObserver = NotificationCenter.default.addObserver(
+            forName: UIApplication.willEnterForegroundNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { [weak self] in
+                guard let self = self else { return }
+                logger.info("[AgentConnection] App entered foreground; refreshing Render cloud connection...")
+                await self.reconnect()
+            }
+        }
     }
     
     // MARK: - Connection Mode Management
@@ -750,6 +774,21 @@ final class AgentService: @unchecked Sendable {
                 connectionStatus = .connected(endpoint: activeBaseURLString, latencyMs: elapsed)
                 onStatusChanged?(connectionStatus)
             }
+        }
+        
+        // Also send WebSocket ping/heartbeat frame if available, or trigger reconnect
+        if let ws = webSocketTask, ws.state == .running {
+            let wsPayload: [String: Any] = [
+                "type": "HEARTBEAT",
+                "deviceSessionId": deviceSessionId,
+                "timestamp": ISO8601DateFormatter().string(from: Date())
+            ]
+            if let data = try? JSONSerialization.data(withJSONObject: wsPayload),
+               let str = String(data: data, encoding: .utf8) {
+                ws.send(.string(str)) { _ in }
+            }
+        } else {
+            connectWebSocket()
         }
     }
     

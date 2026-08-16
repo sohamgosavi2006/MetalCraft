@@ -1511,7 +1511,8 @@
 
   function updateFleetStats() {
     const totalCount = RealDevicesState.devices.length;
-    const onlineCount = RealDevicesState.devices.filter(d => d.isLive || (d.status && d.status.toUpperCase() === 'ONLINE')).length;
+    const onlineDevices = RealDevicesState.devices.filter(d => d.isLive || (d.status && d.status.toUpperCase() === 'ONLINE'));
+    const onlineCount = onlineDevices.length;
 
     const statsConnected = document.getElementById('stats-connected-count');
     const statsTotal = document.getElementById('stats-total-fleet');
@@ -1525,8 +1526,9 @@
 
     if (headerDot && headerText) {
       if (onlineCount > 0) {
+        const firstDev = onlineDevices[0];
         headerDot.className = 'status-dot dot-online';
-        headerText.textContent = `${onlineCount} iPhone Connected`;
+        headerText.textContent = onlineCount === 1 ? (firstDev.name || '1 iPhone Connected') : `${onlineCount} iPhones Connected`;
       } else {
         headerDot.className = 'status-dot dot-waiting';
         headerText.textContent = 'No iPhone Connected';
@@ -1692,6 +1694,7 @@
     await fetchCloudHealth();
     await fetchObservabilityRequests();
     await fetchAnalyticsMetrics();
+    await fetchObservabilityDevices();
   }
 
   async function fetchAnalyticsMetrics() {
@@ -1764,11 +1767,12 @@
     }
 
     RealDevicesState.devices.forEach(dev => {
+      const isOnline = dev.isLive || (dev.status && dev.status.toUpperCase() === 'ONLINE');
       const card = document.createElement('div');
       card.className = 'info-card';
       card.innerHTML = `
         <div class="info-card-title">${dev.name || 'iPhone'} (${dev.deviceId || 'MC-IOS'})</div>
-        <div class="info-card-row"><span>Status:</span><strong style="color:var(--accent-green);">${dev.status || 'ONLINE'}</strong></div>
+        <div class="info-card-row"><span>Status:</span><strong style="color:var(--accent-green);">${isOnline ? 'ONLINE' : 'OFFLINE'}</strong></div>
         <div class="info-card-row"><span>Model:</span><strong>${dev.model || 'iPhone'}</strong></div>
         <div class="info-card-row"><span>iOS:</span><strong>${dev.osVersion || 'iOS 18'}</strong></div>
         <div class="info-card-row"><span>Last Heartbeat:</span><strong>${dev.lastHeartbeat ? formatRelativeTime(dev.lastHeartbeat) : 'Just now'}</strong></div>
@@ -1850,6 +1854,7 @@
             simWsStatus.className = 'info-card-value pass';
           }
           logSimulatorEvent('WebSocket connected to Render Cloud Control Plane');
+          fetchRealDevices();
         };
 
         ws.onmessage = (event) => {
@@ -1880,10 +1885,18 @@
   }
 
   function handleWebSocketMessage(msg) {
-    if (msg.type === 'DEVICE_REGISTERED' || msg.type === 'DEVICE_STATUS_CHANGED') {
+    if (msg.type === 'DEVICE_REGISTERED' || msg.type === 'DEVICE_STATUS_CHANGED' || msg.type === 'DEVICE_HEARTBEAT' || msg.type === 'CONNECTION_ESTABLISHED') {
       fetchRealDevices();
+      if (msg.status === 'online' || msg.isIosConnected) {
+        logSimulatorEvent(`Physical iPhone Online (${msg.deviceSessionId || 'MC-IOS'})`);
+      } else if (msg.status === 'offline') {
+        logSimulatorEvent(`Physical iPhone Offline (${msg.deviceSessionId || 'MC-IOS'})`);
+      }
     } else if (msg.type === 'GENERATION_PROGRESS') {
-      logSimulatorEvent(`Real iPhone Render: ${msg.progress || 0}% - ${msg.progressMessage || ''}`);
+      logSimulatorEvent(`Real iPhone GPU Render: ${Math.round((msg.progress || 0) * 100)}% - ${msg.progressMessage || ''}`);
+    } else if (msg.type === 'GENERATION_COMPLETED') {
+      logSimulatorEvent(`Real iPhone Render Complete: ${msg.artifactId || ''}`);
+      fetchProjectsFromBackend();
     }
   }
 
@@ -1954,6 +1967,12 @@
       fetchRealDevices();
       fetchCloudHealth();
       fetchAnalyticsMetrics();
+
+      // Unified periodic status synchronizer (every 8 seconds)
+      setInterval(() => {
+        fetchRealDevices();
+        fetchCloudHealth();
+      }, 8000);
     } catch (e) {
       console.error('Initialization error:', e);
     }

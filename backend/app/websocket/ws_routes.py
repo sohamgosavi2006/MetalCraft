@@ -103,6 +103,13 @@ async def websocket_ios_endpoint(
 
                 elif msg_type == "HEARTBEAT":
                     await DatabaseRepository.update_device_heartbeat(sessionId, "online")
+                    await manager.broadcast_to_web({
+                        "type": "DEVICE_HEARTBEAT",
+                        "deviceSessionId": sessionId,
+                        "status": "online",
+                        "isIosConnected": True,
+                        "connectedCount": len(manager.active_ios_connections)
+                    })
 
                 elif msg_type == "TELEMETRY":
                     event = msg.get("event", msg)
@@ -122,7 +129,9 @@ async def websocket_ios_endpoint(
         await manager.broadcast_to_web({
             "type": "DEVICE_STATUS_CHANGED",
             "deviceSessionId": sessionId,
-            "status": "offline"
+            "status": "offline",
+            "isIosConnected": len(manager.active_ios_connections) > 0,
+            "connectedCount": len(manager.active_ios_connections)
         })
 
 
