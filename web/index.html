@@ -2,13 +2,15 @@
 <html lang="en" data-theme="dark">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MetalCraft — Agentic Media Production Platform</title>
-    <meta name="description" content="MetalCraft iOS Apple Metal GPU Media Production Platform with Gemini 2.5 Flash Creative Director, Parallel Research, and Grafana Observability.">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>MetalCraft — AI Directs. Metal Crafts.</title>
+    <meta name="description" content="MetalCraft: AI Directs. Metal Crafts. iOS Apple Metal GPU Media Production Platform with Gemini 2.5 Flash Creative Director, Parallel Research, and Grafana Observability.">
+    <link rel="icon" type="image/png" href="/static/assets/favicon.png">
+    <link rel="apple-touch-icon" href="/static/assets/metalcraft_icon.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/static/css/style.css?v=2.4.0">
+    <link rel="stylesheet" href="/static/css/style.css?v=2.5.0">
 </head>
 <body>
     <div class="app-background"></div>
@@ -22,22 +24,16 @@
          ============================================================ -->
     <header class="header">
         <div class="header-left">
-            <div class="logo-container" id="brand-logo-btn" title="MetalCraft Home">
-                <div class="logo-icon">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                        <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
-                        <polyline points="2 17 12 22 22 17"></polyline>
-                        <polyline points="2 12 12 17 22 12"></polyline>
-                    </svg>
-                </div>
+            <div class="logo-container" id="brand-logo-btn" title="MetalCraft — AI Directs. Metal Crafts.">
+                <img src="/static/assets/metalcraft_icon.png" alt="MetalCraft App Icon" class="brand-app-icon">
                 <div class="logo-text">
                     <span class="brand-name">MetalCraft</span>
-                    <span class="brand-badge">iOS + Cloud Control Plane</span>
+                    <span class="brand-tagline">AI Directs. Metal Crafts.</span>
                 </div>
             </div>
         </div>
 
-        <!-- High-Level View Switcher Tabs (4 Combined Sections) -->
+        <!-- High-Level View Switcher Tabs (Desktop & Tablet Navigation) -->
         <nav class="nav-links" id="main-nav-switcher">
             <a href="#simulator" class="nav-link active" data-view="simulator" id="nav-item-simulator">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="3"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
@@ -58,22 +54,64 @@
             </a>
         </nav>
 
-        <!-- Header Right: Status Indicators & Light/Dark Theme Switcher -->
+        <!-- Header Right: Demo Action, Status Indicators & Theme Switcher -->
         <div class="header-right">
+            <!-- Dedicated Demo Presentation Button -->
+            <button class="nav-demo-btn" id="btn-open-demo-video" aria-label="Open MetalCraft demonstration video" title="Watch MetalCraft Demonstration Video">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><polygon points="6 3 20 12 6 21 6 3"/></svg>
+                <span>Demo</span>
+            </button>
+
+            <!-- Real iPhone Fleet Status Pill -->
             <div class="status-indicator-pill" id="header-device-pill" title="Click to view Real iPhones">
                 <span class="status-dot dot-waiting" id="header-device-dot"></span>
                 <span class="status-text" id="header-device-text">No iPhone Connected</span>
             </div>
+
+            <!-- Cloud Health Status Pill -->
             <div class="status-indicator-pill" id="header-cloud-pill" title="Click to view AI & Pipeline">
                 <span class="status-dot dot-online" id="header-cloud-dot"></span>
-                <span class="status-text" id="header-cloud-text">Cloud Live</span>
+                <span class="status-text" id="header-cloud-text">Render Cloud Live</span>
             </div>
+
+            <!-- Light / Dark Appearance Toggle -->
             <div class="appearance-toggle" id="theme-toggle-wrap">
                 <button class="appearance-btn" data-theme-val="light" title="Light Mode" id="theme-btn-light">☀️</button>
                 <button class="appearance-btn active" data-theme-val="dark" title="Dark Mode" id="theme-btn-dark">🌙</button>
             </div>
+
+            <!-- Mobile Hamburger Menu Button -->
+            <button class="mobile-menu-btn" id="btn-mobile-menu-toggle" aria-label="Toggle navigation menu" title="Menu">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+            </button>
         </div>
     </header>
+
+    <!-- Mobile Navigation Drawer -->
+    <div class="mobile-nav-drawer" id="mobile-nav-drawer">
+        <nav class="mobile-nav-links">
+            <a href="#simulator" class="mobile-nav-link active" data-view="simulator">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="3"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
+                <span>Simulator</span>
+            </a>
+            <a href="#real-devices" class="mobile-nav-link" data-view="real-devices">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+                <span>Real iPhones</span>
+            </a>
+            <a href="#ai-pipeline" class="mobile-nav-link" data-view="ai-pipeline">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 4V2M15 16v-2M8 9h2M20 9h2M17.8 11.8 19 13M15 9h0M17.8 6.2 19 5M3 21l9-9M12.2 6.2 11 5"/></svg>
+                <span>AI & Pipeline</span>
+            </a>
+            <a href="#observability-audit" class="mobile-nav-link" data-view="observability-audit">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                <span>Observability & Audit</span>
+            </a>
+            <button class="mobile-nav-demo-btn" id="mobile-btn-demo">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="6 3 20 12 6 21 6 3"/></svg>
+                <span>Watch Demonstration Video</span>
+            </button>
+        </nav>
+    </div>
 
     <!-- ============================================================
          MAIN CONTENT AREA (4 CONSOLIDATED SECTIONS)
@@ -1110,7 +1148,43 @@
          GLOBAL MODALS
          ============================================================ -->
 
-    <!-- Device Details Console Modal -->
+    <!-- 1. Demonstration Video Presentation Modal (Liquid Glass) -->
+    <div class="modal-overlay" id="modal-demo-video" role="dialog" aria-modal="true" aria-labelledby="demo-video-title">
+        <div class="demo-video-dialog">
+            <div class="demo-video-header">
+                <div class="demo-video-branding">
+                    <img src="/static/assets/metalcraft_icon.png" alt="MetalCraft Icon" class="demo-header-icon">
+                    <div class="demo-header-text">
+                        <h3 class="demo-video-title" id="demo-video-title">MetalCraft Demonstration</h3>
+                        <span class="demo-video-tagline">AI Directs. Metal Crafts.</span>
+                    </div>
+                </div>
+                <button class="modal-close-btn" id="btn-close-demo-modal" aria-label="Close demonstration">✕</button>
+            </div>
+            
+            <div class="demo-video-container">
+                <video id="demo-video-player" src="/static/assets/metalcraft_demo.mp4" playsinline controls preload="metadata" poster="/static/assets/metalcraft_icon.png">
+                    Your browser does not support HTML5 video playback.
+                </video>
+            </div>
+
+            <div class="demo-video-footer">
+                <div class="demo-footer-info">
+                    <span class="demo-badge">Apple Metal GPU</span>
+                    <span class="demo-badge">Gemini 2.5 Flash</span>
+                    <span class="demo-badge">Parallel AI</span>
+                    <span class="demo-badge">AVFoundation</span>
+                </div>
+                <div class="demo-footer-actions">
+                    <a href="https://drive.google.com/file/d/1r_hYIHm8fRUR1uBBlT14M3mfKgmXvQ3e/view?usp=drive_link" target="_blank" rel="noopener noreferrer" class="demo-external-link">
+                        Google Drive Source ↗
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 2. Device Details Console Modal -->
     <div class="modal-overlay" id="modal-device-details">
         <div class="modal-dialog">
             <div class="modal-header">
@@ -1123,7 +1197,7 @@
         </div>
     </div>
 
-    <!-- Video Player Preview Modal -->
+    <!-- 3. Video Player Preview Modal (Generated Reels) -->
     <div class="modal-overlay" id="modal-video-player">
         <div class="modal-dialog" style="max-width:440px;text-align:center;">
             <div class="modal-header">
@@ -1140,9 +1214,16 @@
 
     <!-- Site Footer -->
     <footer class="site-footer">
-        <p>MetalCraft — Agentic Media Production Platform · iOS + Apple Metal GPU · Cloud Control Plane</p>
+        <div class="footer-branding">
+            <img src="/static/assets/metalcraft_icon.png" alt="MetalCraft Logo" class="footer-icon">
+            <div>
+                <strong>MetalCraft</strong>
+                <span> · AI Directs. Metal Crafts.</span>
+            </div>
+        </div>
+        <p class="footer-desc">Native Apple iOS Media Production Platform · Apple Metal GPU MPS Shader Pipeline · Render Cloud Control Plane</p>
     </footer>
 
-    <script src="/static/js/app.js?v=2.4.0"></script>
+    <script src="/static/js/app.js?v=2.5.0"></script>
 </body>
 </html>

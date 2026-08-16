@@ -1,8 +1,11 @@
 /**
  * MetalCraft — Web Companion & Complete iPhone 17 Pro Simulator
- * Version 2.4.0 — Functional Media Import & Direct Button Actions
+ * Version 2.5.0 — Responsive Multi-Device (Mac, iPad, iPhone) & Demonstration Video
  * 
  * Features:
+ * - Brand Identity: MetalCraft App Icon & Official Tagline ("AI Directs. Metal Crafts.")
+ * - Dedicated Demonstration Video Presentation Modal (Liquid Glass Player with HTML5 video)
+ * - Mobile Navigation Drawer with Responsive Touch Targets (min 44px)
  * - Dynamic Island: Minimal Apple system UI (Ready, Processing, Complete), NO Gemini branding.
  * - Hardware Side Buttons: Volume Up/Down with iOS Volume HUD, Action Button with Silent Banner, Power Button with Lock/Wake.
  * - Native File Picker Import: Photo button imports local image files (jpg, png, heic, webp), Video button imports video files.
@@ -123,12 +126,18 @@
   // ── 1. GLOBAL NAVIGATION & ROUTING ───────────────────────────────────────
   function initNavigation() {
     const navLinks = document.querySelectorAll('#main-nav-switcher .nav-link');
+    const mobileLinks = document.querySelectorAll('.mobile-nav-link');
     const sections = document.querySelectorAll('.view-section');
 
     function switchView(targetView) {
       if (!targetView) targetView = 'simulator';
 
       navLinks.forEach(link => {
+        const isMatch = link.getAttribute('data-view') === targetView;
+        link.classList.toggle('active', isMatch);
+      });
+
+      mobileLinks.forEach(link => {
         const isMatch = link.getAttribute('data-view') === targetView;
         link.classList.toggle('active', isMatch);
       });
@@ -207,7 +216,82 @@
     }
   }
 
-  // ── 2. SUBTABS CONTROLLER ────────────────────────────────────────────────
+  // ── 2. MOBILE NAVIGATION DRAWER ──────────────────────────────────────────
+  function initMobileNavigation() {
+    const btnToggle = document.getElementById('btn-mobile-menu-toggle');
+    const drawer = document.getElementById('mobile-nav-drawer');
+    const mobileLinks = document.querySelectorAll('.mobile-nav-link');
+
+    if (btnToggle && drawer) {
+      btnToggle.addEventListener('click', () => {
+        drawer.classList.toggle('open');
+      });
+    }
+
+    mobileLinks.forEach(link => {
+      link.addEventListener('click', (e) => {
+        e.preventDefault();
+        const view = link.getAttribute('data-view');
+        if (window.switchGlobalView) {
+          window.switchGlobalView(view);
+        }
+        if (window.location.hash !== `#${view}`) {
+          window.location.hash = view;
+        }
+        if (drawer) drawer.classList.remove('open');
+      });
+    });
+  }
+
+  // ── 3. DEMONSTRATION VIDEO PRESENTATION MODAL ────────────────────────────
+  function initDemoVideoModal() {
+    const btnOpenDemo = document.getElementById('btn-open-demo-video');
+    const btnMobileDemo = document.getElementById('mobile-btn-demo');
+    const modalDemo = document.getElementById('modal-demo-video');
+    const btnCloseDemo = document.getElementById('btn-close-demo-modal');
+    const videoPlayer = document.getElementById('demo-video-player');
+
+    function openDemo() {
+      if (!modalDemo) return;
+      modalDemo.classList.add('active');
+      if (videoPlayer) {
+        videoPlayer.play().catch(() => {
+          // Autoplay handled gracefully if browser requires user gesture
+        });
+      }
+      const drawer = document.getElementById('mobile-nav-drawer');
+      if (drawer) drawer.classList.remove('open');
+      logSimulatorEvent('Opened MetalCraft Demonstration Video');
+    }
+
+    function closeDemo() {
+      if (!modalDemo) return;
+      modalDemo.classList.remove('active');
+      if (videoPlayer) {
+        videoPlayer.pause();
+      }
+    }
+
+    if (btnOpenDemo) btnOpenDemo.addEventListener('click', openDemo);
+    if (btnMobileDemo) btnMobileDemo.addEventListener('click', openDemo);
+    if (btnCloseDemo) btnCloseDemo.addEventListener('click', closeDemo);
+
+    if (modalDemo) {
+      modalDemo.addEventListener('click', (e) => {
+        if (e.target === modalDemo) closeDemo();
+      });
+    }
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        if (modalDemo && modalDemo.classList.contains('active')) {
+          closeDemo();
+        }
+      }
+    });
+  }
+
+  // ── 4. SUBTABS CONTROLLER ────────────────────────────────────────────────
   function initSubtabs() {
     // A. AI & Pipeline Subtabs
     const aiSubtabButtons = document.querySelectorAll('#ai-pipeline-subtabs .subtab-btn');
@@ -241,7 +325,7 @@
     });
   }
 
-  // ── 3. THEME ENGINE ──────────────────────────────────────────────────────
+  // ── 5. THEME ENGINE ──────────────────────────────────────────────────────
   function initTheme() {
     const btnLight = document.getElementById('theme-btn-light');
     const btnDark = document.getElementById('theme-btn-dark');
@@ -261,7 +345,7 @@
     applyTheme(savedTheme);
   }
 
-  // ── 4. DYNAMIC ISLAND ENGINE (Minimal Apple System Status - NO Gemini) ───
+  // ── 6. DYNAMIC ISLAND ENGINE (Minimal Apple System Status - NO Gemini) ───
   function updateDynamicIsland(state, text, progress = 0) {
     const di = document.getElementById('dynamic-island');
     const diDot = document.getElementById('di-icon-dot');
@@ -311,7 +395,7 @@
     }
   }
 
-  // ── 5. PHYSICAL IPHONE HARDWARE BUTTONS & OVERLAYS ─────────────────────────
+  // ── 7. PHYSICAL IPHONE HARDWARE BUTTONS & OVERLAYS ─────────────────────────
   function initHardwareButtons() {
     const btnVolUp = document.getElementById('hw-btn-vol-up');
     const btnVolDown = document.getElementById('hw-btn-vol-down');
@@ -402,7 +486,7 @@
     }
   }
 
-  // ── 6. PROJECT & MEDIA MANAGEMENT ENGINE ──────────────────────────────────
+  // ── 8. PROJECT & MEDIA MANAGEMENT ENGINE ──────────────────────────────────
   async function fetchProjectsFromBackend() {
     try {
       const resp = await fetch('/api/v1/projects');
@@ -646,7 +730,7 @@
     if (ctxAudio && p.soundtrack) ctxAudio.textContent = p.soundtrack.title;
   }
 
-  // ── 7. SIMULATOR EDITOR & LIVE METAL GPU CANVAS ENGINE ───────────────────
+  // ── 9. SIMULATOR EDITOR & LIVE METAL GPU CANVAS ENGINE ───────────────────
   function switchSimTab(tabName) {
     SimulatorState.currentTab = tabName;
 
@@ -889,7 +973,7 @@
     }
   }
 
-  // ── 8. MEDIA PICKER & NATIVE FILE IMPORT ──────────────────────────────────
+  // ── 10. MEDIA PICKER & NATIVE FILE IMPORT ─────────────────────────────────
   const simOverlay = document.getElementById('sim-sheet-overlay');
 
   function openSimSheet(sheetId) {
@@ -1027,7 +1111,7 @@
   const btnCloseMediaPicker = document.getElementById('btn-close-media-picker');
   if (btnCloseMediaPicker) btnCloseMediaPicker.addEventListener('click', closeAllSimSheets);
 
-  // ── 9. AI CREATE STUDIO ENGINE ─────────────────────────────────────────────
+  // ── 11. AI CREATE STUDIO ENGINE ────────────────────────────────────────────
   function initAiCreate() {
     const aiPromptInput = document.getElementById('sim-prompt-input');
     const aiPromptSendBtn = document.getElementById('sim-prompt-send-btn');
@@ -1320,7 +1404,7 @@
     }
   }
 
-  // ── 10. REAL IPHONE FLEET MANAGEMENT ENGINE ────────────────────────────────
+  // ── 12. REAL IPHONE FLEET MANAGEMENT ENGINE ────────────────────────────────
   async function fetchRealDevices() {
     try {
       const resp = await fetch('/api/v1/ios/devices');
@@ -1542,7 +1626,7 @@
     });
   }
 
-  // ── 11. CLOUD & OBSERVABILITY DATA FETCHERS ───────────────────────────────
+  // ── 13. CLOUD & OBSERVABILITY DATA FETCHERS ───────────────────────────────
   async function fetchCloudHealth() {
     try {
       const resp = await fetch('/api/v1/health');
@@ -1725,7 +1809,7 @@
     }
   }
 
-  // ── 12. VIDEO PLAYER MODAL ────────────────────────────────────────────────
+  // ── 14. VIDEO PLAYER MODAL (Generated Artifacts) ──────────────────────────
   function openVideoPlayerModal(videoUrl, titleText = 'Rendered Video Reel') {
     const modal = document.getElementById('modal-video-player');
     const videoElem = document.getElementById('global-video-player-elem');
@@ -1747,7 +1831,7 @@
     });
   }
 
-  // ── 13. WEBSOCKET REAL-TIME DISPATCHER ────────────────────────────────────
+  // ── 15. WEBSOCKET REAL-TIME DISPATCHER ────────────────────────────────────
   let wsBackoffMs = 1000;
   function initWebSocket() {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -1844,6 +1928,8 @@
     try {
       initTheme();
       initNavigation();
+      initMobileNavigation();
+      initDemoVideoModal();
       initSubtabs();
       initHardwareButtons();
       initFilePickers();
