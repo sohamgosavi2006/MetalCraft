@@ -1,10 +1,11 @@
 /**
  * MetalCraft — Web Companion & Complete iPhone 17 Pro Simulator
- * Version 2.3.0 — Physical Simulator & Full Project/Editor Pipeline
+ * Version 2.4.0 — Functional Media Import & Direct Button Actions
  * 
  * Features:
  * - Dynamic Island: Minimal Apple system UI (Ready, Processing, Complete), NO Gemini branding.
  * - Hardware Side Buttons: Volume Up/Down with iOS Volume HUD, Action Button with Silent Banner, Power Button with Lock/Wake.
+ * - Native File Picker Import: Photo button imports local image files (jpg, png, heic, webp), Video button imports video files.
  * - Projects Screen -> Dedicated Project Detail Screen with Photos Grid, Videos Grid, Audio Track, and Actions.
  * - Fully Working Non-Destructive Photo & Video Editor with Metal Shader simulation and Project Persistence.
  * - Real iPhone Fleet Management with Search, Filters, Refresh, and Console Modal.
@@ -77,7 +78,7 @@
   const SimulatorState = {
     currentTab: 'editor',
     hardware: {
-      volume: 70, // 0 to 100
+      volume: 70,
       isSilent: false,
       isLocked: false,
       volumeTimer: null,
@@ -87,14 +88,14 @@
     activeProject: null,
     editor: {
       activeMedia: null,
-      activeMediaType: 'photo', // 'photo' or 'video'
+      activeMediaType: 'photo',
       adjustments: {
-        exposure: 0,     // -100 to 100
-        contrast: 100,   // 50 to 200
-        saturation: 100, // 0 to 200
-        brightness: 0,   // -100 to 100
-        temperature: 0,  // -50 to 50
-        vignette: 0      // 0 to 100
+        exposure: 0,
+        contrast: 100,
+        saturation: 100,
+        brightness: 0,
+        temperature: 0,
+        vignette: 0
       },
       currentPreset: 'original'
     },
@@ -145,6 +146,8 @@
         fetchObservabilityOverview();
       }
     }
+
+    window.switchGlobalView = switchView;
 
     navLinks.forEach(link => {
       link.addEventListener('click', (e) => {
@@ -458,7 +461,6 @@
         await saveProjectMetadata(proj);
       });
 
-      // Clicking project opens the dedicated Project Detail Screen!
       row.addEventListener('click', () => {
         openProjectDetail(proj);
       });
@@ -505,9 +507,8 @@
             <img src="${photo.thumb || photo.url}" alt="${photo.name}">
             <span class="detail-media-badge">PHOTO</span>
           `;
-          // Clicking any photo loads it directly into the Metal Editor!
           card.addEventListener('click', () => {
-            loadMediaIntoEditor(photo, 'photo');
+            window.loadMediaIntoEditor(photo, 'photo');
             switchSimTab('editor');
           });
           photosGrid.appendChild(card);
@@ -533,7 +534,7 @@
             <span class="detail-media-badge">▶ VIDEO</span>
           `;
           card.addEventListener('click', () => {
-            loadMediaIntoEditor(video, 'video');
+            window.loadMediaIntoEditor(video, 'video');
             switchSimTab('editor');
           });
           videosGrid.appendChild(card);
@@ -549,7 +550,6 @@
       if (audioGenre) audioGenre.textContent = `${project.soundtrack.tempoBpm || 120} BPM · ${project.soundtrack.genre || 'Cinematic'}`;
     }
 
-    // Switch simulator interior to Project Detail Panel
     document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
     const detailPanel = document.getElementById('panel-project-detail');
     if (detailPanel) detailPanel.classList.add('active');
@@ -576,7 +576,7 @@
     if (btnOpenEditor) {
       btnOpenEditor.addEventListener('click', () => {
         if (SimulatorState.activeProject && SimulatorState.activeProject.photos && SimulatorState.activeProject.photos.length > 0) {
-          loadMediaIntoEditor(SimulatorState.activeProject.photos[0], 'photo');
+          window.loadMediaIntoEditor(SimulatorState.activeProject.photos[0], 'photo');
         }
         switchSimTab('editor');
       });
@@ -660,6 +660,7 @@
 
     closeAllSimSheets();
   }
+  window.switchSimTab = switchSimTab;
 
   function initEditor() {
     const editorCanvas = document.getElementById('editor-canvas');
@@ -685,7 +686,6 @@
     const adjTemperatureVal = document.getElementById('adj-temperature-val');
     const adjVignetteVal = document.getElementById('adj-vignette-val');
 
-    // Filter Preset Buttons
     document.querySelectorAll('.editor-presets-bar .preset-pill').forEach(pill => {
       pill.addEventListener('click', () => {
         document.querySelectorAll('.editor-presets-bar .preset-pill').forEach(p => p.classList.remove('active'));
@@ -747,12 +747,11 @@
       const b = 100 + a.brightness + (a.exposure * 0.8);
       const c = a.contrast;
       const s = a.saturation;
-      const h = a.temperature * 0.5; // subtle hue shift
+      const h = a.temperature * 0.5;
 
       ctx.filter = `brightness(${b}%) contrast(${c}%) saturate(${s}%) hue-rotate(${h}deg)`;
       ctx.drawImage(img, 0, 0, editorCanvas.width, editorCanvas.height);
 
-      // Vignette Shader Simulation
       if (a.vignette > 0) {
         const radius = Math.max(editorCanvas.width, editorCanvas.height) / 1.5;
         const grad = ctx.createRadialGradient(
@@ -873,13 +872,24 @@
     if (btnNavProjects) btnNavProjects.addEventListener('click', () => switchSimTab('projects'));
     if (btnEmptyProjects) btnEmptyProjects.addEventListener('click', () => switchSimTab('projects'));
 
+    // Empty View Photo & Video Buttons
     const btnEmptyPhoto = document.getElementById('editor-btn-photo');
     const btnEmptyVideo = document.getElementById('editor-btn-video');
-    if (btnEmptyPhoto) btnEmptyPhoto.addEventListener('click', () => openMediaPickerSheet('photo'));
-    if (btnEmptyVideo) btnEmptyVideo.addEventListener('click', () => openMediaPickerSheet('video'));
+    
+    if (btnEmptyPhoto) {
+      btnEmptyPhoto.addEventListener('click', () => {
+        openMediaPickerSheet('photo');
+      });
+    }
+
+    if (btnEmptyVideo) {
+      btnEmptyVideo.addEventListener('click', () => {
+        openMediaPickerSheet('video');
+      });
+    }
   }
 
-  // ── 8. MEDIA PICKER & MODAL SHEETS ─────────────────────────────────────────
+  // ── 8. MEDIA PICKER & NATIVE FILE IMPORT ──────────────────────────────────
   const simOverlay = document.getElementById('sim-sheet-overlay');
 
   function openSimSheet(sheetId) {
@@ -901,8 +911,27 @@
 
   function openMediaPickerSheet(filterType = 'all') {
     const grid = document.getElementById('sim-media-picker-grid');
+    const titleElem = document.getElementById('sheet-media-picker-title');
+    const btnUpload = document.getElementById('sheet-btn-upload-file');
     if (!grid) return;
     grid.innerHTML = '';
+
+    if (titleElem) {
+      titleElem.textContent = filterType === 'photo' ? 'Select Photo' : filterType === 'video' ? 'Select Video' : 'Select Media';
+    }
+
+    if (btnUpload) {
+      btnUpload.onclick = () => {
+        if (filterType === 'video') {
+          const vInput = document.getElementById('sim-file-picker-video');
+          if (vInput) vInput.click();
+        } else {
+          const pInput = document.getElementById('sim-file-picker-photo');
+          if (pInput) pInput.click();
+        }
+        closeAllSimSheets();
+      };
+    }
 
     const items = filterType === 'all' ? STOCK_MEDIA_LIBRARY : STOCK_MEDIA_LIBRARY.filter(m => m.type === filterType);
     items.forEach(item => {
@@ -923,44 +952,76 @@
   }
 
   function openMediaImportSheet() {
-    const grid = document.getElementById('sim-media-picker-grid');
-    if (!grid) return;
-    grid.innerHTML = '';
+    openMediaPickerSheet('all');
+  }
 
-    STOCK_MEDIA_LIBRARY.forEach(item => {
-      const el = document.createElement('div');
-      el.className = 'media-picker-item';
-      el.innerHTML = `
-        <img class="media-picker-thumb" src="${item.thumb}" alt="${item.name}">
-        <span class="media-picker-badge">${item.type === 'video' ? '▶ VIDEO' : 'PHOTO'}</span>
-      `;
-      el.addEventListener('click', async () => {
-        if (!SimulatorState.activeProject) return;
-        try {
-          await fetch(`/api/v1/projects/${SimulatorState.activeProject.id}/media`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              mediaType: item.type,
-              name: item.name,
-              url: item.url,
-              thumb: item.thumb,
-              durationSec: item.durationSec || 0,
-              adjustments: item.adjustments
-            })
-          });
-          closeAllSimSheets();
-          await fetchProjectsFromBackend();
-          openProjectDetail(SimulatorState.activeProject);
-          logSimulatorEvent(`Imported '${item.name}' into project.`);
-        } catch (e) {
-          console.error('Import failed:', e);
-        }
+  function initFilePickers() {
+    const photoPicker = document.getElementById('sim-file-picker-photo');
+    const videoPicker = document.getElementById('sim-file-picker-video');
+
+    if (photoPicker) {
+      photoPicker.addEventListener('change', async (e) => {
+        const file = e.target.files && e.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = async (event) => {
+          const dataUrl = event.target.result;
+          const fileName = file.name.replace(/\.[^/.]+$/, "");
+          const newMedia = {
+            id: `media-${Date.now()}`,
+            type: 'photo',
+            name: fileName,
+            url: dataUrl,
+            thumb: dataUrl,
+            aspect: '9:16',
+            adjustments: { brightness: 0, contrast: 100, exposure: 0, saturation: 100, temperature: 0, vignette: 0 }
+          };
+
+          if (SimulatorState.activeProject) {
+            if (!SimulatorState.activeProject.photos) SimulatorState.activeProject.photos = [];
+            SimulatorState.activeProject.photos.push(newMedia);
+            await saveProjectMetadata(SimulatorState.activeProject);
+            updateProjectContext();
+          }
+
+          window.loadMediaIntoEditor(newMedia, 'photo');
+          switchSimTab('editor');
+          logSimulatorEvent(`Imported photo '${file.name}' from local device`);
+        };
+        reader.readAsDataURL(file);
       });
-      grid.appendChild(el);
-    });
+    }
 
-    openSimSheet('sheet-media-picker');
+    if (videoPicker) {
+      videoPicker.addEventListener('change', async (e) => {
+        const file = e.target.files && e.target.files[0];
+        if (!file) return;
+
+        const videoUrl = URL.createObjectURL(file);
+        const fileName = file.name.replace(/\.[^/.]+$/, "");
+        const newMedia = {
+          id: `media-${Date.now()}`,
+          type: 'video',
+          name: fileName,
+          url: videoUrl,
+          thumb: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=200&q=80',
+          durationSec: 15.0,
+          aspect: '9:16'
+        };
+
+        if (SimulatorState.activeProject) {
+          if (!SimulatorState.activeProject.videos) SimulatorState.activeProject.videos = [];
+          SimulatorState.activeProject.videos.push(newMedia);
+          await saveProjectMetadata(SimulatorState.activeProject);
+          updateProjectContext();
+        }
+
+        window.loadMediaIntoEditor(newMedia, 'video');
+        switchSimTab('editor');
+        logSimulatorEvent(`Imported video '${file.name}' from local device`);
+      });
+    }
   }
 
   const btnCloseMediaPicker = document.getElementById('btn-close-media-picker');
@@ -1243,11 +1304,18 @@
       if (aiChatBody) aiChatBody.scrollTop = aiChatBody.scrollHeight;
     }
 
+    // Load Sample Reel Quick Action
     const btnQuickReel = document.getElementById('btn-quick-sample-reel');
     if (btnQuickReel) {
       btnQuickReel.addEventListener('click', () => {
-        switchSimTab('ai-create');
-        submitAiCreatePrompt('Create a 15-second cinematic product reel');
+        if (SimulatorState.projects.length > 0) {
+          SimulatorState.activeProject = SimulatorState.projects[0];
+          if (SimulatorState.activeProject.photos && SimulatorState.activeProject.photos.length > 0) {
+            window.loadMediaIntoEditor(SimulatorState.activeProject.photos[0], 'photo');
+          }
+          switchSimTab('editor');
+          logSimulatorEvent(`Loaded sample reel project '${SimulatorState.activeProject.name}'`);
+        }
       });
     }
   }
@@ -1778,10 +1846,20 @@
       initNavigation();
       initSubtabs();
       initHardwareButtons();
+      initFilePickers();
       initEditor();
       initAiCreate();
       initProjectDetailControls();
       initRealDevicesControls();
+
+      // Bottom Bar Navigation Tabs Direct Click Binding
+      document.querySelectorAll('.ios-tab-bar .tab-item').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const tab = btn.getAttribute('data-tab');
+          switchSimTab(tab);
+        });
+      });
+
       startClock();
       initWebSocket();
 

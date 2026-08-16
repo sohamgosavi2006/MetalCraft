@@ -8,10 +8,14 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/static/css/style.css?v=2.3.0">
+    <link rel="stylesheet" href="/static/css/style.css?v=2.4.0">
 </head>
 <body>
     <div class="app-background"></div>
+
+    <!-- Hidden Native File Inputs for Simulated Media Import -->
+    <input type="file" id="sim-file-picker-photo" accept="image/jpeg,image/png,image/heic,image/webp,image/*" style="display:none;">
+    <input type="file" id="sim-file-picker-video" accept="video/mp4,video/quicktime,video/webm,video/*" style="display:none;">
 
     <!-- ============================================================
          HEADER — Liquid Glass Navigation Bar (4 Core Sections)
@@ -604,7 +608,7 @@
 
                             <!-- iOS Bottom Tab Bar -->
                             <div class="ios-tab-bar">
-                                <button class="tab-item active" data-tab="editor">
+                                <button class="tab-item active" data-tab="editor" id="tab-btn-editor">
                                     <div class="tab-icon">
                                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                             <line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/>
@@ -613,7 +617,7 @@
                                     </div>
                                     <span class="tab-label">Editor</span>
                                 </button>
-                                <button class="tab-item" data-tab="ai-create">
+                                <button class="tab-item" data-tab="ai-create" id="tab-btn-ai-create">
                                     <div class="tab-icon">
                                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                             <path d="M15 4V2M15 16v-2M8 9h2M20 9h2M17.8 11.8 19 13M15 9h0M17.8 6.2 19 5M3 21l9-9M12.2 6.2 11 5"/>
@@ -621,7 +625,7 @@
                                     </div>
                                     <span class="tab-label">AI Create</span>
                                 </button>
-                                <button class="tab-item" data-tab="analytics">
+                                <button class="tab-item" data-tab="analytics" id="tab-btn-analytics">
                                     <div class="tab-icon">
                                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                             <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
@@ -629,7 +633,7 @@
                                     </div>
                                     <span class="tab-label">Analytics</span>
                                 </button>
-                                <button class="tab-item" data-tab="projects">
+                                <button class="tab-item" data-tab="projects" id="tab-btn-projects">
                                     <div class="tab-icon">
                                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                             <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
@@ -677,11 +681,18 @@
                                 <button class="sim-btn primary" id="btn-close-ai-settings" style="width:100%;margin-top:14px;justify-content:center;">Done</button>
                             </div>
 
-                            <!-- 2. Media Picker Sheet -->
+                            <!-- 2. Media Picker / Import Sheet -->
                             <div class="sim-sheet" id="sheet-media-picker">
                                 <div class="sheet-drag-handle"></div>
-                                <div class="sheet-title">Select Project Media</div>
-                                <p style="font-size:11px;color:var(--text-secondary);text-align:center;margin-bottom:8px;">Choose an asset to load into the Metal GPU editor:</p>
+                                <div class="sheet-title" id="sheet-media-picker-title">Select Media</div>
+                                
+                                <div style="display:flex;gap:8px;margin-bottom:12px;">
+                                    <button class="sim-btn primary" id="sheet-btn-upload-file" style="flex:1;justify-content:center;font-size:11px;">
+                                        📁 Upload from Computer
+                                    </button>
+                                </div>
+
+                                <p style="font-size:11px;color:var(--text-secondary);text-align:center;margin-bottom:8px;">Or choose from built-in sample library:</p>
                                 <div class="media-picker-grid" id="sim-media-picker-grid">
                                     <!-- Dynamic Media Thumbnails -->
                                 </div>
@@ -945,12 +956,12 @@
                         <div class="flow-node-icon" id="node-flow-metal">⚡</div>
                         <span class="flow-node-label">5. Apple Metal GPU</span>
                     </div>
-                    <div class="flow-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></div>
+                    <div class="flow-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="19 12 12 19 5 12"/></svg></div>
                     <div class="flow-node">
                         <div class="flow-node-icon" id="node-flow-av">🎬</div>
                         <span class="flow-node-label">6. AVFoundation</span>
                     </div>
-                    <div class="flow-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></div>
+                    <div class="flow-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="19 12 12 19 5 12"/></svg></div>
                     <div class="flow-node">
                         <div class="flow-node-icon" id="node-flow-grafana">◎</div>
                         <span class="flow-node-label">7. Grafana Telemetry</span>
@@ -1132,6 +1143,6 @@
         <p>MetalCraft — Agentic Media Production Platform · iOS + Apple Metal GPU · Cloud Control Plane</p>
     </footer>
 
-    <script src="/static/js/app.js?v=2.3.0"></script>
+    <script src="/static/js/app.js?v=2.4.0"></script>
 </body>
 </html>
