@@ -1,146 +1,112 @@
 /**
- * MetalCraft — Web Companion & iPhone 17 Pro Simulator
- * Version 2.2.0 — Production Parity & Dynamic Control Plane
+ * MetalCraft — Web Companion & Complete iPhone 17 Pro Simulator
+ * Version 2.3.0 — Physical Simulator & Full Project/Editor Pipeline
  * 
  * Features:
- * - 4 Consolidated Navigation Routes (Simulator, Real iPhones, AI & Pipeline, Observability & Audit)
- * - Subtab Switching for AI & Pipeline (AI Overview, Gemini, Parallel, Pipeline, Execution)
- * - Subtab Switching for Observability & Audit (Overview, Metrics, Requests, Devices, Audit Log)
- * - Light/Dark Theme Engine synchronized across Web Companion & Simulated iPhone Interior
- * - Complete SimulatorState Engine with Canvas Adjustments, Gemini EditPlan, and Dynamic Island
- * - Real iPhone Fleet Management with Search, Filters, and Device Console Modal
- * - Live WebSocket Dispatcher for real-time fleet events with exponential backoff
+ * - Dynamic Island: Minimal Apple system UI (Ready, Processing, Complete), NO Gemini branding.
+ * - Hardware Side Buttons: Volume Up/Down with iOS Volume HUD, Action Button with Silent Banner, Power Button with Lock/Wake.
+ * - Projects Screen -> Dedicated Project Detail Screen with Photos Grid, Videos Grid, Audio Track, and Actions.
+ * - Fully Working Non-Destructive Photo & Video Editor with Metal Shader simulation and Project Persistence.
+ * - Real iPhone Fleet Management with Search, Filters, Refresh, and Console Modal.
+ * - AI Create Studio with Gemini 2.5 Flash EditPlan synthesis and simulated Metal GPU rendering passes.
+ * - Auto-detecting WebSocket (ws:// / wss://) with exponential backoff.
  */
 
 (function () {
   'use strict';
 
-  // ── SAMPLE MEDIA ASSETS (For Simulator Media Picker & Canvas) ─────────────
-  const SAMPLE_MEDIA = [
+  // ── DEFAULT STOCK MEDIA FOR IMPORT ───────────────────────────────────────
+  const STOCK_MEDIA_LIBRARY = [
     {
-      id: 'media-1',
+      id: 'stock-1',
       type: 'photo',
-      title: 'Tokyo Cyberpunk Alley',
+      name: 'Tokyo Cyberpunk Alley',
       aspect: '9:16',
       url: 'https://images.unsplash.com/photo-1509198397868-475647b2a1e5?w=800&q=80',
-      thumb: 'https://images.unsplash.com/photo-1509198397868-475647b2a1e5?w=200&q=80'
+      thumb: 'https://images.unsplash.com/photo-1509198397868-475647b2a1e5?w=200&q=80',
+      adjustments: { brightness: 0, contrast: 115, exposure: 10, saturation: 125, temperature: -15, vignette: 15 }
     },
     {
-      id: 'media-2',
+      id: 'stock-2',
       type: 'photo',
-      title: 'Golden Hour Coastline',
+      name: 'Golden Hour Coastline',
       aspect: '9:16',
       url: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=800&q=80',
-      thumb: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=200&q=80'
+      thumb: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=200&q=80',
+      adjustments: { brightness: 5, contrast: 105, exposure: 0, saturation: 110, temperature: 35, vignette: 0 }
     },
     {
-      id: 'media-3',
+      id: 'stock-3',
       type: 'photo',
-      title: 'Studio Portrait Silhouette',
+      name: 'Studio Portrait Silhouette',
       aspect: '9:16',
       url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=800&q=80',
-      thumb: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&q=80'
+      thumb: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&q=80',
+      adjustments: { brightness: -10, contrast: 130, exposure: -5, saturation: 90, temperature: 0, vignette: 25 }
     },
     {
-      id: 'media-4',
+      id: 'stock-4',
       type: 'photo',
-      title: 'Minimalist Architecture',
+      name: 'Minimalist Architecture',
       aspect: '9:16',
       url: 'https://images.unsplash.com/photo-1513694203232-719a280e022f?w=800&q=80',
-      thumb: 'https://images.unsplash.com/photo-1513694203232-719a280e022f?w=200&q=80'
+      thumb: 'https://images.unsplash.com/photo-1513694203232-719a280e022f?w=200&q=80',
+      adjustments: { brightness: 0, contrast: 110, exposure: 5, saturation: 95, temperature: -5, vignette: 0 }
     },
     {
-      id: 'media-5',
+      id: 'stock-5',
       type: 'video',
-      title: 'High Pacing City Drift',
+      name: 'High Pacing City Drift',
       aspect: '9:16',
+      durationSec: 15.0,
       url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
       thumb: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=200&q=80'
     },
     {
-      id: 'media-6',
+      id: 'stock-6',
       type: 'photo',
-      title: 'Product Bottle Hero Shot',
+      name: 'Product Bottle Hero Shot',
       aspect: '9:16',
       url: 'https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?w=800&q=80',
-      thumb: 'https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?w=200&q=80'
+      thumb: 'https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?w=200&q=80',
+      adjustments: { brightness: 0, contrast: 120, exposure: 0, saturation: 105, temperature: 0, vignette: 10 }
     }
   ];
 
   // ── SIMULATOR STATE MODEL ────────────────────────────────────────────────
   const SimulatorState = {
     currentTab: 'editor',
-    activeProject: {
-      id: 'proj-1',
-      name: 'MetalCraft Soham',
-      isFavorite: true,
-      modified: 'Today at 12:33 AM',
-      photoCount: 8,
-      videoCount: 1,
-      audioCount: 1,
-      media: [...SAMPLE_MEDIA]
+    hardware: {
+      volume: 70, // 0 to 100
+      isSilent: false,
+      isLocked: false,
+      volumeTimer: null,
+      bannerTimer: null
     },
-    projects: [
-      {
-        id: 'proj-1',
-        name: 'MetalCraft Soham',
-        isFavorite: true,
-        modified: 'Today at 12:33 AM',
-        photoCount: 8,
-        videoCount: 1,
-        audioCount: 1,
-        media: [...SAMPLE_MEDIA]
-      },
-      {
-        id: 'proj-2',
-        name: 'Cyberpunk Reel 2026',
-        isFavorite: true,
-        modified: 'Yesterday at 8:45 PM',
-        photoCount: 4,
-        videoCount: 2,
-        audioCount: 1,
-        media: [SAMPLE_MEDIA[0], SAMPLE_MEDIA[4]]
-      },
-      {
-        id: 'proj-3',
-        name: 'Golden Hour Coast',
-        isFavorite: false,
-        modified: 'Aug 14 at 4:10 PM',
-        photoCount: 6,
-        videoCount: 1,
-        audioCount: 1,
-        media: [SAMPLE_MEDIA[1]]
-      },
-      {
-        id: 'proj-4',
-        name: 'First Project',
-        isFavorite: false,
-        modified: 'Aug 12 at 11:20 AM',
-        photoCount: 1,
-        videoCount: 1,
-        audioCount: 0,
-        media: [SAMPLE_MEDIA[3]]
-      }
-    ],
+    projects: [],
+    activeProject: null,
     editor: {
       activeMedia: null,
+      activeMediaType: 'photo', // 'photo' or 'video'
       adjustments: {
-        exposure: 0,
-        contrast: 100,
-        saturation: 100,
-        vignette: 0
-      }
+        exposure: 0,     // -100 to 100
+        contrast: 100,   // 50 to 200
+        saturation: 100, // 0 to 200
+        brightness: 0,   // -100 to 100
+        temperature: 0,  // -50 to 50
+        vignette: 0      // 0 to 100
+      },
+      currentPreset: 'original'
     },
     aiCreate: {
       chatMessages: [],
       currentPlan: null,
       isGenerating: false,
-      aspectRatio: '9:16',
-      soundtrack: 'Auto Match'
+      aspectRatio: '9:16'
     },
     dynamicIsland: {
       state: 'ready',
-      text: 'Gemini Ready',
+      text: 'Ready',
       progress: 0
     }
   };
@@ -171,7 +137,6 @@
         sec.classList.toggle('active', isMatch);
       });
 
-      // Data fetching for active section
       if (targetView === 'real-devices') {
         fetchRealDevices();
       } else if (targetView === 'ai-pipeline') {
@@ -192,7 +157,6 @@
       });
     });
 
-    // Brand logo returns to Simulator
     const brandLogo = document.getElementById('brand-logo-btn');
     if (brandLogo) {
       brandLogo.addEventListener('click', () => {
@@ -201,7 +165,6 @@
       });
     }
 
-    // Header pills route to respective views
     const headerDevPill = document.getElementById('header-device-pill');
     if (headerDevPill) {
       headerDevPill.addEventListener('click', () => {
@@ -218,7 +181,6 @@
       });
     }
 
-    // Simulator quick action button
     const btnQuickSwitch = document.getElementById('btn-quick-switch-real');
     if (btnQuickSwitch) {
       btnQuickSwitch.addEventListener('click', () => {
@@ -227,7 +189,6 @@
       });
     }
 
-    // Respond to Hash Change events
     window.addEventListener('hashchange', () => {
       const currentHash = window.location.hash.replace('#', '');
       if (currentHash && document.getElementById(`view-${currentHash}`)) {
@@ -235,7 +196,6 @@
       }
     });
 
-    // Initial Route Detection on Load
     const initialHash = window.location.hash.replace('#', '');
     if (initialHash && document.getElementById(`view-${initialHash}`)) {
       switchView(initialHash);
@@ -270,7 +230,6 @@
           content.classList.toggle('active', content.id === `obstab-${tabKey}`);
         });
 
-        // Trigger on-demand data loads
         if (tabKey === 'requests') fetchObservabilityRequests();
         else if (tabKey === 'devices') fetchObservabilityDevices();
         else if (tabKey === 'audit') fetchObservabilityAudit();
@@ -299,230 +258,716 @@
     applyTheme(savedTheme);
   }
 
-  // ── 4. DYNAMIC ISLAND ENGINE ─────────────────────────────────────────────
+  // ── 4. DYNAMIC ISLAND ENGINE (Minimal Apple System Status - NO Gemini) ───
   function updateDynamicIsland(state, text, progress = 0) {
     const di = document.getElementById('dynamic-island');
-    const diIcon = document.getElementById('di-icon');
+    const diDot = document.getElementById('di-icon-dot');
     const diText = document.getElementById('di-text');
     const diProgressWrap = document.getElementById('di-progress-wrap');
     const diProgressFill = document.getElementById('di-progress-fill');
 
-    if (!di || !diIcon || !diText) return;
+    if (!di || !diDot || !diText) return;
 
     SimulatorState.dynamicIsland.state = state;
     SimulatorState.dynamicIsland.text = text;
     SimulatorState.dynamicIsland.progress = progress;
 
     diText.textContent = text;
-    diIcon.className = 'di-icon';
 
     if (state === 'idle' || state === 'ready') {
       di.classList.remove('expanded');
-      diIcon.textContent = '●';
-      diIcon.classList.add('done');
+      diDot.style.background = 'var(--accent-green)';
+      diDot.style.boxShadow = '0 0 8px var(--accent-green)';
       if (diProgressWrap) diProgressWrap.style.display = 'none';
     } else if (state === 'thinking' || state === 'planning') {
       di.classList.add('expanded');
-      diIcon.textContent = '✦';
-      diIcon.classList.add('thinking');
+      diDot.style.background = 'var(--accent-purple)';
+      diDot.style.boxShadow = '0 0 8px var(--accent-purple)';
       if (diProgressWrap) diProgressWrap.style.display = 'none';
     } else if (state === 'rendering') {
       di.classList.add('expanded');
-      diIcon.textContent = '◉';
-      diIcon.classList.add('rendering');
+      diDot.style.background = 'var(--accent-cyan)';
+      diDot.style.boxShadow = '0 0 8px var(--accent-cyan)';
       if (diProgressWrap) {
         diProgressWrap.style.display = 'block';
         if (diProgressFill) diProgressFill.style.width = `${progress}%`;
       }
     } else if (state === 'done') {
       di.classList.add('expanded');
-      diIcon.textContent = '✓';
-      diIcon.classList.add('done');
+      diDot.style.background = 'var(--accent-green)';
+      diDot.style.boxShadow = '0 0 8px var(--accent-green)';
       if (diProgressWrap) diProgressWrap.style.display = 'none';
       setTimeout(() => {
-        updateDynamicIsland('ready', 'Gemini Ready');
+        updateDynamicIsland('ready', 'Ready');
       }, 3500);
     } else if (state === 'error') {
       di.classList.add('expanded');
-      diIcon.textContent = '✕';
-      diIcon.classList.add('error');
+      diDot.style.background = 'var(--accent-red)';
+      diDot.style.boxShadow = '0 0 8px var(--accent-red)';
       if (diProgressWrap) diProgressWrap.style.display = 'none';
     }
   }
 
-  // ── 5. SIMULATOR ENGINE ──────────────────────────────────────────────────
-  function initSimulator() {
-    const tabButtons = document.querySelectorAll('.ios-tab-bar .tab-item');
-    const tabPanels = document.querySelectorAll('.ios-tab-content .tab-panel');
+  // ── 5. PHYSICAL IPHONE HARDWARE BUTTONS & OVERLAYS ─────────────────────────
+  function initHardwareButtons() {
+    const btnVolUp = document.getElementById('hw-btn-vol-up');
+    const btnVolDown = document.getElementById('hw-btn-vol-down');
+    const btnAction = document.getElementById('hw-btn-action');
+    const btnPower = document.getElementById('hw-btn-power');
 
-    function switchSimTab(tabName) {
-      SimulatorState.currentTab = tabName;
+    const volHud = document.getElementById('sim-volume-hud');
+    const volFill = document.getElementById('hud-vol-fill');
+    const volPct = document.getElementById('hud-vol-pct');
+    const hudIcon = document.getElementById('hud-icon');
 
-      tabButtons.forEach(btn => {
-        btn.classList.toggle('active', btn.getAttribute('data-tab') === tabName);
-      });
+    const bannerHud = document.getElementById('sim-banner-hud');
+    const bannerText = document.getElementById('banner-hud-text');
+    const lockOverlay = document.getElementById('sim-lock-overlay');
 
-      tabPanels.forEach(panel => {
-        panel.classList.toggle('active', panel.id === `panel-${tabName}`);
-      });
+    function showVolumeHud() {
+      if (!volHud || !volFill || !volPct) return;
+      volFill.style.width = `${SimulatorState.hardware.volume}%`;
+      volPct.textContent = `${SimulatorState.hardware.volume}%`;
+      hudIcon.textContent = SimulatorState.hardware.volume === 0 ? '🔇' : '🔊';
 
-      closeAllSimSheets();
+      volHud.classList.add('visible');
+      if (SimulatorState.hardware.volumeTimer) clearTimeout(SimulatorState.hardware.volumeTimer);
+      SimulatorState.hardware.volumeTimer = setTimeout(() => {
+        volHud.classList.remove('visible');
+      }, 1800);
     }
 
-    tabButtons.forEach(btn => {
-      btn.addEventListener('click', () => {
-        const tab = btn.getAttribute('data-tab');
-        switchSimTab(tab);
+    function showBannerHud(text) {
+      if (!bannerHud || !bannerText) return;
+      bannerText.textContent = text;
+      bannerHud.classList.add('visible');
+      if (SimulatorState.hardware.bannerTimer) clearTimeout(SimulatorState.hardware.bannerTimer);
+      SimulatorState.hardware.bannerTimer = setTimeout(() => {
+        bannerHud.classList.remove('visible');
+      }, 2000);
+    }
+
+    if (btnVolUp) {
+      btnVolUp.addEventListener('click', () => {
+        btnVolUp.classList.add('pressed');
+        setTimeout(() => btnVolUp.classList.remove('pressed'), 120);
+        SimulatorState.hardware.volume = Math.min(100, SimulatorState.hardware.volume + 10);
+        showVolumeHud();
+        logSimulatorEvent(`Hardware Volume Up: ${SimulatorState.hardware.volume}%`);
       });
+    }
+
+    if (btnVolDown) {
+      btnVolDown.addEventListener('click', () => {
+        btnVolDown.classList.add('pressed');
+        setTimeout(() => btnVolDown.classList.remove('pressed'), 120);
+        SimulatorState.hardware.volume = Math.max(0, SimulatorState.hardware.volume - 10);
+        showVolumeHud();
+        logSimulatorEvent(`Hardware Volume Down: ${SimulatorState.hardware.volume}%`);
+      });
+    }
+
+    if (btnAction) {
+      btnAction.addEventListener('click', () => {
+        btnAction.classList.add('pressed');
+        setTimeout(() => btnAction.classList.remove('pressed'), 120);
+        SimulatorState.hardware.isSilent = !SimulatorState.hardware.isSilent;
+        const msg = SimulatorState.hardware.isSilent ? '🔕 Silent Mode On' : '🔔 Silent Mode Off';
+        showBannerHud(msg);
+        logSimulatorEvent(msg);
+      });
+    }
+
+    if (btnPower) {
+      btnPower.addEventListener('click', () => {
+        btnPower.classList.add('pressed');
+        setTimeout(() => btnPower.classList.remove('pressed'), 120);
+        SimulatorState.hardware.isLocked = !SimulatorState.hardware.isLocked;
+        if (lockOverlay) {
+          lockOverlay.classList.toggle('locked', SimulatorState.hardware.isLocked);
+        }
+        logSimulatorEvent(SimulatorState.hardware.isLocked ? 'Device Locked' : 'Device Unlocked');
+      });
+    }
+
+    if (lockOverlay) {
+      lockOverlay.addEventListener('click', () => {
+        SimulatorState.hardware.isLocked = false;
+        lockOverlay.classList.remove('locked');
+        logSimulatorEvent('Device Unlocked via Tap');
+      });
+    }
+  }
+
+  // ── 6. PROJECT & MEDIA MANAGEMENT ENGINE ──────────────────────────────────
+  async function fetchProjectsFromBackend() {
+    try {
+      const resp = await fetch('/api/v1/projects');
+      if (resp.ok) {
+        const data = await resp.json();
+        SimulatorState.projects = data.projects || [];
+        if (SimulatorState.projects.length > 0) {
+          if (!SimulatorState.activeProject) {
+            SimulatorState.activeProject = SimulatorState.projects[0];
+          }
+        }
+        renderProjectsList('all');
+        updateProjectContext();
+      }
+    } catch (err) {
+      console.warn('Could not fetch projects:', err);
+    }
+  }
+
+  function renderProjectsList(filter = 'all') {
+    const listElem = document.getElementById('sim-projects-list');
+    if (!listElem) return;
+    listElem.innerHTML = '';
+
+    let projs = SimulatorState.projects;
+    if (filter === 'favorites') projs = projs.filter(p => p.isFavorite);
+
+    if (projs.length === 0) {
+      listElem.innerHTML = `<p style="text-align:center;color:var(--text-tertiary);padding:24px;">No projects found.</p>`;
+      return;
+    }
+
+    projs.forEach(proj => {
+      const row = document.createElement('div');
+      row.className = 'project-row';
+      const photosCount = proj.photos ? proj.photos.length : (proj.photoCount || 0);
+      const videosCount = proj.videos ? proj.videos.length : (proj.videoCount || 0);
+
+      row.innerHTML = `
+        <span class="project-star" title="Favorite">${proj.isFavorite ? '⭐' : '☆'}</span>
+        <div class="project-info">
+          <div class="project-name">${proj.name}</div>
+          <div class="project-meta">
+            <span>${photosCount} Photos, ${videosCount} Videos</span>
+            <span class="project-meta-dot">·</span>
+            <span>${proj.aspectRatio || '9:16'}</span>
+          </div>
+        </div>
+        <div class="project-chevron">›</div>
+      `;
+
+      row.querySelector('.project-star').addEventListener('click', async (e) => {
+        e.stopPropagation();
+        proj.isFavorite = !proj.isFavorite;
+        renderProjectsList(filter);
+        await saveProjectMetadata(proj);
+      });
+
+      // Clicking project opens the dedicated Project Detail Screen!
+      row.addEventListener('click', () => {
+        openProjectDetail(proj);
+      });
+
+      listElem.appendChild(row);
     });
 
-    // ── SIMULATOR MODAL SHEETS ──
-    const overlay = document.getElementById('sim-sheet-overlay');
+    const tabBadge = document.getElementById('sim-tab-project-count');
+    if (tabBadge) tabBadge.textContent = SimulatorState.projects.length;
+  }
 
-    function openSimSheet(sheetId) {
-      if (overlay) overlay.classList.add('active');
-      const sheet = document.getElementById(sheetId);
-      if (sheet) sheet.classList.add('active');
+  function openProjectDetail(project) {
+    SimulatorState.activeProject = project;
+    updateProjectContext();
+
+    const titleElem = document.getElementById('detail-project-title');
+    const nameElem = document.getElementById('detail-card-name');
+    const aspectElem = document.getElementById('detail-badge-aspect');
+    const durationElem = document.getElementById('detail-badge-duration');
+    const photoCountElem = document.getElementById('detail-photo-count');
+    const videoCountElem = document.getElementById('detail-video-count');
+    const favBtn = document.getElementById('detail-project-fav-btn');
+
+    if (titleElem) titleElem.textContent = project.name;
+    if (nameElem) nameElem.textContent = project.name;
+    if (aspectElem) aspectElem.textContent = project.aspectRatio || '9:16';
+    if (durationElem) durationElem.textContent = `${project.targetDurationSec || 15.0}s`;
+    if (favBtn) favBtn.textContent = project.isFavorite ? '⭐' : '☆';
+
+    // Populate Photos Grid
+    const photosGrid = document.getElementById('detail-photos-grid');
+    if (photosGrid) {
+      photosGrid.innerHTML = '';
+      const photos = project.photos || [];
+      if (photoCountElem) photoCountElem.textContent = `${photos.length} Photos`;
+
+      if (photos.length === 0) {
+        photosGrid.innerHTML = `<p style="font-size:11px;color:var(--text-tertiary);grid-column:1/-1;text-align:center;padding:12px;">No photos in project.</p>`;
+      } else {
+        photos.forEach(photo => {
+          const card = document.createElement('div');
+          card.className = 'detail-media-thumb-card';
+          card.innerHTML = `
+            <img src="${photo.thumb || photo.url}" alt="${photo.name}">
+            <span class="detail-media-badge">PHOTO</span>
+          `;
+          // Clicking any photo loads it directly into the Metal Editor!
+          card.addEventListener('click', () => {
+            loadMediaIntoEditor(photo, 'photo');
+            switchSimTab('editor');
+          });
+          photosGrid.appendChild(card);
+        });
+      }
     }
 
-    function closeAllSimSheets() {
-      if (overlay) overlay.classList.remove('active');
-      document.querySelectorAll('.sim-sheet').forEach(sheet => {
-        sheet.classList.remove('active');
+    // Populate Videos Grid
+    const videosGrid = document.getElementById('detail-videos-grid');
+    if (videosGrid) {
+      videosGrid.innerHTML = '';
+      const videos = project.videos || [];
+      if (videoCountElem) videoCountElem.textContent = `${videos.length} Videos`;
+
+      if (videos.length === 0) {
+        videosGrid.innerHTML = `<p style="font-size:11px;color:var(--text-tertiary);grid-column:1/-1;text-align:center;padding:12px;">No video artifacts yet.</p>`;
+      } else {
+        videos.forEach(video => {
+          const card = document.createElement('div');
+          card.className = 'detail-media-thumb-card';
+          card.innerHTML = `
+            <img src="${video.thumb || 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=200&q=80'}" alt="${video.name}">
+            <span class="detail-media-badge">▶ VIDEO</span>
+          `;
+          card.addEventListener('click', () => {
+            loadMediaIntoEditor(video, 'video');
+            switchSimTab('editor');
+          });
+          videosGrid.appendChild(card);
+        });
+      }
+    }
+
+    // Populate Soundtrack Info
+    const audioTitle = document.getElementById('detail-audio-title');
+    const audioGenre = document.getElementById('detail-audio-genre');
+    if (project.soundtrack) {
+      if (audioTitle) audioTitle.textContent = project.soundtrack.title || 'Soundtrack';
+      if (audioGenre) audioGenre.textContent = `${project.soundtrack.tempoBpm || 120} BPM · ${project.soundtrack.genre || 'Cinematic'}`;
+    }
+
+    // Switch simulator interior to Project Detail Panel
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    const detailPanel = document.getElementById('panel-project-detail');
+    if (detailPanel) detailPanel.classList.add('active');
+
+    logSimulatorEvent(`Opened Project Detail: '${project.name}'`);
+  }
+
+  function initProjectDetailControls() {
+    const backBtn = document.getElementById('project-detail-back-btn');
+    if (backBtn) {
+      backBtn.addEventListener('click', () => {
+        switchSimTab('projects');
       });
     }
 
-    if (overlay) {
-      overlay.addEventListener('click', closeAllSimSheets);
+    const btnAiStudio = document.getElementById('detail-btn-ai-create');
+    if (btnAiStudio) {
+      btnAiStudio.addEventListener('click', () => {
+        switchSimTab('ai-create');
+      });
     }
 
-    // ── TAB 1: EDITOR LOGIC & CANVAS FILTERS ──
+    const btnOpenEditor = document.getElementById('detail-btn-open-editor');
+    if (btnOpenEditor) {
+      btnOpenEditor.addEventListener('click', () => {
+        if (SimulatorState.activeProject && SimulatorState.activeProject.photos && SimulatorState.activeProject.photos.length > 0) {
+          loadMediaIntoEditor(SimulatorState.activeProject.photos[0], 'photo');
+        }
+        switchSimTab('editor');
+      });
+    }
+
+    const btnAddMedia = document.getElementById('detail-btn-add-media');
+    if (btnAddMedia) {
+      btnAddMedia.addEventListener('click', () => {
+        openMediaImportSheet();
+      });
+    }
+
+    const btnDeleteProj = document.getElementById('detail-btn-delete-proj');
+    if (btnDeleteProj) {
+      btnDeleteProj.addEventListener('click', async () => {
+        if (!SimulatorState.activeProject) return;
+        if (confirm(`Are you sure you want to delete '${SimulatorState.activeProject.name}'?`)) {
+          try {
+            await fetch(`/api/v1/projects/${SimulatorState.activeProject.id}`, { method: 'DELETE' });
+            SimulatorState.projects = SimulatorState.projects.filter(p => p.id !== SimulatorState.activeProject.id);
+            SimulatorState.activeProject = SimulatorState.projects[0] || null;
+            renderProjectsList('all');
+            switchSimTab('projects');
+            logSimulatorEvent('Project deleted.');
+          } catch (e) {
+            console.error('Delete project failed:', e);
+          }
+        }
+      });
+    }
+  }
+
+  async function saveProjectMetadata(project) {
+    try {
+      await fetch('/api/v1/projects', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: project.id,
+          name: project.name,
+          isFavorite: project.isFavorite,
+          photos: project.photos,
+          videos: project.videos,
+          soundtrack: project.soundtrack
+        })
+      });
+    } catch (e) {
+      console.warn('Failed to persist project:', e);
+    }
+  }
+
+  function updateProjectContext() {
+    if (!SimulatorState.activeProject) return;
+    const p = SimulatorState.activeProject;
+
+    const activeName = document.getElementById('ai-active-project-name');
+    const heroPill = document.getElementById('ai-hero-project-pill');
+    const ctxMedia = document.getElementById('ctx-media-label');
+    const ctxAudio = document.getElementById('ctx-audio-label');
+
+    const photosCount = p.photos ? p.photos.length : 0;
+    const videosCount = p.videos ? p.videos.length : 0;
+
+    if (activeName) activeName.textContent = p.name;
+    if (heroPill) heroPill.textContent = `Selected: '${p.name}'`;
+    if (ctxMedia) ctxMedia.textContent = `${photosCount} Photos · ${videosCount} Videos`;
+    if (ctxAudio && p.soundtrack) ctxAudio.textContent = p.soundtrack.title;
+  }
+
+  // ── 7. SIMULATOR EDITOR & LIVE METAL GPU CANVAS ENGINE ───────────────────
+  function switchSimTab(tabName) {
+    SimulatorState.currentTab = tabName;
+
+    document.querySelectorAll('.ios-tab-bar .tab-item').forEach(btn => {
+      btn.classList.toggle('active', btn.getAttribute('data-tab') === tabName);
+    });
+
+    document.querySelectorAll('.ios-tab-content .tab-panel').forEach(panel => {
+      panel.classList.toggle('active', panel.id === `panel-${tabName}`);
+    });
+
+    closeAllSimSheets();
+  }
+
+  function initEditor() {
     const editorCanvas = document.getElementById('editor-canvas');
+    const editorPreviewImg = document.getElementById('editor-preview-img');
+    const editorVideoElem = document.getElementById('editor-video-elem');
     const editorMediaView = document.getElementById('editor-media-view');
     const editorEmptyView = document.getElementById('editor-empty-view');
-    const editorBtnReset = document.getElementById('editor-btn-reset');
+    const editorTitle = document.getElementById('editor-title');
+    const btnSave = document.getElementById('editor-btn-save');
+    const btnReset = document.getElementById('editor-btn-reset');
 
     const adjExposure = document.getElementById('adj-exposure');
     const adjContrast = document.getElementById('adj-contrast');
     const adjSaturation = document.getElementById('adj-saturation');
+    const adjBrightness = document.getElementById('adj-brightness');
+    const adjTemperature = document.getElementById('adj-temperature');
     const adjVignette = document.getElementById('adj-vignette');
 
     const adjExposureVal = document.getElementById('adj-exposure-val');
     const adjContrastVal = document.getElementById('adj-contrast-val');
     const adjSaturationVal = document.getElementById('adj-saturation-val');
+    const adjBrightnessVal = document.getElementById('adj-brightness-val');
+    const adjTemperatureVal = document.getElementById('adj-temperature-val');
     const adjVignetteVal = document.getElementById('adj-vignette-val');
 
-    function updateCanvasFilters() {
-      if (!editorCanvas) return;
-      const exp = SimulatorState.editor.adjustments.exposure;
-      const con = SimulatorState.editor.adjustments.contrast;
-      const sat = SimulatorState.editor.adjustments.saturation;
+    // Filter Preset Buttons
+    document.querySelectorAll('.editor-presets-bar .preset-pill').forEach(pill => {
+      pill.addEventListener('click', () => {
+        document.querySelectorAll('.editor-presets-bar .preset-pill').forEach(p => p.classList.remove('active'));
+        pill.classList.add('active');
+        applyPreset(pill.getAttribute('data-preset'));
+      });
+    });
 
-      const brightness = 100 + exp;
-      editorCanvas.style.filter = `brightness(${brightness}%) contrast(${con}%) saturate(${sat}%)`;
+    function applyPreset(presetName) {
+      SimulatorState.editor.currentPreset = presetName;
+      let adj = { exposure: 0, contrast: 100, saturation: 100, brightness: 0, temperature: 0, vignette: 0 };
+
+      if (presetName === 'cinematic') {
+        adj = { exposure: 5, contrast: 125, saturation: 110, brightness: 0, temperature: 15, vignette: 20 };
+      } else if (presetName === 'cyberpunk') {
+        adj = { exposure: 0, contrast: 140, saturation: 150, brightness: -5, temperature: -25, vignette: 30 };
+      } else if (presetName === 'noir') {
+        adj = { exposure: 10, contrast: 150, saturation: 0, brightness: 0, temperature: 0, vignette: 40 };
+      } else if (presetName === 'golden') {
+        adj = { exposure: 10, contrast: 110, saturation: 120, brightness: 5, temperature: 35, vignette: 10 };
+      } else if (presetName === 'vivid') {
+        adj = { exposure: 5, contrast: 130, saturation: 140, brightness: 0, temperature: 5, vignette: 0 };
+      }
+
+      SimulatorState.editor.adjustments = adj;
+      syncSliderInputs();
+      renderLiveCanvas();
     }
 
-    function loadMediaIntoEditor(mediaItem) {
-      SimulatorState.editor.activeMedia = mediaItem;
-      if (editorCanvas && editorMediaView && editorEmptyView) {
-        editorCanvas.src = mediaItem.url;
-        editorEmptyView.style.display = 'none';
-        editorMediaView.style.display = 'flex';
-        if (editorBtnReset) editorBtnReset.style.display = 'flex';
-        updateCanvasFilters();
-        logSimulatorEvent(`Loaded '${mediaItem.title}' into Metal GPU Canvas Editor`);
+    function syncSliderInputs() {
+      const a = SimulatorState.editor.adjustments;
+      if (adjExposure) adjExposure.value = a.exposure;
+      if (adjContrast) adjContrast.value = a.contrast;
+      if (adjSaturation) adjSaturation.value = a.saturation;
+      if (adjBrightness) adjBrightness.value = a.brightness;
+      if (adjTemperature) adjTemperature.value = a.temperature;
+      if (adjVignette) adjVignette.value = a.vignette;
+
+      if (adjExposureVal) adjExposureVal.textContent = (a.exposure / 50).toFixed(1);
+      if (adjContrastVal) adjContrastVal.textContent = (a.contrast / 100).toFixed(1);
+      if (adjSaturationVal) adjSaturationVal.textContent = (a.saturation / 100).toFixed(1);
+      if (adjBrightnessVal) adjBrightnessVal.textContent = a.brightness;
+      if (adjTemperatureVal) adjTemperatureVal.textContent = a.temperature;
+      if (adjVignetteVal) adjVignetteVal.textContent = `${a.vignette}%`;
+    }
+
+    function renderLiveCanvas() {
+      if (!editorCanvas || !SimulatorState.editor.activeMedia) return;
+      if (SimulatorState.editor.activeMediaType === 'video') return;
+
+      const img = editorPreviewImg;
+      if (!img || !img.complete || img.naturalWidth === 0) return;
+
+      const ctx = editorCanvas.getContext('2d');
+      editorCanvas.width = img.naturalWidth || 600;
+      editorCanvas.height = img.naturalHeight || 800;
+
+      const a = SimulatorState.editor.adjustments;
+      const b = 100 + a.brightness + (a.exposure * 0.8);
+      const c = a.contrast;
+      const s = a.saturation;
+      const h = a.temperature * 0.5; // subtle hue shift
+
+      ctx.filter = `brightness(${b}%) contrast(${c}%) saturate(${s}%) hue-rotate(${h}deg)`;
+      ctx.drawImage(img, 0, 0, editorCanvas.width, editorCanvas.height);
+
+      // Vignette Shader Simulation
+      if (a.vignette > 0) {
+        const radius = Math.max(editorCanvas.width, editorCanvas.height) / 1.5;
+        const grad = ctx.createRadialGradient(
+          editorCanvas.width / 2, editorCanvas.height / 2, radius * 0.3,
+          editorCanvas.width / 2, editorCanvas.height / 2, radius
+        );
+        const alpha = a.vignette / 100 * 0.7;
+        grad.addColorStop(0, 'rgba(0,0,0,0)');
+        grad.addColorStop(1, `rgba(0,0,0,${alpha})`);
+        ctx.filter = 'none';
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, editorCanvas.width, editorCanvas.height);
       }
     }
 
+    window.loadMediaIntoEditor = function (mediaItem, type = 'photo') {
+      SimulatorState.editor.activeMedia = mediaItem;
+      SimulatorState.editor.activeMediaType = type;
+
+      if (editorTitle) editorTitle.textContent = mediaItem.name || 'Metal Editor';
+      if (editorEmptyView) editorEmptyView.style.display = 'none';
+      if (editorMediaView) editorMediaView.style.display = 'flex';
+      if (btnSave) btnSave.style.display = 'flex';
+      if (btnReset) btnReset.style.display = 'flex';
+
+      if (mediaItem.adjustments) {
+        SimulatorState.editor.adjustments = { ...SimulatorState.editor.adjustments, ...mediaItem.adjustments };
+        syncSliderInputs();
+      }
+
+      if (type === 'video') {
+        if (editorCanvas) editorCanvas.style.display = 'none';
+        if (editorPreviewImg) editorPreviewImg.style.display = 'none';
+        if (editorVideoElem) {
+          editorVideoElem.src = mediaItem.url;
+          editorVideoElem.style.display = 'block';
+        }
+      } else {
+        if (editorVideoElem) editorVideoElem.style.display = 'none';
+        if (editorCanvas) editorCanvas.style.display = 'block';
+        if (editorPreviewImg) {
+          editorPreviewImg.onload = () => renderLiveCanvas();
+          editorPreviewImg.src = mediaItem.url;
+        }
+      }
+
+      logSimulatorEvent(`Loaded '${mediaItem.name}' into Metal GPU Canvas Editor`);
+    };
+
+    // Sliders Input Listeners
     if (adjExposure) {
       adjExposure.addEventListener('input', (e) => {
-        const val = parseInt(e.target.value, 10);
-        SimulatorState.editor.adjustments.exposure = val;
-        if (adjExposureVal) adjExposureVal.textContent = (val / 50).toFixed(1);
-        updateCanvasFilters();
+        SimulatorState.editor.adjustments.exposure = parseInt(e.target.value, 10);
+        if (adjExposureVal) adjExposureVal.textContent = (SimulatorState.editor.adjustments.exposure / 50).toFixed(1);
+        renderLiveCanvas();
       });
     }
 
     if (adjContrast) {
       adjContrast.addEventListener('input', (e) => {
-        const val = parseInt(e.target.value, 10);
-        SimulatorState.editor.adjustments.contrast = val;
-        if (adjContrastVal) adjContrastVal.textContent = (val / 100).toFixed(1);
-        updateCanvasFilters();
+        SimulatorState.editor.adjustments.contrast = parseInt(e.target.value, 10);
+        if (adjContrastVal) adjContrastVal.textContent = (SimulatorState.editor.adjustments.contrast / 100).toFixed(1);
+        renderLiveCanvas();
       });
     }
 
     if (adjSaturation) {
       adjSaturation.addEventListener('input', (e) => {
-        const val = parseInt(e.target.value, 10);
-        SimulatorState.editor.adjustments.saturation = val;
-        if (adjSaturationVal) adjSaturationVal.textContent = (val / 100).toFixed(1);
-        updateCanvasFilters();
+        SimulatorState.editor.adjustments.saturation = parseInt(e.target.value, 10);
+        if (adjSaturationVal) adjSaturationVal.textContent = (SimulatorState.editor.adjustments.saturation / 100).toFixed(1);
+        renderLiveCanvas();
+      });
+    }
+
+    if (adjBrightness) {
+      adjBrightness.addEventListener('input', (e) => {
+        SimulatorState.editor.adjustments.brightness = parseInt(e.target.value, 10);
+        if (adjBrightnessVal) adjBrightnessVal.textContent = SimulatorState.editor.adjustments.brightness;
+        renderLiveCanvas();
+      });
+    }
+
+    if (adjTemperature) {
+      adjTemperature.addEventListener('input', (e) => {
+        SimulatorState.editor.adjustments.temperature = parseInt(e.target.value, 10);
+        if (adjTemperatureVal) adjTemperatureVal.textContent = SimulatorState.editor.adjustments.temperature;
+        renderLiveCanvas();
       });
     }
 
     if (adjVignette) {
       adjVignette.addEventListener('input', (e) => {
-        const val = parseInt(e.target.value, 10);
-        SimulatorState.editor.adjustments.vignette = val;
-        if (adjVignetteVal) adjVignetteVal.textContent = `${val}%`;
-        updateCanvasFilters();
+        SimulatorState.editor.adjustments.vignette = parseInt(e.target.value, 10);
+        if (adjVignetteVal) adjVignetteVal.textContent = `${SimulatorState.editor.adjustments.vignette}%`;
+        renderLiveCanvas();
       });
     }
 
-    if (editorBtnReset) {
-      editorBtnReset.addEventListener('click', () => {
-        SimulatorState.editor.adjustments = { exposure: 0, contrast: 100, saturation: 100, vignette: 0 };
-        if (adjExposure) adjExposure.value = 0;
-        if (adjContrast) adjContrast.value = 100;
-        if (adjSaturation) adjSaturation.value = 100;
-        if (adjVignette) adjVignette.value = 0;
-        if (adjExposureVal) adjExposureVal.textContent = '0.0';
-        if (adjContrastVal) adjContrastVal.textContent = '1.0';
-        if (adjSaturationVal) adjSaturationVal.textContent = '1.0';
-        if (adjVignetteVal) adjVignetteVal.textContent = '0%';
-        updateCanvasFilters();
+    if (btnReset) {
+      btnReset.addEventListener('click', () => {
+        applyPreset('original');
+        logSimulatorEvent('Reset editor adjustments to defaults');
       });
     }
 
-    // Editor Action Buttons
-    const btnEditorProjects = document.getElementById('editor-btn-projects');
-    const editorNavProjects = document.getElementById('editor-nav-projects');
-    if (btnEditorProjects) btnEditorProjects.addEventListener('click', () => switchSimTab('projects'));
-    if (editorNavProjects) editorNavProjects.addEventListener('click', () => switchSimTab('projects'));
+    if (btnSave) {
+      btnSave.addEventListener('click', async () => {
+        if (!SimulatorState.editor.activeMedia || !SimulatorState.activeProject) return;
+        SimulatorState.editor.activeMedia.adjustments = { ...SimulatorState.editor.adjustments };
+        await saveProjectMetadata(SimulatorState.activeProject);
+        alert(`Saved Metal GPU adjustments for '${SimulatorState.editor.activeMedia.name}' to project '${SimulatorState.activeProject.name}'!`);
+        logSimulatorEvent(`Saved adjustments for '${SimulatorState.editor.activeMedia.name}'`);
+      });
+    }
 
-    const btnEditorPhoto = document.getElementById('editor-btn-photo');
-    const btnEditorVideo = document.getElementById('editor-btn-video');
-    if (btnEditorPhoto) btnEditorPhoto.addEventListener('click', () => openMediaPickerSheet('photo'));
-    if (btnEditorVideo) btnEditorVideo.addEventListener('click', () => openMediaPickerSheet('video'));
+    const btnNavProjects = document.getElementById('editor-nav-projects');
+    const btnEmptyProjects = document.getElementById('editor-btn-projects');
+    if (btnNavProjects) btnNavProjects.addEventListener('click', () => switchSimTab('projects'));
+    if (btnEmptyProjects) btnEmptyProjects.addEventListener('click', () => switchSimTab('projects'));
 
-    function openMediaPickerSheet(filterType = 'all') {
-      const grid = document.getElementById('sim-media-picker-grid');
-      if (!grid) return;
-      grid.innerHTML = '';
+    const btnEmptyPhoto = document.getElementById('editor-btn-photo');
+    const btnEmptyVideo = document.getElementById('editor-btn-video');
+    if (btnEmptyPhoto) btnEmptyPhoto.addEventListener('click', () => openMediaPickerSheet('photo'));
+    if (btnEmptyVideo) btnEmptyVideo.addEventListener('click', () => openMediaPickerSheet('video'));
+  }
 
-      const items = filterType === 'all' ? SAMPLE_MEDIA : SAMPLE_MEDIA.filter(m => m.type === filterType);
-      items.forEach(item => {
-        const el = document.createElement('div');
-        el.className = 'media-picker-item';
-        el.innerHTML = `
-          <img class="media-picker-thumb" src="${item.thumb}" alt="${item.title}">
-          <span class="media-picker-badge">${item.type === 'video' ? '▶ VIDEO' : 'PHOTO'}</span>
-        `;
-        el.addEventListener('click', () => {
-          loadMediaIntoEditor(item);
+  // ── 8. MEDIA PICKER & MODAL SHEETS ─────────────────────────────────────────
+  const simOverlay = document.getElementById('sim-sheet-overlay');
+
+  function openSimSheet(sheetId) {
+    if (simOverlay) simOverlay.classList.add('active');
+    const sheet = document.getElementById(sheetId);
+    if (sheet) sheet.classList.add('active');
+  }
+
+  function closeAllSimSheets() {
+    if (simOverlay) simOverlay.classList.remove('active');
+    document.querySelectorAll('.sim-sheet').forEach(sheet => {
+      sheet.classList.remove('active');
+    });
+  }
+
+  if (simOverlay) {
+    simOverlay.addEventListener('click', closeAllSimSheets);
+  }
+
+  function openMediaPickerSheet(filterType = 'all') {
+    const grid = document.getElementById('sim-media-picker-grid');
+    if (!grid) return;
+    grid.innerHTML = '';
+
+    const items = filterType === 'all' ? STOCK_MEDIA_LIBRARY : STOCK_MEDIA_LIBRARY.filter(m => m.type === filterType);
+    items.forEach(item => {
+      const el = document.createElement('div');
+      el.className = 'media-picker-item';
+      el.innerHTML = `
+        <img class="media-picker-thumb" src="${item.thumb}" alt="${item.name}">
+        <span class="media-picker-badge">${item.type === 'video' ? '▶ VIDEO' : 'PHOTO'}</span>
+      `;
+      el.addEventListener('click', () => {
+        window.loadMediaIntoEditor(item, item.type);
+        closeAllSimSheets();
+      });
+      grid.appendChild(el);
+    });
+
+    openSimSheet('sheet-media-picker');
+  }
+
+  function openMediaImportSheet() {
+    const grid = document.getElementById('sim-media-picker-grid');
+    if (!grid) return;
+    grid.innerHTML = '';
+
+    STOCK_MEDIA_LIBRARY.forEach(item => {
+      const el = document.createElement('div');
+      el.className = 'media-picker-item';
+      el.innerHTML = `
+        <img class="media-picker-thumb" src="${item.thumb}" alt="${item.name}">
+        <span class="media-picker-badge">${item.type === 'video' ? '▶ VIDEO' : 'PHOTO'}</span>
+      `;
+      el.addEventListener('click', async () => {
+        if (!SimulatorState.activeProject) return;
+        try {
+          await fetch(`/api/v1/projects/${SimulatorState.activeProject.id}/media`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              mediaType: item.type,
+              name: item.name,
+              url: item.url,
+              thumb: item.thumb,
+              durationSec: item.durationSec || 0,
+              adjustments: item.adjustments
+            })
+          });
           closeAllSimSheets();
-        });
-        grid.appendChild(el);
+          await fetchProjectsFromBackend();
+          openProjectDetail(SimulatorState.activeProject);
+          logSimulatorEvent(`Imported '${item.name}' into project.`);
+        } catch (e) {
+          console.error('Import failed:', e);
+        }
       });
+      grid.appendChild(el);
+    });
 
-      openSimSheet('sheet-media-picker');
-    }
+    openSimSheet('sheet-media-picker');
+  }
 
-    const btnCloseMediaPicker = document.getElementById('btn-close-media-picker');
-    if (btnCloseMediaPicker) btnCloseMediaPicker.addEventListener('click', closeAllSimSheets);
+  const btnCloseMediaPicker = document.getElementById('btn-close-media-picker');
+  if (btnCloseMediaPicker) btnCloseMediaPicker.addEventListener('click', closeAllSimSheets);
 
-    // ── TAB 2: AI CREATE STUDIO LOGIC ──
+  // ── 9. AI CREATE STUDIO ENGINE ─────────────────────────────────────────────
+  function initAiCreate() {
     const aiPromptInput = document.getElementById('sim-prompt-input');
     const aiPromptSendBtn = document.getElementById('sim-prompt-send-btn');
     const aiChatBody = document.getElementById('ai-chat-body');
@@ -530,6 +975,11 @@
     const aiHeroView = document.getElementById('ai-hero-view');
     const aiSettingsBtn = document.getElementById('ai-settings-btn');
     const btnCloseAiSettings = document.getElementById('btn-close-ai-settings');
+    const aiProjectPickerBtn = document.getElementById('ai-project-picker-btn');
+
+    if (aiProjectPickerBtn) {
+      aiProjectPickerBtn.addEventListener('click', () => switchSimTab('projects'));
+    }
 
     if (aiSettingsBtn) aiSettingsBtn.addEventListener('click', () => openSimSheet('sheet-ai-settings'));
     if (btnCloseAiSettings) btnCloseAiSettings.addEventListener('click', closeAllSimSheets);
@@ -567,16 +1017,16 @@
       if (aiHeroView) aiHeroView.style.display = 'none';
       if (aiPromptInput) aiPromptInput.value = '';
 
-      // Append User Message
       appendChatMessage('user', promptText);
-      updateDynamicIsland('thinking', 'Gemini Thinking…');
+      updateDynamicIsland('thinking', 'Processing…');
       logSimulatorEvent(`AI Create prompt submitted: "${promptText}"`);
 
-      // Update Side Info
       const genStatus = document.getElementById('sim-gen-status');
       const genGoal = document.getElementById('sim-gen-goal');
       if (genStatus) genStatus.textContent = 'Planning…';
       if (genGoal) genGoal.textContent = promptText;
+
+      const proj = SimulatorState.activeProject || { id: 'proj-1', name: 'MetalCraft Project' };
 
       try {
         const resp = await fetch('/api/v1/agent/create', {
@@ -584,8 +1034,8 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             prompt: promptText,
-            projectId: SimulatorState.activeProject.id,
-            projectName: SimulatorState.activeProject.name,
+            projectId: proj.id,
+            projectName: proj.name,
             aspectRatio: SimulatorState.aiCreate.aspectRatio
           })
         });
@@ -674,7 +1124,7 @@
       });
 
       card.querySelector('#btn-plan-approve').addEventListener('click', () => {
-        card.querySelector('.plan-actions').innerHTML = `<span style="font-size:10px;color:var(--accent-green);">✓ Plan Approved. Initiating simulated Metal GPU render…</span>`;
+        card.querySelector('.plan-actions').innerHTML = `<span style="font-size:10px;color:var(--accent-green);">✓ Plan Approved. Initiating Apple Metal GPU render pass…</span>`;
         startSimulatedGeneration(plan);
       });
 
@@ -688,7 +1138,7 @@
       progressCard.className = 'gen-progress-card';
       progressCard.innerHTML = `
         <div class="gen-progress-header">
-          <span>Simulated Apple Metal GPU</span>
+          <span>Apple Metal GPU Rendering</span>
           <span id="gen-pct">0%</span>
         </div>
         <div class="gen-progress-bar">
@@ -722,12 +1172,12 @@
         else statusText = 'Validating MP4 H.264 Container…';
 
         if (msg) msg.textContent = statusText;
-        updateDynamicIsland('rendering', `Simulated GPU ${currentPct}%`, currentPct);
+        updateDynamicIsland('rendering', `GPU ${currentPct}%`, currentPct);
 
         if (currentPct >= 100) {
           clearInterval(interval);
           if (genStatusSide) genStatusSide.textContent = 'Complete';
-          updateDynamicIsland('done', 'Render Complete ✓');
+          updateDynamicIsland('done', 'Complete ✓');
           renderVideoResultCard(plan);
         }
       }, 350);
@@ -753,17 +1203,32 @@
       `;
 
       card.querySelector('#btn-play-preview-thumb').addEventListener('click', () => {
-        openVideoPlayerModal(SAMPLE_MEDIA[4].url, plan.goal);
+        openVideoPlayerModal(STOCK_MEDIA_LIBRARY[4].url, plan.goal);
       });
 
-      card.querySelector('#btn-add-to-project').addEventListener('click', () => {
-        SimulatorState.activeProject.videoCount += 1;
-        updateProjectBadges();
-        alert(`Artifact added to project '${SimulatorState.activeProject.name}'!`);
+      card.querySelector('#btn-add-to-project').addEventListener('click', async () => {
+        if (!SimulatorState.activeProject) return;
+        try {
+          await fetch(`/api/v1/projects/${SimulatorState.activeProject.id}/media`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              mediaType: 'video',
+              name: plan.goal,
+              url: STOCK_MEDIA_LIBRARY[4].url,
+              thumb: STOCK_MEDIA_LIBRARY[4].thumb,
+              durationSec: plan.targetDurationSec
+            })
+          });
+          await fetchProjectsFromBackend();
+          alert(`Video Artifact added to project '${SimulatorState.activeProject.name}'!`);
+        } catch (e) {
+          console.error('Failed to add artifact:', e);
+        }
       });
 
       card.querySelector('#btn-download-artifact').addEventListener('click', () => {
-        openVideoPlayerModal(SAMPLE_MEDIA[4].url, plan.goal);
+        openVideoPlayerModal(STOCK_MEDIA_LIBRARY[4].url, plan.goal);
       });
 
       card.querySelector('#btn-share-artifact').addEventListener('click', () => {
@@ -785,129 +1250,9 @@
         submitAiCreatePrompt('Create a 15-second cinematic product reel');
       });
     }
-
-    // ── TAB 3: ANALYTICS SUB-PILLS & PIPELINE STAGES ──
-    const subtabButtons = document.querySelectorAll('#panel-analytics .section-pill');
-    const subtabPipeline = document.getElementById('analytics-sub-pipeline');
-    const subtabOverview = document.getElementById('analytics-sub-overview');
-
-    subtabButtons.forEach(btn => {
-      btn.addEventListener('click', () => {
-        subtabButtons.forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        const sub = btn.getAttribute('data-subtab');
-        if (subtabPipeline) subtabPipeline.style.display = sub === 'pipeline' ? 'block' : 'none';
-        if (subtabOverview) subtabOverview.style.display = sub === 'overview' ? 'block' : 'none';
-      });
-    });
-
-    document.querySelectorAll('.pipeline-stage').forEach(stage => {
-      stage.addEventListener('click', () => {
-        const stageNum = stage.getAttribute('data-stage');
-        const name = stage.querySelector('.pipeline-stage-name').textContent;
-        const desc = stage.querySelector('.pipeline-stage-desc').textContent;
-        alert(`Pipeline Stage Inspection:\n\nStage ${stageNum}: ${name}\nDetails: ${desc}\nStatus: Optimal (0 dropped frames, 30.0 FPS)`);
-      });
-    });
-
-    // ── TAB 4: PROJECTS LIST & CREATION LOGIC ──
-    const simProjectsList = document.getElementById('sim-projects-list');
-    const btnProjectsNew = document.getElementById('projects-btn-new');
-    const btnCancelNewProject = document.getElementById('btn-cancel-new-project');
-    const btnConfirmNewProject = document.getElementById('btn-confirm-new-project');
-    const inputNewProjectName = document.getElementById('input-new-project-name');
-
-    if (btnProjectsNew) btnProjectsNew.addEventListener('click', () => openSimSheet('sheet-new-project'));
-    if (btnCancelNewProject) btnCancelNewProject.addEventListener('click', closeAllSimSheets);
-
-    if (btnConfirmNewProject) {
-      btnConfirmNewProject.addEventListener('click', () => {
-        const name = inputNewProjectName ? inputNewProjectName.value.trim() : '';
-        if (!name) return;
-        const newProj = {
-          id: `proj-${Date.now()}`,
-          name: name,
-          isFavorite: false,
-          modified: 'Just now',
-          photoCount: 0,
-          videoCount: 0,
-          audioCount: 0,
-          media: []
-        };
-        SimulatorState.projects.unshift(newProj);
-        SimulatorState.activeProject = newProj;
-        renderProjectsList('all');
-        updateProjectBadges();
-        closeAllSimSheets();
-        if (inputNewProjectName) inputNewProjectName.value = '';
-        logSimulatorEvent(`Created new project: '${name}'`);
-      });
-    }
-
-    function renderProjectsList(filter = 'all') {
-      if (!simProjectsList) return;
-      simProjectsList.innerHTML = '';
-
-      let list = SimulatorState.projects;
-      if (filter === 'favorites') list = list.filter(p => p.isFavorite);
-
-      list.forEach(proj => {
-        const row = document.createElement('div');
-        row.className = 'project-row';
-        row.innerHTML = `
-          <span class="project-star">${proj.isFavorite ? '⭐' : '☆'}</span>
-          <div class="project-info">
-            <div class="project-name">${proj.name}</div>
-            <div class="project-meta">
-              <span>${proj.modified}</span>
-              <span class="project-meta-dot">·</span>
-              <span>${proj.photoCount} Photos, ${proj.videoCount} Videos</span>
-            </div>
-          </div>
-          <div class="project-chevron">›</div>
-        `;
-
-        row.querySelector('.project-star').addEventListener('click', (e) => {
-          e.stopPropagation();
-          proj.isFavorite = !proj.isFavorite;
-          renderProjectsList(filter);
-        });
-
-        row.addEventListener('click', () => {
-          SimulatorState.activeProject = proj;
-          updateProjectBadges();
-          switchSimTab('ai-create');
-        });
-
-        simProjectsList.appendChild(row);
-      });
-    }
-
-    document.querySelectorAll('.project-filter-row .filter-pill').forEach(pill => {
-      pill.addEventListener('click', () => {
-        document.querySelectorAll('.project-filter-row .filter-pill').forEach(p => p.classList.remove('active'));
-        pill.classList.add('active');
-        renderProjectsList(pill.getAttribute('data-filter'));
-      });
-    });
-
-    function updateProjectBadges() {
-      const activeName = document.getElementById('ai-active-project-name');
-      const heroPill = document.getElementById('ai-hero-project-pill');
-      const tabBadge = document.getElementById('sim-tab-project-count');
-      const ctxMedia = document.getElementById('ctx-media-label');
-
-      if (activeName) activeName.textContent = SimulatorState.activeProject.name;
-      if (heroPill) heroPill.textContent = `Selected: '${SimulatorState.activeProject.name}'`;
-      if (tabBadge) tabBadge.textContent = SimulatorState.projects.length;
-      if (ctxMedia) ctxMedia.textContent = `${SimulatorState.activeProject.photoCount} Photos · ${SimulatorState.activeProject.videoCount} Video`;
-    }
-
-    renderProjectsList('all');
-    updateProjectBadges();
   }
 
-  // ── 6. REAL IPHONE FLEET MANAGEMENT ENGINE ─────────────────────────────────
+  // ── 10. REAL IPHONE FLEET MANAGEMENT ENGINE ────────────────────────────────
   async function fetchRealDevices() {
     try {
       const resp = await fetch('/api/v1/ios/devices');
@@ -987,7 +1332,7 @@
           </div>
           <div class="device-spec-item">
             <span>Metal GPU</span>
-            <strong style="color:var(--accent-green);">Available (4K)</strong>
+            <strong style="color:var(--accent-green);">Available (4K 60FPS)</strong>
           </div>
           <div class="device-spec-item">
             <span>Last Heartbeat</span>
@@ -1054,6 +1399,27 @@
         renderRealDevicesGrid();
       });
     });
+
+    const btnRefresh = document.getElementById('btn-refresh-fleet');
+    const iconRefresh = document.getElementById('btn-refresh-fleet-icon');
+    const textRefresh = document.getElementById('btn-refresh-fleet-text');
+
+    if (btnRefresh) {
+      btnRefresh.addEventListener('click', async () => {
+        if (iconRefresh) iconRefresh.className = 'spinner';
+        if (textRefresh) textRefresh.textContent = 'Refreshing…';
+        await fetchRealDevices();
+        setTimeout(() => {
+          if (iconRefresh) iconRefresh.className = '';
+          if (iconRefresh) iconRefresh.textContent = '✓';
+          if (textRefresh) textRefresh.textContent = 'Updated';
+          setTimeout(() => {
+            if (iconRefresh) iconRefresh.textContent = '↻';
+            if (textRefresh) textRefresh.textContent = 'Refresh Fleet';
+          }, 1800);
+        }, 500);
+      });
+    }
   }
 
   function openDeviceConsoleModal(dev) {
@@ -1072,7 +1438,7 @@
           <span>Status:</span><strong style="color:var(--accent-green);">${dev.isLive ? 'ONLINE (WebSocket Active)' : 'OFFLINE'}</strong>
         </div>
         <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
-          <span>GPU Pipeline:</span><strong>Metal Performance Shaders (MPS)</strong>
+          <span>GPU Pipeline:</span><strong>Apple Metal (MPS Shaders)</strong>
         </div>
         <div style="display:flex;justify-content:space-between;">
           <span>Max Output:</span><strong>4K 60FPS Video</strong>
@@ -1108,7 +1474,7 @@
     });
   }
 
-  // ── 7. CLOUD & OBSERVABILITY DATA FETCHERS ────────────────────────────────
+  // ── 11. CLOUD & OBSERVABILITY DATA FETCHERS ───────────────────────────────
   async function fetchCloudHealth() {
     try {
       const resp = await fetch('/api/v1/health');
@@ -1153,12 +1519,6 @@
       }
     } catch (err) {
       console.warn('Could not fetch cloud health:', err);
-      const headerCloudDot = document.getElementById('header-cloud-dot');
-      const headerCloudText = document.getElementById('header-cloud-text');
-      if (headerCloudDot && headerCloudText) {
-        headerCloudDot.className = 'status-dot dot-waiting';
-        headerCloudText.textContent = 'Cloud Reconnecting';
-      }
     }
   }
 
@@ -1297,7 +1657,7 @@
     }
   }
 
-  // ── 8. VIDEO PLAYER MODAL ────────────────────────────────────────────────
+  // ── 12. VIDEO PLAYER MODAL ────────────────────────────────────────────────
   function openVideoPlayerModal(videoUrl, titleText = 'Rendered Video Reel') {
     const modal = document.getElementById('modal-video-player');
     const videoElem = document.getElementById('global-video-player-elem');
@@ -1319,7 +1679,7 @@
     });
   }
 
-  // ── 9. WEBSOCKET REAL-TIME DISPATCHER WITH EXPONENTIAL BACKOFF ────────────
+  // ── 13. WEBSOCKET REAL-TIME DISPATCHER ────────────────────────────────────
   let wsBackoffMs = 1000;
   function initWebSocket() {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -1395,13 +1755,17 @@
 
   function startClock() {
     const clock = document.getElementById('sim-clock');
+    const lockClock = document.getElementById('lock-clock');
     if (!clock) return;
+
     function tick() {
       const d = new Date();
       let hours = d.getHours();
       const mins = d.getMinutes().toString().padStart(2, '0');
       hours = hours % 12 || 12;
-      clock.textContent = `${hours}:${mins}`;
+      const timeStr = `${hours}:${mins}`;
+      clock.textContent = timeStr;
+      if (lockClock) lockClock.textContent = timeStr;
     }
     tick();
     setInterval(tick, 10000);
@@ -1413,12 +1777,16 @@
       initTheme();
       initNavigation();
       initSubtabs();
-      initSimulator();
+      initHardwareButtons();
+      initEditor();
+      initAiCreate();
+      initProjectDetailControls();
       initRealDevicesControls();
       startClock();
       initWebSocket();
 
-      // Initial live data fetches
+      // Initial Data Loads
+      fetchProjectsFromBackend();
       fetchRealDevices();
       fetchCloudHealth();
       fetchAnalyticsMetrics();

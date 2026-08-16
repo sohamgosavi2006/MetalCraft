@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/static/css/style.css?v=2.2.0">
+    <link rel="stylesheet" href="/static/css/style.css?v=2.3.0">
 </head>
 <body>
     <div class="app-background"></div>
@@ -64,7 +64,6 @@
                 <span class="status-dot dot-online" id="header-cloud-dot"></span>
                 <span class="status-text" id="header-cloud-text">Cloud Live</span>
             </div>
-            <!-- ONLY Light and Dark mode toggles -->
             <div class="appearance-toggle" id="theme-toggle-wrap">
                 <button class="appearance-btn" data-theme-val="light" title="Light Mode" id="theme-btn-light">☀️</button>
                 <button class="appearance-btn active" data-theme-val="dark" title="Dark Mode" id="theme-btn-dark">🌙</button>
@@ -84,12 +83,12 @@
             <div class="section-header-wrap">
                 <span class="section-label">Interactive Prototype</span>
                 <h1 class="section-title">MetalCraft iOS Simulator</h1>
-                <p class="section-subtitle">Experience the authentic MetalCraft iOS media-production app in your browser. All tabs, media pickers, image adjustments, and AI tools are fully interactive.</p>
+                <p class="section-subtitle">Experience the authentic MetalCraft iOS media-production app in your browser. All tabs, project details, media pickers, image adjustments, and AI tools are fully interactive.</p>
             </div>
 
             <div class="simulator-layout">
 
-                <!-- Left Side: Simulator Context -->
+                <!-- Left Side: Simulator Context & Quick Telemetry -->
                 <div class="simulator-side-info">
                     <div class="info-card">
                         <div class="info-card-title">Execution Mode</div>
@@ -138,438 +137,574 @@
                     </div>
                 </div>
 
-                <!-- Center: iPhone 17 Pro Hardware Frame -->
-                <div class="iphone-device" id="sim-iphone-hardware">
-                    <div class="iphone-screen" id="sim-iphone-screen">
+                <!-- Center: iPhone 17 Pro Hardware Shell with Physical Side Buttons -->
+                <div class="iphone-hardware-container">
+                    
+                    <!-- Left Physical Buttons -->
+                    <div class="hw-button hw-action-btn" id="hw-btn-action" title="Action Button (Mute Toggle)"></div>
+                    <div class="hw-button hw-vol-up" id="hw-btn-vol-up" title="Volume Up"></div>
+                    <div class="hw-button hw-vol-down" id="hw-btn-vol-down" title="Volume Down"></div>
 
-                        <!-- Dynamic Island (State-Driven) -->
-                        <div class="dynamic-island" id="dynamic-island" title="Dynamic Island Status">
-                            <div class="dynamic-island-content" id="di-content">
-                                <div class="di-icon thinking" id="di-icon">●</div>
-                                <span class="di-text" id="di-text">Gemini Ready</span>
-                                <div class="di-progress" id="di-progress-wrap" style="display:none;">
-                                    <div class="di-progress-fill" id="di-progress-fill" style="width:0%"></div>
+                    <!-- Right Physical Power Button -->
+                    <div class="hw-button hw-power-btn" id="hw-btn-power" title="Side / Power Button"></div>
+
+                    <!-- iPhone Frame -->
+                    <div class="iphone-device" id="sim-iphone-hardware">
+                        <div class="iphone-screen" id="sim-iphone-screen">
+
+                            <!-- Volume HUD Overlay -->
+                            <div class="ios-volume-hud" id="sim-volume-hud">
+                                <span class="hud-icon" id="hud-icon">🔊</span>
+                                <div class="hud-bar-track">
+                                    <div class="hud-bar-fill" id="hud-vol-fill" style="width:70%;"></div>
                                 </div>
-                                <div class="di-camera-dot"></div>
+                                <span class="hud-pct" id="hud-vol-pct">70%</span>
                             </div>
-                        </div>
 
-                        <!-- iOS Status Bar -->
-                        <div class="ios-status-bar">
-                            <span class="status-bar-time" id="sim-clock">9:41</span>
-                            <div class="status-bar-icons">
-                                <svg width="16" height="12" viewBox="0 0 16 12"><rect x="0" y="6" width="3" height="6" rx="0.5" fill="currentColor"/><rect x="4" y="4" width="3" height="8" rx="0.5" fill="currentColor"/><rect x="8" y="2" width="3" height="10" rx="0.5" fill="currentColor"/><rect x="12" y="0" width="3" height="12" rx="0.5" fill="currentColor"/></svg>
-                                <span style="font-size:10px;font-weight:700;letter-spacing:0.2px;">5G</span>
-                                <svg width="22" height="12" viewBox="0 0 22 12"><rect x="0" y="1" width="18" height="10" rx="2" stroke="currentColor" stroke-width="1.2" fill="none"/><rect x="19" y="4" width="2" height="4" rx="0.5" fill="currentColor" opacity="0.4"/><rect x="1.5" y="2.5" width="14" height="7" rx="1" fill="currentColor"/></svg>
+                            <!-- Silent Mode Banner Overlay -->
+                            <div class="ios-banner-hud" id="sim-banner-hud">
+                                <span id="banner-hud-text">🔔 Silent Mode Off</span>
                             </div>
-                        </div>
 
-                        <!-- ── TAB CONTENT CONTAINER ────────────────────── -->
-                        <div class="ios-tab-content">
+                            <!-- Lock Screen Overlay (Simulated Power Button Toggle) -->
+                            <div class="ios-lock-overlay" id="sim-lock-overlay">
+                                <div class="lock-clock" id="lock-clock">9:41</div>
+                                <div class="lock-date" id="lock-date">Sunday, August 16</div>
+                                <div class="lock-hint">Swipe up or click screen to unlock</div>
+                            </div>
 
-                            <!-- TAB 1: EDITOR -->
-                            <div class="tab-panel active" id="panel-editor">
-                                <div class="ios-nav-bar">
-                                    <div class="ios-nav-left">
-                                        <button class="ios-nav-btn" id="editor-nav-projects" title="Projects">
-                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
-                                        </button>
+                            <!-- Dynamic Island (Minimal Apple iOS Status - NO Gemini text) -->
+                            <div class="dynamic-island" id="dynamic-island" title="Dynamic Island Status">
+                                <div class="dynamic-island-content" id="di-content">
+                                    <div class="di-icon-dot" id="di-icon-dot"></div>
+                                    <span class="di-text" id="di-text">Ready</span>
+                                    <div class="di-progress" id="di-progress-wrap" style="display:none;">
+                                        <div class="di-progress-fill" id="di-progress-fill" style="width:0%"></div>
                                     </div>
-                                    <span class="ios-nav-title" id="editor-title">MetalCraft</span>
-                                    <div class="ios-nav-right">
-                                        <button class="ios-nav-btn" id="editor-btn-reset" title="Reset Adjustments" style="display:none;">
-                                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
-                                        </button>
-                                    </div>
-                                </div>
-
-                                <!-- Editor Canvas View (When Media Loaded) -->
-                                <div class="editor-canvas-container" id="editor-media-view" style="display:none;">
-                                    <div class="editor-canvas-wrap">
-                                        <img id="editor-canvas" src="" alt="Active Media">
-                                    </div>
-                                    <!-- Interactive Adjustment Sliders -->
-                                    <div class="editor-controls-panel">
-                                        <div class="slider-row">
-                                            <span class="slider-label">Exposure</span>
-                                            <input type="range" class="slider-input" id="adj-exposure" min="-100" max="100" value="0">
-                                            <span class="slider-val" id="adj-exposure-val">0.0</span>
-                                        </div>
-                                        <div class="slider-row">
-                                            <span class="slider-label">Contrast</span>
-                                            <input type="range" class="slider-input" id="adj-contrast" min="50" max="200" value="100">
-                                            <span class="slider-val" id="adj-contrast-val">1.0</span>
-                                        </div>
-                                        <div class="slider-row">
-                                            <span class="slider-label">Saturation</span>
-                                            <input type="range" class="slider-input" id="adj-saturation" min="0" max="200" value="100">
-                                            <span class="slider-val" id="adj-saturation-val">1.0</span>
-                                        </div>
-                                        <div class="slider-row">
-                                            <span class="slider-label">Vignette</span>
-                                            <input type="range" class="slider-input" id="adj-vignette" min="0" max="100" value="0">
-                                            <span class="slider-val" id="adj-vignette-val">0%</span>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <!-- Editor Empty State (When No Media Loaded) -->
-                                <div class="editor-empty-state" id="editor-empty-view">
-                                    <div class="editor-empty-icon">
-                                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
-                                            <circle cx="8.5" cy="8.5" r="1.5"/>
-                                            <polyline points="21 15 16 10 5 21"/>
-                                        </svg>
-                                    </div>
-                                    <h2 class="editor-empty-title">No Media Open</h2>
-                                    <p class="editor-empty-desc">Open an existing project media or import a photo or video to begin GPU processing.</p>
-                                    <div class="editor-action-buttons">
-                                        <button class="sim-btn secondary" id="editor-btn-projects">
-                                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
-                                            Projects
-                                        </button>
-                                        <button class="sim-btn primary" id="editor-btn-photo">
-                                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-                                            Photo
-                                        </button>
-                                        <button class="sim-btn secondary" id="editor-btn-video">
-                                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
-                                            Video
-                                        </button>
-                                    </div>
+                                    <div class="di-camera-dot"></div>
                                 </div>
                             </div>
 
-                            <!-- TAB 2: AI CREATE (AGENTIC STUDIO) -->
-                            <div class="tab-panel" id="panel-ai-create">
-                                <div class="ios-nav-bar">
-                                    <div class="ios-nav-left">
-                                        <button class="project-selector" id="ai-project-picker-btn" title="Select Project">
-                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
-                                            <span id="ai-active-project-name">MetalCraft Soham</span>
-                                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="6 9 12 15 18 9"/></svg>
-                                        </button>
-                                    </div>
-                                    <span class="ios-nav-title" style="font-size:14px;">AI Studio</span>
-                                    <div class="ios-nav-right">
-                                        <button class="ios-nav-btn" id="ai-settings-btn" title="AI Settings">
-                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-                                        </button>
-                                    </div>
+                            <!-- iOS Status Bar -->
+                            <div class="ios-status-bar">
+                                <span class="status-bar-time" id="sim-clock">9:41</span>
+                                <div class="status-bar-icons">
+                                    <svg width="16" height="12" viewBox="0 0 16 12"><rect x="0" y="6" width="3" height="6" rx="0.5" fill="currentColor"/><rect x="4" y="4" width="3" height="8" rx="0.5" fill="currentColor"/><rect x="8" y="2" width="3" height="10" rx="0.5" fill="currentColor"/><rect x="12" y="0" width="3" height="12" rx="0.5" fill="currentColor"/></svg>
+                                    <span style="font-size:10px;font-weight:700;letter-spacing:0.2px;">5G</span>
+                                    <svg width="22" height="12" viewBox="0 0 22 12"><rect x="0" y="1" width="18" height="10" rx="2" stroke="currentColor" stroke-width="1.2" fill="none"/><rect x="19" y="4" width="2" height="4" rx="0.5" fill="currentColor" opacity="0.4"/><rect x="1.5" y="2.5" width="14" height="7" rx="1" fill="currentColor"/></svg>
                                 </div>
+                            </div>
 
-                                <!-- Context Bar -->
-                                <div class="media-context-bar">
-                                    <div class="context-item" id="ctx-bar-media">
-                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-                                        <span id="ctx-media-label">8 Photos · 1 Video</span>
-                                    </div>
-                                    <div class="context-item" id="ctx-bar-soundtrack">
-                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
-                                        <span id="ctx-audio-label">Auto Match</span>
-                                    </div>
-                                    <span class="aspect-badge" id="ctx-aspect-label">9:16</span>
-                                </div>
+                            <!-- ── TAB CONTENT CONTAINER ────────────────────── -->
+                            <div class="ios-tab-content">
 
-                                <!-- Chat Body -->
-                                <div class="ai-create-body" id="ai-chat-body">
-                                    <!-- Studio Hero (Initial State) -->
-                                    <div class="ai-hero" id="ai-hero-view">
-                                        <div class="ai-hero-icon">
-                                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                                <path d="M15 4V2M15 16v-2M8 9h2M20 9h2M17.8 11.8 19 13M15 9h0M17.8 6.2 19 5M3 21l9-9M12.2 6.2 11 5"/>
+                                <!-- TAB 1: EDITOR (Full Working GPU Canvas & Adjustments) -->
+                                <div class="tab-panel active" id="panel-editor">
+                                    <div class="ios-nav-bar">
+                                        <div class="ios-nav-left">
+                                            <button class="ios-nav-btn" id="editor-nav-projects" title="Projects">
+                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+                                            </button>
+                                        </div>
+                                        <span class="ios-nav-title" id="editor-title">MetalCraft</span>
+                                        <div class="ios-nav-right">
+                                            <button class="ios-nav-btn" id="editor-btn-save" title="Save Adjustments to Project" style="display:none;">
+                                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                                            </button>
+                                            <button class="ios-nav-btn" id="editor-btn-reset" title="Reset" style="display:none;margin-left:4px;">
+                                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <!-- Editor Canvas View (Active Media) -->
+                                    <div class="editor-canvas-container" id="editor-media-view" style="display:none;">
+                                        
+                                        <!-- Interactive Canvas & Video Preview -->
+                                        <div class="editor-canvas-wrap">
+                                            <canvas id="editor-canvas" width="600" height="800" style="display:none;"></canvas>
+                                            <img id="editor-preview-img" src="" alt="Active Media" style="display:none;">
+                                            <video id="editor-video-elem" src="" controls loop playsinline style="display:none;max-height:260px;width:100%;object-fit:cover;border-radius:12px;"></video>
+                                        </div>
+
+                                        <!-- Filter Presets Bar -->
+                                        <div class="editor-presets-bar">
+                                            <button class="preset-pill active" data-preset="original">Original</button>
+                                            <button class="preset-pill" data-preset="cinematic">Cinematic</button>
+                                            <button class="preset-pill" data-preset="cyberpunk">Cyberpunk</button>
+                                            <button class="preset-pill" data-preset="noir">B&W Noir</button>
+                                            <button class="preset-pill" data-preset="golden">Golden Hour</button>
+                                            <button class="preset-pill" data-preset="vivid">Vivid HDR</button>
+                                        </div>
+
+                                        <!-- Interactive Adjustment Sliders (Live MPS Simulation) -->
+                                        <div class="editor-controls-panel">
+                                            <div class="slider-row">
+                                                <span class="slider-label">Exposure</span>
+                                                <input type="range" class="slider-input" id="adj-exposure" min="-100" max="100" value="0">
+                                                <span class="slider-val" id="adj-exposure-val">0.0</span>
+                                            </div>
+                                            <div class="slider-row">
+                                                <span class="slider-label">Contrast</span>
+                                                <input type="range" class="slider-input" id="adj-contrast" min="50" max="200" value="100">
+                                                <span class="slider-val" id="adj-contrast-val">1.0</span>
+                                            </div>
+                                            <div class="slider-row">
+                                                <span class="slider-label">Saturation</span>
+                                                <input type="range" class="slider-input" id="adj-saturation" min="0" max="200" value="100">
+                                                <span class="slider-val" id="adj-saturation-val">1.0</span>
+                                            </div>
+                                            <div class="slider-row">
+                                                <span class="slider-label">Brightness</span>
+                                                <input type="range" class="slider-input" id="adj-brightness" min="-100" max="100" value="0">
+                                                <span class="slider-val" id="adj-brightness-val">0</span>
+                                            </div>
+                                            <div class="slider-row">
+                                                <span class="slider-label">Warmth</span>
+                                                <input type="range" class="slider-input" id="adj-temperature" min="-50" max="50" value="0">
+                                                <span class="slider-val" id="adj-temperature-val">0</span>
+                                            </div>
+                                            <div class="slider-row">
+                                                <span class="slider-label">Vignette</span>
+                                                <input type="range" class="slider-input" id="adj-vignette" min="0" max="100" value="0">
+                                                <span class="slider-val" id="adj-vignette-val">0%</span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Editor Empty State -->
+                                    <div class="editor-empty-state" id="editor-empty-view">
+                                        <div class="editor-empty-icon">
+                                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                                                <circle cx="8.5" cy="8.5" r="1.5"/>
+                                                <polyline points="21 15 16 10 5 21"/>
                                             </svg>
                                         </div>
-                                        <h2 class="ai-hero-title">Agentic Video Studio</h2>
-                                        <p class="ai-hero-desc">Describe the reel or story you want to create. Gemini and Apple Metal will sequence your project media, apply cinematic GPU shaders, and compose synchronized soundtracks.</p>
-                                        <div class="selected-project-pill" id="ai-hero-project-pill">Selected: 'MetalCraft Soham'</div>
-                                    </div>
-
-                                    <!-- Message Feed -->
-                                    <div class="chat-messages" id="ai-chat-messages"></div>
-                                </div>
-
-                                <!-- Suggestion Prompt Pills -->
-                                <div class="suggestion-pills" id="ai-suggestion-pills">
-                                    <button class="suggestion-pill" data-prompt="Create a 15-second cinematic product reel">🎬 15s Product Reel</button>
-                                    <button class="suggestion-pill" data-prompt="Golden hour warmth with slow dissolve">🌅 Golden Hour Warmth</button>
-                                    <button class="suggestion-pill" data-prompt="Fast-paced cyberpunk night aesthetic">⚡ Cyberpunk Night</button>
-                                    <button class="suggestion-pill" data-prompt="Clean minimalist commercial with upbeat music">✨ Minimal Commercial</button>
-                                </div>
-
-                                <!-- Prompt Input Bar -->
-                                <div class="prompt-bar">
-                                    <input type="text" class="prompt-input" id="sim-prompt-input" placeholder="Describe your video reel, pacing, or...">
-                                    <button class="prompt-send-btn" id="sim-prompt-send-btn" title="Send">
-                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l0 20M12 2l-7 7M12 2l7 7"/></svg>
-                                    </button>
-                                </div>
-                            </div>
-
-                            <!-- TAB 3: ANALYTICS -->
-                            <div class="tab-panel" id="panel-analytics">
-                                <div class="ios-nav-bar">
-                                    <div class="ios-nav-left">
-                                        <span class="ios-nav-title">Observability</span>
-                                    </div>
-                                    <div class="ios-nav-right">
-                                        <div class="pipeline-stage-status done" style="font-size:9px;">● LIVE</div>
-                                    </div>
-                                </div>
-
-                                <div class="section-pills">
-                                    <button class="section-pill active" data-subtab="pipeline">
-                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
-                                        Pipeline
-                                    </button>
-                                    <button class="section-pill" data-subtab="overview">
-                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
-                                        Metrics
-                                    </button>
-                                </div>
-
-                                <!-- Pipeline View Sub-Panel -->
-                                <div class="pipeline-content" id="analytics-sub-pipeline">
-                                    <p class="pipeline-header-text">End-to-End MetalCraft Runtime Architecture</p>
-                                    <p class="pipeline-desc">Tap any stage below to inspect live diagnostic metrics, shader dispatch states, and pipeline memory.</p>
-
-                                    <!-- Stages 1 to 7 -->
-                                    <div class="pipeline-stage" data-stage="1">
-                                        <div class="pipeline-stage-icon" style="background:rgba(100,210,255,0.15);">
-                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#64d2ff" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-                                        </div>
-                                        <div class="pipeline-stage-info">
-                                            <div class="pipeline-stage-name">1. User Creative Intent</div>
-                                            <div class="pipeline-stage-desc">AI Create Prompt & Media Context</div>
-                                        </div>
-                                        <div class="pipeline-stage-status ready">READY ›</div>
-                                    </div>
-                                    <div class="pipeline-arrow"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg></div>
-
-                                    <div class="pipeline-stage" data-stage="2">
-                                        <div class="pipeline-stage-icon" style="background:rgba(48,209,88,0.15);">
-                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#30d158" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
-                                        </div>
-                                        <div class="pipeline-stage-info">
-                                            <div class="pipeline-stage-name">2. Cloud REST / WSS Gateway</div>
-                                            <div class="pipeline-stage-desc">Render FastAPI Control Plane</div>
-                                        </div>
-                                        <div class="pipeline-stage-status done">DONE ›</div>
-                                    </div>
-                                    <div class="pipeline-arrow"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg></div>
-
-                                    <div class="pipeline-stage" data-stage="3">
-                                        <div class="pipeline-stage-icon" style="background:rgba(191,90,242,0.15);">
-                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#bf5af2" stroke-width="2"><path d="M15 4V2M15 16v-2M8 9h2M20 9h2M17.8 11.8 19 13M15 9h0M17.8 6.2 19 5M3 21l9-9M12.2 6.2 11 5"/></svg>
-                                        </div>
-                                        <div class="pipeline-stage-info">
-                                            <div class="pipeline-stage-name">3. Gemini 2.5 Creative Director</div>
-                                            <div class="pipeline-stage-desc">Intent Analysis & Scene Timing</div>
-                                        </div>
-                                        <div class="pipeline-stage-status ready">READY ›</div>
-                                    </div>
-                                    <div class="pipeline-arrow"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg></div>
-
-                                    <div class="pipeline-stage" data-stage="4">
-                                        <div class="pipeline-stage-icon" style="background:rgba(255,159,10,0.15);">
-                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ff9f0a" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                                        </div>
-                                        <div class="pipeline-stage-info">
-                                            <div class="pipeline-stage-name">4. Parallel Creative Research</div>
-                                            <div class="pipeline-stage-desc">Style, Pacing & Cinematography</div>
-                                        </div>
-                                        <div class="pipeline-stage-status done">DONE ›</div>
-                                    </div>
-                                    <div class="pipeline-arrow"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg></div>
-
-                                    <div class="pipeline-stage" data-stage="5">
-                                        <div class="pipeline-stage-icon" style="background:rgba(100,210,255,0.15);">
-                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#64d2ff" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-                                        </div>
-                                        <div class="pipeline-stage-info">
-                                            <div class="pipeline-stage-name">5. EditPlan Synthesis</div>
-                                            <div class="pipeline-stage-desc">JSON Multi-Scene Execution Graph</div>
-                                        </div>
-                                        <div class="pipeline-stage-status ready">READY ›</div>
-                                    </div>
-                                    <div class="pipeline-arrow"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg></div>
-
-                                    <div class="pipeline-stage" data-stage="6">
-                                        <div class="pipeline-stage-icon" style="background:rgba(191,90,242,0.15);">
-                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#bf5af2" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-                                        </div>
-                                        <div class="pipeline-stage-info">
-                                            <div class="pipeline-stage-name">6. Apple Metal GPU Shaders</div>
-                                            <div class="pipeline-stage-desc">MPS Shaders, Color Grade & Dissolves</div>
-                                        </div>
-                                        <div class="pipeline-stage-status ready">READY ›</div>
-                                    </div>
-                                    <div class="pipeline-arrow"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg></div>
-
-                                    <div class="pipeline-stage" data-stage="7">
-                                        <div class="pipeline-stage-icon" style="background:rgba(48,209,88,0.15);">
-                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#30d158" stroke-width="2"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
-                                        </div>
-                                        <div class="pipeline-stage-info">
-                                            <div class="pipeline-stage-name">7. AVFoundation Audio/Export</div>
-                                            <div class="pipeline-stage-desc">Composition, Soundtrack & Export</div>
-                                        </div>
-                                        <div class="pipeline-stage-status ready">READY ›</div>
-                                    </div>
-                                </div>
-
-                                <!-- Metrics Overview Sub-Panel -->
-                                <div id="analytics-sub-overview" style="display:none;">
-                                    <div class="metrics-grid">
-                                        <div class="metric-card">
-                                            <div class="metric-label">Avg GPU Frame</div>
-                                            <div class="metric-value" id="sim-metric-gpu">2.85<span class="metric-unit">ms</span></div>
-                                        </div>
-                                        <div class="metric-card">
-                                            <div class="metric-label">Target FPS</div>
-                                            <div class="metric-value" id="sim-metric-fps">30.0<span class="metric-unit">fps</span></div>
-                                        </div>
-                                        <div class="metric-card">
-                                            <div class="metric-label">Active Shaders</div>
-                                            <div class="metric-value">6<span class="metric-unit">MPS</span></div>
-                                        </div>
-                                        <div class="metric-card">
-                                            <div class="metric-label">Memory</div>
-                                            <div class="metric-value">42<span class="metric-unit">MB</span></div>
+                                        <h2 class="editor-empty-title">No Media Open</h2>
+                                        <p class="editor-empty-desc">Open an asset from your project library to begin Apple Metal GPU shader processing.</p>
+                                        <div class="editor-action-buttons">
+                                            <button class="sim-btn secondary" id="editor-btn-projects">
+                                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+                                                Projects
+                                            </button>
+                                            <button class="sim-btn primary" id="editor-btn-photo">
+                                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                                                Photo
+                                            </button>
+                                            <button class="sim-btn secondary" id="editor-btn-video">
+                                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+                                                Video
+                                            </button>
                                         </div>
                                     </div>
                                 </div>
-                            </div>
 
-                            <!-- TAB 4: PROJECTS -->
-                            <div class="tab-panel" id="panel-projects">
-                                <div class="ios-nav-bar">
-                                    <div class="ios-nav-left">
-                                        <span class="ios-nav-title">Projects</span>
+                                <!-- TAB 2: AI CREATE (AGENTIC STUDIO) -->
+                                <div class="tab-panel" id="panel-ai-create">
+                                    <div class="ios-nav-bar">
+                                        <div class="ios-nav-left">
+                                            <button class="project-selector" id="ai-project-picker-btn" title="Select Project">
+                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+                                                <span id="ai-active-project-name">MetalCraft Soham</span>
+                                                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="6 9 12 15 18 9"/></svg>
+                                            </button>
+                                        </div>
+                                        <span class="ios-nav-title" style="font-size:14px;">AI Studio</span>
+                                        <div class="ios-nav-right">
+                                            <button class="ios-nav-btn" id="ai-settings-btn" title="AI Settings">
+                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                                            </button>
+                                        </div>
                                     </div>
-                                    <div class="ios-nav-right">
-                                        <button class="ios-nav-btn" id="projects-btn-new" title="Create New Project">
-                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+
+                                    <!-- Context Bar -->
+                                    <div class="media-context-bar">
+                                        <div class="context-item" id="ctx-bar-media">
+                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                                            <span id="ctx-media-label">5 Photos · 1 Video</span>
+                                        </div>
+                                        <div class="context-item" id="ctx-bar-soundtrack">
+                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+                                            <span id="ctx-audio-label">Neon Highway Drift</span>
+                                        </div>
+                                        <span class="aspect-badge" id="ctx-aspect-label">9:16</span>
+                                    </div>
+
+                                    <!-- Chat Body -->
+                                    <div class="ai-create-body" id="ai-chat-body">
+                                        <div class="ai-hero" id="ai-hero-view">
+                                            <div class="ai-hero-icon">
+                                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                    <path d="M15 4V2M15 16v-2M8 9h2M20 9h2M17.8 11.8 19 13M15 9h0M17.8 6.2 19 5M3 21l9-9M12.2 6.2 11 5"/>
+                                                </svg>
+                                            </div>
+                                            <h2 class="ai-hero-title">Agentic Video Studio</h2>
+                                            <p class="ai-hero-desc">Describe the reel or story you want to create. Gemini and Apple Metal will sequence your project media, apply cinematic GPU shaders, and compose synchronized soundtracks.</p>
+                                            <div class="selected-project-pill" id="ai-hero-project-pill">Selected: 'MetalCraft Soham'</div>
+                                        </div>
+
+                                        <!-- Message Feed -->
+                                        <div class="chat-messages" id="ai-chat-messages"></div>
+                                    </div>
+
+                                    <!-- Suggestion Prompt Pills -->
+                                    <div class="suggestion-pills" id="ai-suggestion-pills">
+                                        <button class="suggestion-pill" data-prompt="Create a 15-second cinematic product reel">🎬 15s Product Reel</button>
+                                        <button class="suggestion-pill" data-prompt="Golden hour warmth with slow dissolve">🌅 Golden Hour Warmth</button>
+                                        <button class="suggestion-pill" data-prompt="Fast-paced cyberpunk night aesthetic">⚡ Cyberpunk Night</button>
+                                        <button class="suggestion-pill" data-prompt="Clean minimalist commercial with upbeat music">✨ Minimal Commercial</button>
+                                    </div>
+
+                                    <!-- Prompt Input Bar -->
+                                    <div class="prompt-bar">
+                                        <input type="text" class="prompt-input" id="sim-prompt-input" placeholder="Describe your video reel, pacing, or...">
+                                        <button class="prompt-send-btn" id="sim-prompt-send-btn" title="Send">
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l0 20M12 2l-7 7M12 2l7 7"/></svg>
                                         </button>
                                     </div>
                                 </div>
 
-                                <div class="project-filter-row">
-                                    <button class="filter-pill active" data-filter="all">All</button>
-                                    <button class="filter-pill" data-filter="favorites">Favorites</button>
-                                    <button class="filter-pill" data-filter="recent">Recent</button>
+                                <!-- TAB 3: ANALYTICS -->
+                                <div class="tab-panel" id="panel-analytics">
+                                    <div class="ios-nav-bar">
+                                        <div class="ios-nav-left">
+                                            <span class="ios-nav-title">Observability</span>
+                                        </div>
+                                        <div class="ios-nav-right">
+                                            <div class="pipeline-stage-status done" style="font-size:9px;">● LIVE</div>
+                                        </div>
+                                    </div>
+
+                                    <div class="section-pills">
+                                        <button class="section-pill active" data-subtab="pipeline">
+                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+                                            Pipeline
+                                        </button>
+                                        <button class="section-pill" data-subtab="overview">
+                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+                                            Metrics
+                                        </button>
+                                    </div>
+
+                                    <!-- Pipeline View Sub-Panel -->
+                                    <div class="pipeline-content" id="analytics-sub-pipeline">
+                                        <p class="pipeline-header-text">End-to-End MetalCraft Runtime Architecture</p>
+                                        <p class="pipeline-desc">Tap any stage below to inspect live diagnostic metrics, shader dispatch states, and pipeline memory.</p>
+
+                                        <!-- Stages 1 to 7 -->
+                                        <div class="pipeline-stage" data-stage="1">
+                                            <div class="pipeline-stage-icon" style="background:rgba(100,210,255,0.15);">
+                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#64d2ff" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                                            </div>
+                                            <div class="pipeline-stage-info">
+                                                <div class="pipeline-stage-name">1. User Creative Intent</div>
+                                                <div class="pipeline-stage-desc">AI Create Prompt & Media Context</div>
+                                            </div>
+                                            <div class="pipeline-stage-status ready">READY ›</div>
+                                        </div>
+                                        <div class="pipeline-arrow"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg></div>
+
+                                        <div class="pipeline-stage" data-stage="2">
+                                            <div class="pipeline-stage-icon" style="background:rgba(48,209,88,0.15);">
+                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#30d158" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+                                            </div>
+                                            <div class="pipeline-stage-info">
+                                                <div class="pipeline-stage-name">2. Cloud REST / WSS Gateway</div>
+                                                <div class="pipeline-stage-desc">Render FastAPI Control Plane</div>
+                                            </div>
+                                            <div class="pipeline-stage-status done">DONE ›</div>
+                                        </div>
+                                        <div class="pipeline-arrow"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg></div>
+
+                                        <div class="pipeline-stage" data-stage="3">
+                                            <div class="pipeline-stage-icon" style="background:rgba(191,90,242,0.15);">
+                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#bf5af2" stroke-width="2"><path d="M15 4V2M15 16v-2M8 9h2M20 9h2M17.8 11.8 19 13M15 9h0M17.8 6.2 19 5M3 21l9-9M12.2 6.2 11 5"/></svg>
+                                            </div>
+                                            <div class="pipeline-stage-info">
+                                                <div class="pipeline-stage-name">3. Gemini 2.5 Creative Director</div>
+                                                <div class="pipeline-stage-desc">Intent Analysis & Scene Timing</div>
+                                            </div>
+                                            <div class="pipeline-stage-status ready">READY ›</div>
+                                        </div>
+                                        <div class="pipeline-arrow"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg></div>
+
+                                        <div class="pipeline-stage" data-stage="4">
+                                            <div class="pipeline-stage-icon" style="background:rgba(255,159,10,0.15);">
+                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ff9f0a" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                                            </div>
+                                            <div class="pipeline-stage-info">
+                                                <div class="pipeline-stage-name">4. Parallel Creative Research</div>
+                                                <div class="pipeline-stage-desc">Style, Pacing & Cinematography</div>
+                                            </div>
+                                            <div class="pipeline-stage-status done">DONE ›</div>
+                                        </div>
+                                        <div class="pipeline-arrow"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg></div>
+
+                                        <div class="pipeline-stage" data-stage="5">
+                                            <div class="pipeline-stage-icon" style="background:rgba(100,210,255,0.15);">
+                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#64d2ff" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                                            </div>
+                                            <div class="pipeline-stage-info">
+                                                <div class="pipeline-stage-name">5. EditPlan Synthesis</div>
+                                                <div class="pipeline-stage-desc">JSON Multi-Scene Execution Graph</div>
+                                            </div>
+                                            <div class="pipeline-stage-status ready">READY ›</div>
+                                        </div>
+                                        <div class="pipeline-arrow"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg></div>
+
+                                        <div class="pipeline-stage" data-stage="6">
+                                            <div class="pipeline-stage-icon" style="background:rgba(191,90,242,0.15);">
+                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#bf5af2" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                                            </div>
+                                            <div class="pipeline-stage-info">
+                                                <div class="pipeline-stage-name">6. Apple Metal GPU Shaders</div>
+                                                <div class="pipeline-stage-desc">MPS Shaders, Color Grade & Dissolves</div>
+                                            </div>
+                                            <div class="pipeline-stage-status ready">READY ›</div>
+                                        </div>
+                                        <div class="pipeline-arrow"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg></div>
+
+                                        <div class="pipeline-stage" data-stage="7">
+                                            <div class="pipeline-stage-icon" style="background:rgba(48,209,88,0.15);">
+                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#30d158" stroke-width="2"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+                                            </div>
+                                            <div class="pipeline-stage-info">
+                                                <div class="pipeline-stage-name">7. AVFoundation Audio/Export</div>
+                                                <div class="pipeline-stage-desc">Composition, Soundtrack & Export</div>
+                                            </div>
+                                            <div class="pipeline-stage-status ready">READY ›</div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Metrics Overview Sub-Panel -->
+                                    <div id="analytics-sub-overview" style="display:none;">
+                                        <div class="metrics-grid">
+                                            <div class="metric-card">
+                                                <div class="metric-label">Avg GPU Frame</div>
+                                                <div class="metric-value" id="sim-metric-gpu">2.85<span class="metric-unit">ms</span></div>
+                                            </div>
+                                            <div class="metric-card">
+                                                <div class="metric-label">Target FPS</div>
+                                                <div class="metric-value" id="sim-metric-fps">30.0<span class="metric-unit">fps</span></div>
+                                            </div>
+                                            <div class="metric-card">
+                                                <div class="metric-label">Active Shaders</div>
+                                                <div class="metric-value">6<span class="metric-unit">MPS</span></div>
+                                            </div>
+                                            <div class="metric-card">
+                                                <div class="metric-label">Memory</div>
+                                                <div class="metric-value">42<span class="metric-unit">MB</span></div>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
 
-                                <div class="projects-content" id="sim-projects-list">
-                                    <!-- Dynamic Project Rows Populated by JS -->
+                                <!-- TAB 4: PROJECTS LIST -->
+                                <div class="tab-panel" id="panel-projects">
+                                    <div class="ios-nav-bar">
+                                        <div class="ios-nav-left">
+                                            <span class="ios-nav-title">Projects</span>
+                                        </div>
+                                        <div class="ios-nav-right">
+                                            <button class="ios-nav-btn" id="projects-btn-new" title="Create New Project">
+                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <div class="project-filter-row">
+                                        <button class="filter-pill active" data-filter="all">All</button>
+                                        <button class="filter-pill" data-filter="favorites">Favorites</button>
+                                        <button class="filter-pill" data-filter="recent">Recent</button>
+                                    </div>
+
+                                    <div class="projects-content" id="sim-projects-list">
+                                        <!-- Dynamic Project Rows Populated by JS -->
+                                    </div>
+                                </div>
+
+                                <!-- TAB 5: PROJECT DETAIL SCREEN (Opened upon clicking a project) -->
+                                <div class="tab-panel" id="panel-project-detail">
+                                    <div class="ios-nav-bar">
+                                        <div class="ios-nav-left">
+                                            <button class="ios-nav-btn" id="project-detail-back-btn" title="Back to Projects">
+                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+                                                <span style="font-size:12px;font-weight:600;margin-left:2px;">Projects</span>
+                                            </button>
+                                        </div>
+                                        <span class="ios-nav-title" id="detail-project-title">Project Detail</span>
+                                        <div class="ios-nav-right">
+                                            <button class="ios-nav-btn" id="detail-project-fav-btn" title="Favorite">⭐</button>
+                                        </div>
+                                    </div>
+
+                                    <div class="project-detail-body">
+                                        
+                                        <!-- Project Header Info -->
+                                        <div class="detail-header-card">
+                                            <h2 class="detail-name" id="detail-card-name">MetalCraft Soham</h2>
+                                            <div class="detail-meta-row">
+                                                <span class="detail-badge" id="detail-badge-aspect">9:16</span>
+                                                <span class="detail-badge" id="detail-badge-duration">15.0s</span>
+                                                <span class="detail-badge" style="color:var(--accent-green);">1080×1920</span>
+                                            </div>
+                                            <div class="detail-actions-row">
+                                                <button class="sim-btn primary" id="detail-btn-ai-create">✦ AI Studio</button>
+                                                <button class="sim-btn secondary" id="detail-btn-open-editor">🎨 Metal Editor</button>
+                                                <button class="sim-btn secondary" id="detail-btn-add-media">+ Add Media</button>
+                                            </div>
+                                        </div>
+
+                                        <!-- Section: Photos -->
+                                        <div class="detail-section">
+                                            <div class="detail-section-header">
+                                                <span class="detail-section-title">Photos</span>
+                                                <span class="detail-section-count" id="detail-photo-count">5 Photos</span>
+                                            </div>
+                                            <div class="detail-media-grid" id="detail-photos-grid">
+                                                <!-- Dynamic Photo Thumbnails -->
+                                            </div>
+                                        </div>
+
+                                        <!-- Section: Videos -->
+                                        <div class="detail-section">
+                                            <div class="detail-section-header">
+                                                <span class="detail-section-title">Videos</span>
+                                                <span class="detail-section-count" id="detail-video-count">1 Video</span>
+                                            </div>
+                                            <div class="detail-media-grid" id="detail-videos-grid">
+                                                <!-- Dynamic Video Thumbnails -->
+                                            </div>
+                                        </div>
+
+                                        <!-- Section: Soundtrack -->
+                                        <div class="detail-section">
+                                            <div class="detail-section-header">
+                                                <span class="detail-section-title">Soundtrack</span>
+                                            </div>
+                                            <div class="detail-audio-card" id="detail-audio-card">
+                                                <div class="audio-icon">🎵</div>
+                                                <div class="audio-info">
+                                                    <strong id="detail-audio-title">Neon Highway Drift</strong>
+                                                    <span id="detail-audio-genre">124 BPM · Synthwave</span>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Danger Zone: Delete Project -->
+                                        <div style="margin-top:16px;text-align:center;">
+                                            <button class="detail-delete-btn" id="detail-btn-delete-proj">Delete Project</button>
+                                        </div>
+
+                                    </div>
+                                </div>
+
+                            </div><!-- /ios-tab-content -->
+
+                            <!-- iOS Bottom Tab Bar -->
+                            <div class="ios-tab-bar">
+                                <button class="tab-item active" data-tab="editor">
+                                    <div class="tab-icon">
+                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/>
+                                            <line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/>
+                                        </svg>
+                                    </div>
+                                    <span class="tab-label">Editor</span>
+                                </button>
+                                <button class="tab-item" data-tab="ai-create">
+                                    <div class="tab-icon">
+                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <path d="M15 4V2M15 16v-2M8 9h2M20 9h2M17.8 11.8 19 13M15 9h0M17.8 6.2 19 5M3 21l9-9M12.2 6.2 11 5"/>
+                                        </svg>
+                                    </div>
+                                    <span class="tab-label">AI Create</span>
+                                </button>
+                                <button class="tab-item" data-tab="analytics">
+                                    <div class="tab-icon">
+                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+                                        </svg>
+                                    </div>
+                                    <span class="tab-label">Analytics</span>
+                                </button>
+                                <button class="tab-item" data-tab="projects">
+                                    <div class="tab-icon">
+                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+                                        </svg>
+                                        <span class="tab-badge" id="sim-tab-project-count">4</span>
+                                    </div>
+                                    <span class="tab-label">Projects</span>
+                                </button>
+                            </div>
+
+                            <!-- Home Indicator -->
+                            <div class="home-indicator">
+                                <div class="home-indicator-bar"></div>
+                            </div>
+
+                            <!-- ── SIMULATOR MODAL SHEETS ───────────────────── -->
+
+                            <!-- Backdrop -->
+                            <div class="sim-sheet-overlay" id="sim-sheet-overlay"></div>
+
+                            <!-- 1. AI Settings Sheet -->
+                            <div class="sim-sheet" id="sheet-ai-settings">
+                                <div class="sheet-drag-handle"></div>
+                                <div class="sheet-title">AI Create Settings</div>
+                                <div class="sheet-row">
+                                    <span>Backend Endpoint</span>
+                                    <strong style="color:var(--accent-purple);">MetalCraft Cloud</strong>
+                                </div>
+                                <div class="sheet-row">
+                                    <span>Gemini Model</span>
+                                    <strong>2.5 Flash</strong>
+                                </div>
+                                <div class="sheet-row">
+                                    <span>Parallel Research</span>
+                                    <strong>Enabled</strong>
+                                </div>
+                                <div class="sheet-row">
+                                    <span>Aspect Ratio</span>
+                                    <strong>9:16 (Vertical Reel)</strong>
+                                </div>
+                                <div class="sheet-row">
+                                    <span>Soundtrack Selection</span>
+                                    <strong>Auto Match</strong>
+                                </div>
+                                <button class="sim-btn primary" id="btn-close-ai-settings" style="width:100%;margin-top:14px;justify-content:center;">Done</button>
+                            </div>
+
+                            <!-- 2. Media Picker Sheet -->
+                            <div class="sim-sheet" id="sheet-media-picker">
+                                <div class="sheet-drag-handle"></div>
+                                <div class="sheet-title">Select Project Media</div>
+                                <p style="font-size:11px;color:var(--text-secondary);text-align:center;margin-bottom:8px;">Choose an asset to load into the Metal GPU editor:</p>
+                                <div class="media-picker-grid" id="sim-media-picker-grid">
+                                    <!-- Dynamic Media Thumbnails -->
+                                </div>
+                                <button class="sim-btn secondary" id="btn-close-media-picker" style="width:100%;margin-top:14px;justify-content:center;">Cancel</button>
+                            </div>
+
+                            <!-- 3. New Project Sheet -->
+                            <div class="sim-sheet" id="sheet-new-project">
+                                <div class="sheet-drag-handle"></div>
+                                <div class="sheet-title">Create New Project</div>
+                                <div style="margin-top:8px;">
+                                    <label style="font-size:11px;color:var(--text-secondary);display:block;margin-bottom:4px;">Project Name</label>
+                                    <input type="text" class="prompt-input" id="input-new-project-name" placeholder="e.g., Tokyo Nights 2026" style="width:100%;">
+                                </div>
+                                <div style="display:flex;gap:8px;margin-top:16px;">
+                                    <button class="sim-btn secondary" id="btn-cancel-new-project" style="flex:1;justify-content:center;">Cancel</button>
+                                    <button class="sim-btn primary" id="btn-confirm-new-project" style="flex:1;justify-content:center;">Create</button>
                                 </div>
                             </div>
 
-                        </div><!-- /ios-tab-content -->
-
-                        <!-- iOS Bottom Tab Bar -->
-                        <div class="ios-tab-bar">
-                            <button class="tab-item active" data-tab="editor">
-                                <div class="tab-icon">
-                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                        <line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/>
-                                        <line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/>
-                                    </svg>
-                                </div>
-                                <span class="tab-label">Editor</span>
-                            </button>
-                            <button class="tab-item" data-tab="ai-create">
-                                <div class="tab-icon">
-                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                        <path d="M15 4V2M15 16v-2M8 9h2M20 9h2M17.8 11.8 19 13M15 9h0M17.8 6.2 19 5M3 21l9-9M12.2 6.2 11 5"/>
-                                    </svg>
-                                </div>
-                                <span class="tab-label">AI Create</span>
-                            </button>
-                            <button class="tab-item" data-tab="analytics">
-                                <div class="tab-icon">
-                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                        <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
-                                    </svg>
-                                </div>
-                                <span class="tab-label">Analytics</span>
-                            </button>
-                            <button class="tab-item" data-tab="projects">
-                                <div class="tab-icon">
-                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                        <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
-                                    </svg>
-                                    <span class="tab-badge" id="sim-tab-project-count">4</span>
-                                </div>
-                                <span class="tab-label">Projects</span>
-                            </button>
-                        </div>
-
-                        <!-- Home Indicator -->
-                        <div class="home-indicator">
-                            <div class="home-indicator-bar"></div>
-                        </div>
-
-                        <!-- ── SIMULATOR MODAL SHEETS ───────────────────── -->
-
-                        <!-- Backdrop -->
-                        <div class="sim-sheet-overlay" id="sim-sheet-overlay"></div>
-
-                        <!-- 1. AI Settings Sheet -->
-                        <div class="sim-sheet" id="sheet-ai-settings">
-                            <div class="sheet-drag-handle"></div>
-                            <div class="sheet-title">AI Create Settings</div>
-                            <div class="sheet-row">
-                                <span>Backend Endpoint</span>
-                                <strong style="color:var(--accent-purple);">MetalCraft Cloud</strong>
-                            </div>
-                            <div class="sheet-row">
-                                <span>Gemini Model</span>
-                                <strong>2.5 Flash</strong>
-                            </div>
-                            <div class="sheet-row">
-                                <span>Parallel Research</span>
-                                <strong>Enabled</strong>
-                            </div>
-                            <div class="sheet-row">
-                                <span>Aspect Ratio</span>
-                                <strong>9:16 (Vertical Reel)</strong>
-                            </div>
-                            <div class="sheet-row">
-                                <span>Soundtrack Selection</span>
-                                <strong>Auto Match</strong>
-                            </div>
-                            <button class="sim-btn primary" id="btn-close-ai-settings" style="width:100%;margin-top:14px;justify-content:center;">Done</button>
-                        </div>
-
-                        <!-- 2. Media Picker Sheet -->
-                        <div class="sim-sheet" id="sheet-media-picker">
-                            <div class="sheet-drag-handle"></div>
-                            <div class="sheet-title">Select Project Media</div>
-                            <p style="font-size:11px;color:var(--text-secondary);text-align:center;margin-bottom:8px;">Choose an asset from your project library to load into the Metal GPU editor:</p>
-                            <div class="media-picker-grid" id="sim-media-picker-grid">
-                                <!-- Dynamic Media Thumbnails -->
-                            </div>
-                            <button class="sim-btn secondary" id="btn-close-media-picker" style="width:100%;margin-top:14px;justify-content:center;">Cancel</button>
-                        </div>
-
-                        <!-- 3. New Project Sheet -->
-                        <div class="sim-sheet" id="sheet-new-project">
-                            <div class="sheet-drag-handle"></div>
-                            <div class="sheet-title">Create New Project</div>
-                            <div style="margin-top:8px;">
-                                <label style="font-size:11px;color:var(--text-secondary);display:block;margin-bottom:4px;">Project Name</label>
-                                <input type="text" class="prompt-input" id="input-new-project-name" placeholder="e.g., Tokyo Nights 2026" style="width:100%;">
-                            </div>
-                            <div style="display:flex;gap:8px;margin-top:16px;">
-                                <button class="sim-btn secondary" id="btn-cancel-new-project" style="flex:1;justify-content:center;">Cancel</button>
-                                <button class="sim-btn primary" id="btn-confirm-new-project" style="flex:1;justify-content:center;">Create</button>
-                            </div>
-                        </div>
-
-                    </div><!-- /iphone-screen -->
-                </div><!-- /iphone-device -->
+                        </div><!-- /iphone-screen -->
+                    </div><!-- /iphone-device -->
+                </div><!-- /iphone-hardware-container -->
 
                 <!-- Right Side: Hardware & Live Logs -->
                 <div class="simulator-side-info">
@@ -638,7 +773,7 @@
                     </div>
                 </div>
 
-                <!-- Search and Filter Toolbar -->
+                <!-- Search and Filter Toolbar with Dedicated Refresh Button -->
                 <div class="device-toolbar">
                     <div class="device-search-wrap">
                         <svg class="device-search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
@@ -650,6 +785,10 @@
                         <button class="device-filter-btn" data-filter="busy">⚡ Rendering</button>
                         <button class="device-filter-btn" data-filter="offline">⚪ Offline</button>
                     </div>
+                    <button class="sim-btn secondary" id="btn-refresh-fleet" style="padding:0.45rem 0.95rem;font-size:0.8rem;">
+                        <span id="btn-refresh-fleet-icon">↻</span>
+                        <span id="btn-refresh-fleet-text">Refresh Fleet</span>
+                    </button>
                 </div>
 
                 <!-- Dynamic Real Devices Cards Grid -->
@@ -993,6 +1132,6 @@
         <p>MetalCraft — Agentic Media Production Platform · iOS + Apple Metal GPU · Cloud Control Plane</p>
     </footer>
 
-    <script src="/static/js/app.js?v=2.2.0"></script>
+    <script src="/static/js/app.js?v=2.3.0"></script>
 </body>
 </html>
