@@ -1358,63 +1358,13 @@ A project demonstration video can be embedded here.
 Replace the placeholder below with the final public video URL:
 
 ```text
-YOUR_DEMO_VIDEO_URL
+[YOUR_DEMO_VIDEO_URL](https://drive.google.com/file/d/1r_hYIHm8fRUR1uBBlT14M3mfKgmXvQ3e/view?usp=drive_link)
 ```
 
 Example:
 
 ```markdown
 [▶️ Watch the MetalCraft Project Demonstration](YOUR_DEMO_VIDEO_URL)
-```
-
----
-
-# 📸 Screenshots
-
-## MetalCraft Website
-
-Add the website screenshot to:
-
-```text
-docs/images/website-preview.png
-```
-
-Then use:
-
-```markdown
-![MetalCraft Website](docs/images/website-preview.png)
-```
-
----
-
-## MetalCraft iPhone Application
-
-Add the iPhone application screenshot to:
-
-```text
-docs/images/iphone-app-preview.png
-```
-
-Then use:
-
-```markdown
-![MetalCraft iOS Application](docs/images/iphone-app-preview.png)
-```
-
----
-
-## Agentic Pipeline
-
-Optional architecture image:
-
-```text
-docs/images/agentic-pipeline.png
-```
-
-Then:
-
-```markdown
-![MetalCraft Agentic Pipeline](docs/images/agentic-pipeline.png)
 ```
 
 ---
