@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="/static/css/style.css?v=2.2.0">
 </head>
 <body>
     <div class="app-background"></div>
@@ -60,11 +60,11 @@
                 <span class="status-dot dot-waiting" id="header-device-dot"></span>
                 <span class="status-text" id="header-device-text">No iPhone Connected</span>
             </div>
-            <div class="status-indicator-pill" id="header-cloud-pill" title="Click to view Cloud Intelligence">
+            <div class="status-indicator-pill" id="header-cloud-pill" title="Click to view AI & Pipeline">
                 <span class="status-dot dot-online" id="header-cloud-dot"></span>
                 <span class="status-text" id="header-cloud-text">Cloud Live</span>
             </div>
-            <!-- ONLY Light and Dark mode toggles (NO LAPTOP ICON) -->
+            <!-- ONLY Light and Dark mode toggles -->
             <div class="appearance-toggle" id="theme-toggle-wrap">
                 <button class="appearance-btn" data-theme-val="light" title="Light Mode" id="theme-btn-light">☀️</button>
                 <button class="appearance-btn active" data-theme-val="dark" title="Dark Mode" id="theme-btn-dark">🌙</button>
@@ -107,7 +107,7 @@
                         </div>
                         <div class="info-card-row">
                             <span class="info-card-label">WebSocket</span>
-                            <span class="info-card-value pass" id="sim-ws-status">Connected</span>
+                            <span class="info-card-value pass" id="sim-ws-status">Connecting…</span>
                         </div>
                     </div>
 
@@ -428,7 +428,7 @@
                                         </div>
                                         <div class="metric-card">
                                             <div class="metric-label">Target FPS</div>
-                                            <div class="metric-value">30.0<span class="metric-unit">fps</span></div>
+                                            <div class="metric-value" id="sim-metric-fps">30.0<span class="metric-unit">fps</span></div>
                                         </div>
                                         <div class="metric-card">
                                             <div class="metric-label">Active Shaders</div>
@@ -594,7 +594,6 @@
                         <div id="sim-event-log" style="font-size:11px;color:var(--text-secondary);display:flex;flex-direction:column;gap:6px;max-height:160px;overflow-y:auto;">
                             <div>[09:41:00] Simulator initialized</div>
                             <div>[09:41:01] Loaded project 'MetalCraft Soham'</div>
-                            <div>[09:41:02] WebSocket connected to Render</div>
                         </div>
                     </div>
                 </div>
@@ -655,7 +654,10 @@
 
                 <!-- Dynamic Real Devices Cards Grid -->
                 <div class="real-devices-grid" id="real-devices-grid">
-                    <!-- Populated dynamically via /api/v1/ios/devices -->
+                    <div class="real-devices-empty">
+                        <h3>Loading Fleet Devices…</h3>
+                        <p>Connecting to MetalCraft Cloud Control Plane…</p>
+                    </div>
                 </div>
 
             </div><!-- /real-devices-dashboard -->
@@ -693,7 +695,7 @@
                         </div>
                         <p class="provider-desc">Parses creative prompts into structured EditPlans with scene cuts, pacing, transitions, and audio sync.</p>
                         <div class="provider-status pass" id="ai-overview-gemini-status">
-                            <span>● Status: PASS (Server-Side)</span>
+                            <span>● Status: Checking server configuration…</span>
                         </div>
                     </div>
 
@@ -706,8 +708,8 @@
                             </div>
                         </div>
                         <p class="provider-desc">Queries cinematography trends, color palettes, and pacing references in parallel with reasoning.</p>
-                        <div class="provider-status warn" id="ai-overview-parallel-status">
-                            <span>● Status: Configured (Endpoint Available)</span>
+                        <div class="provider-status pass" id="ai-overview-parallel-status">
+                            <span>● Status: Checking server configuration…</span>
                         </div>
                     </div>
 
@@ -721,7 +723,7 @@
                         </div>
                         <p class="provider-desc">Captures live shader dispatch times, GPU frame latency, memory allocation, and agent durations.</p>
                         <div class="provider-status pass" id="ai-overview-grafana-status">
-                            <span>● Status: Connected (HTTP 200)</span>
+                            <span>● Status: Checking server configuration…</span>
                         </div>
                     </div>
                 </div>
@@ -754,7 +756,7 @@
                     </div>
                     <div class="info-card-row">
                         <span class="info-card-label">Typical Latency</span>
-                        <span class="info-card-value">620 ms</span>
+                        <span class="info-card-value" id="gemini-latency-val">620 ms</span>
                     </div>
                 </div>
             </div>
@@ -768,7 +770,7 @@
                     </p>
                     <div class="info-card-row">
                         <span class="info-card-label">Integration State</span>
-                        <span class="info-card-value warn">Configured on Render</span>
+                        <span class="info-card-value pass" id="parallel-integration-state">Configured on Render</span>
                     </div>
                     <div class="info-card-row">
                         <span class="info-card-label">Payload Type</span>
@@ -826,11 +828,11 @@
                     </p>
                     <div class="info-card-row">
                         <span class="info-card-label">Dispatch Queue</span>
-                        <span class="info-card-value">0 Pending Jobs</span>
+                        <span class="info-card-value" id="execution-queue-status">0 Pending Jobs</span>
                     </div>
                     <div class="info-card-row">
                         <span class="info-card-label">Active Dispatched Target</span>
-                        <span class="info-card-value">Auto-select connected iPhone</span>
+                        <span class="info-card-value" id="execution-target-status">Auto-select connected iPhone</span>
                     </div>
                 </div>
             </div>
@@ -863,21 +865,21 @@
                         <div class="stat-icon-wrap purple">⚡</div>
                         <div class="stat-info">
                             <span class="stat-label">GPU Render Time</span>
-                            <span class="stat-value">2.85 ms</span>
+                            <span class="stat-value" id="obs-gpu-ms-val">2.85 ms</span>
                         </div>
                     </div>
                     <div class="device-stat-card">
                         <div class="stat-icon-wrap green">⏱️</div>
                         <div class="stat-info">
                             <span class="stat-label">Target Frame Rate</span>
-                            <span class="stat-value">30.0 FPS</span>
+                            <span class="stat-value" id="obs-fps-val">30.0 FPS</span>
                         </div>
                     </div>
                     <div class="device-stat-card">
                         <div class="stat-icon-wrap cyan">🌐</div>
                         <div class="stat-info">
                             <span class="stat-label">Cloud Latency</span>
-                            <span class="stat-value">38 ms</span>
+                            <span class="stat-value" id="obs-cloud-latency-val">38 ms</span>
                         </div>
                     </div>
                 </div>
@@ -889,16 +891,16 @@
                     <div class="provider-card">
                         <div class="provider-name">Apple Metal GPU Frame Budget</div>
                         <p class="provider-desc">Average frame render pass latency on Apple Silicon hardware.</p>
-                        <div class="info-card-row"><span class="info-card-label">Avg GPU Time:</span><strong>2.85 ms</strong></div>
-                        <div class="info-card-row"><span class="info-card-label">FPS Target:</span><strong>30.0 FPS</strong></div>
+                        <div class="info-card-row"><span class="info-card-label">Avg GPU Time:</span><strong id="metric-avg-gpu-time">2.85 ms</strong></div>
+                        <div class="info-card-row"><span class="info-card-label">FPS Target:</span><strong id="metric-fps-target">30.0 FPS</strong></div>
                         <div class="info-card-row"><span class="info-card-label">Active Shaders:</span><strong>6 MPS Kernels</strong></div>
                     </div>
                     <div class="provider-card">
                         <div class="provider-name">API Orchestration Latency</div>
                         <p class="provider-desc">Round-trip latency across Render cloud services.</p>
-                        <div class="info-card-row"><span class="info-card-label">Gemini 2.5 Flash:</span><strong>~620 ms</strong></div>
-                        <div class="info-card-row"><span class="info-card-label">Parallel Search:</span><strong>~270 ms</strong></div>
-                        <div class="info-card-row"><span class="info-card-label">Grafana Ingest:</span><strong>~220 ms</strong></div>
+                        <div class="info-card-row"><span class="info-card-label">Gemini 2.5 Flash:</span><strong id="metric-gemini-latency">~620 ms</strong></div>
+                        <div class="info-card-row"><span class="info-card-label">Parallel Search:</span><strong id="metric-parallel-latency">~270 ms</strong></div>
+                        <div class="info-card-row"><span class="info-card-label">Grafana Ingest:</span><strong id="metric-grafana-latency">~220 ms</strong></div>
                     </div>
                 </div>
             </div>
@@ -926,7 +928,7 @@
             <!-- Tab 4: Connected Devices -->
             <div class="subtab-content" id="obstab-devices">
                 <div class="real-devices-grid" id="obs-devices-grid">
-                    <!-- Populated dynamically -->
+                    <p style="text-align:center;color:var(--text-secondary);padding:24px;grid-column:1/-1;">Loading fleet devices…</p>
                 </div>
             </div>
 
@@ -991,6 +993,6 @@
         <p>MetalCraft — Agentic Media Production Platform · iOS + Apple Metal GPU · Cloud Control Plane</p>
     </footer>
 
-    <script src="/static/js/app.js"></script>
+    <script src="/static/js/app.js?v=2.2.0"></script>
 </body>
 </html>

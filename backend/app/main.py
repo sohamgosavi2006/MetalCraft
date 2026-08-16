@@ -10,10 +10,10 @@ import logging
 from pathlib import Path
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 
 # Ensure app package is in path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -78,12 +78,29 @@ web_dir = Path(__file__).resolve().parent.parent.parent / "web"
 if web_dir.exists():
     app.mount("/static", StaticFiles(directory=str(web_dir)), name="static")
 
-    @app.get("/", include_in_schema=False)
-    async def serve_root():
+    def _serve_index():
         index_path = web_dir / "index.html"
         if index_path.exists():
-            return FileResponse(str(index_path))
-        return {"service": "MetalCraft Cloud Control Plane", "status": "running"}
+            return FileResponse(
+                str(index_path),
+                headers={
+                    "Cache-Control": "no-cache, no-store, must-revalidate",
+                    "Pragma": "no-cache",
+                    "Expires": "0"
+                }
+            )
+        return JSONResponse({"service": "MetalCraft Cloud Control Plane", "status": "running"})
+
+    @app.get("/", include_in_schema=False)
+    async def serve_root():
+        return _serve_index()
+
+    # SPA Fallback for browser history and direct link navigation
+    @app.get("/{full_path:path}", include_in_schema=False)
+    async def serve_spa(full_path: str):
+        if full_path.startswith("api/") or full_path.startswith("ws/"):
+            return JSONResponse({"detail": "Not Found"}, status_code=404)
+        return _serve_index()
 
 
 if __name__ == "__main__":

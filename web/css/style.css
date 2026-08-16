@@ -1,6 +1,6 @@
 /* ==========================================================================
    MetalCraft — Apple / iOS Design System & Liquid Glass Stylesheet
-   Version 2.1.0 — Light/Dark Simulator Alignment & Unified IA
+   Version 2.2.0 — Production Parity & Robust Materials
    ========================================================================== */
 
 /* ── Custom Properties / Theme Tokens ──────────────────────────────────── */
@@ -314,7 +314,7 @@ input, textarea, select {
   background-color: var(--text-tertiary);
 }
 
-/* Theme Switcher (Only Light and Dark buttons) */
+/* Theme Switcher */
 .appearance-toggle {
   display: flex;
   align-items: center;
@@ -395,7 +395,7 @@ input, textarea, select {
   padding: 2rem 1.5rem 4rem;
 }
 
-/* View Sections (Controlled by Navigation) */
+/* View Sections */
 .view-section {
   display: none;
   animation: fadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
@@ -443,7 +443,7 @@ input, textarea, select {
 }
 
 /* ==========================================================================
-   VIEW 1: SIMULATOR SECTION (Large, Clean, Dominant)
+   VIEW 1: SIMULATOR SECTION
    ========================================================================== */
 .simulator-layout {
   display: flex;
@@ -548,7 +548,7 @@ input, textarea, select {
   transition: background 0.3s ease, color 0.3s ease;
 }
 
-/* Dynamic Island (State Driven) */
+/* Dynamic Island */
 .dynamic-island {
   position: absolute;
   top: 10px;
@@ -698,7 +698,7 @@ input, textarea, select {
   background: var(--fill-tertiary);
 }
 
-/* Project Selector Pill */
+/* Project Selector */
 .project-selector {
   display: flex;
   align-items: center;
@@ -716,7 +716,7 @@ input, textarea, select {
   background: var(--fill-tertiary);
 }
 
-/* Simulator Tab Panels Container */
+/* Tab Panels */
 .ios-tab-content {
   flex: 1;
   overflow: hidden;
@@ -839,7 +839,7 @@ input, textarea, select {
   background: var(--fill-quaternary);
 }
 
-/* Editor Sliders Panel */
+/* Editor Sliders */
 .editor-controls-panel {
   background: var(--sim-nav-bg);
   backdrop-filter: blur(20px);
