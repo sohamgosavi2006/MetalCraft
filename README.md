@@ -1354,18 +1354,16 @@ The interface adapts its layout rather than simply shrinking the desktop interfa
 
 ## Watch MetalCraft
 
-A project demonstration video can be embedded here.
-
-Replace the placeholder below with the final public video URL:
+The project demonstration video ->
 
 ```text
-[YOUR_DEMO_VIDEO_URL](https://drive.google.com/file/d/1r_hYIHm8fRUR1uBBlT14M3mfKgmXvQ3e/view?usp=drive_link)
+https://drive.google.com/file/d/1RvIQdzGn5SyiTZdhi4a9r1GxG9mdW1oY/view?usp=drive_link
 ```
 
-Example:
+Link -> 
 
 ```markdown
-[▶️ Watch the MetalCraft Project Demonstration](YOUR_DEMO_VIDEO_URL)
+[▶️ Watch the MetalCraft Project Demonstration](https://drive.google.com/file/d/1RvIQdzGn5SyiTZdhi4a9r1GxG9mdW1oY/view?usp=drive_link)
 ```
 
 ---
