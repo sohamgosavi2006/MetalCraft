@@ -1360,12 +1360,6 @@ The project demonstration video ->
 https://drive.google.com/file/d/1RvIQdzGn5SyiTZdhi4a9r1GxG9mdW1oY/view?usp=drive_link
 ```
 
-Link -> 
-
-```markdown
-[▶️ Watch the MetalCraft Project Demonstration](https://drive.google.com/file/d/1RvIQdzGn5SyiTZdhi4a9r1GxG9mdW1oY/view?usp=drive_link)
-```
-
 ---
 
 # 📊 Architecture Summary
