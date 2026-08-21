@@ -52,6 +52,8 @@
 [MetalCraft Cloud Control Plane]([https://metalcraft-olso.onrender.com](https://metalcraft-ols0.onrender.com/))
 Link -> https://metalcraft-ols0.onrender.com/
 
+Devpost Link - https://devpost.com/software/metalcraft
+
 ---
 
 # 📸 Project Preview
@@ -140,8 +142,6 @@ The architecture can be summarized as:
                   │
                   ▼
               FINAL MEDIA
-
-Absolutely. Below is **everything from `Why MetalCraft` onward**, in one Markdown block so you can **copy it directly into your `README.md`**.
 
 ````
 # Why MetalCraft?
